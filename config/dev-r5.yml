@@ -1,0 +1,12 @@
+# Development configuration: the AT Core R5 TestScripts against a local HAPI server running R5.
+testrunner:
+  fhir-server:
+    base-url: http://localhost:8080/fhir
+  suites:
+    - name: at-core-r5
+      fhir-version: R5
+      base-dir: testdata/r5
+  validation:
+    validator-jar: ${VALIDATOR_JAR:validator_cli.jar}
+  reporting:
+    output-dir: target/testrunner-results

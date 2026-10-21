@@ -1,0 +1,32 @@
+# Defaults of the executable jar. Override with --config=<file>, further --key=value arguments,
+# system properties or environment variables (TESTRUNNER_FHIRSERVER_BASEURL, ...).
+spring:
+  main:
+    banner-mode: off
+    web-application-type: none
+  application:
+    name: fhir-testscript-runner
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%X{testScript:--}] %msg%n"
+  threshold:
+    # the run log file (testrunner.log in the run folder) gets DEBUG; the console stays at INFO
+    console: INFO
+  level:
+    root: WARN
+    at.hl7.testing.runner: INFO
+    # full requests and responses at DEBUG; they are always in the communication/ folder of the run
+    at.hl7.testing.runner.communication: INFO
+
+testrunner:
+  fhir-server:
+    base-url: http://localhost:8080/fhir
+  execution:
+    parallelism: 1
+  validation:
+    enabled: true
+    validator-jar: validator_cli.jar
+  reporting:
+    output-dir: testrunner-results
+    formats: [junit, summary, json]
