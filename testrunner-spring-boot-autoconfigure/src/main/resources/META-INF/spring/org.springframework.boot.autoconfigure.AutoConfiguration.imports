@@ -1,0 +1,2 @@
+at.hl7.testing.runner.autoconfigure.TestRunnerAutoConfiguration
+at.hl7.testing.runner.autoconfigure.ValidatorCliAutoConfiguration
