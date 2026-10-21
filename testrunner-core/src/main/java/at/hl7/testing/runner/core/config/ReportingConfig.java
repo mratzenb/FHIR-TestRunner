@@ -1,0 +1,37 @@
+package at.hl7.testing.runner.core.config;
+
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * Where and how the results of a run are written. Every run gets a folder {@code run_<timestamp>} below
+ * {@code outputDir}.
+ *
+ * @param outputDir        default {@code testrunner-results}
+ * @param formats          report formats, default {@code junit} and {@code summary}; also {@code json}
+ * @param communicationLog whether every request and response is written to {@code communication/}, default true
+ * @param logFile          whether the run writes its own log file {@code testrunner.log}, default true
+ * @param logFileLevel     lowest level written to the log file, default {@code DEBUG}
+ */
+public record ReportingConfig(Path outputDir, List<String> formats, Boolean communicationLog, Boolean logFile,
+                              String logFileLevel) {
+
+    public static final String JUNIT = "junit";
+    public static final String SUMMARY = "summary";
+    public static final String JSON = "json";
+
+    public ReportingConfig {
+        outputDir = outputDir == null ? Path.of("testrunner-results") : outputDir;
+        formats = formats == null || formats.isEmpty()
+                ? List.of(JUNIT, SUMMARY)
+                : formats.stream().map(f -> f.trim().toLowerCase(Locale.ROOT)).toList();
+        communicationLog = communicationLog == null || communicationLog;
+        logFile = logFile == null || logFile;
+        logFileLevel = logFileLevel == null || logFileLevel.isBlank() ? "DEBUG" : logFileLevel.trim().toUpperCase(Locale.ROOT);
+    }
+
+    public static ReportingConfig defaults() {
+        return new ReportingConfig(null, null, null, null, null);
+    }
+}
