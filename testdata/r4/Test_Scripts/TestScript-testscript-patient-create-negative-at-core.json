@@ -3,7 +3,7 @@
   "id" : "testscript-patient-create-negative-at-core",
   "text" : {
     "status" : "generated",
-    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><h2>HL7&#174; AT Core TestScript - Patient Create (Negative Control)</h2><p><b>Status:</b> active | <b>Version:</b> 1.0.0 | <b>Date:</b> 2026-09-15 | <b>Publisher:</b> HL7&#174; Austria, TC FHIR&#174;</p><p><b>THIS TEST SCRIPT IS EXPECTED TO FAIL.</b> It is a negative control that proves profile validation is actually running. A test runner whose profile validation is disabled, misconfigured or silently broken will report this script as PASSED - that is the failure condition.</p><p>Fixture <code>patient-create-nonconformant</code> references <code>Patient/HL7ATCorePatientNonConformantTestExample</code>, a Patient that is valid against base FHIR R4 but omits <code>Patient.name</code> and <code>Patient.gender</code>, both of which the AT Core Patient profile requires (min = 1).</p><h3>Test: Step1-RejectNonConformantPatient</h3><ol><li><b>Operation</b> <code>create</code> on Patient: POST the fixture to [base]/Patient. The response is stored as <code>create-response</code>.</li><li><b>Assert</b> (response): HTTP status code is in 200, 201. This MUST pass - the server accepts the resource because it is valid base R4. It isolates the next assertion, proving the failure comes from profile validation and not from the server.</li><li><b>Assert</b> (response): the returned resource is valid against <code>at-core-patient-profile</code>. This MUST fail, reporting the two missing mandatory elements.</li></ol><p>Expected result: 1 failed, 0 passed, with the failure naming <code>Patient.name</code> and <code>Patient.gender</code>.</p></div>"
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><h2>HL7&#174; AT Core TestScript - Patient Create (Negative Control)</h2><p><b>Status:</b> active | <b>Version:</b> 1.0.0 | <b>Date:</b> 2026-09-15 | <b>Publisher:</b> HL7&#174; Austria, TC FHIR&#174;</p><p><b>THIS TEST SCRIPT IS EXPECTED TO FAIL.</b> It is a negative control that proves profile validation is actually running. A test runner whose profile validation is disabled, misconfigured or silently broken will report this script as PASSED - that is the failure condition.</p><p>Fixture <code>patient-create-nonconformant</code> references <code>Patient/HL7ATCorePatientNonConformantTestExample</code>, a Patient that is valid against base FHIR R4 but carries two social security numbers, while the AT Core Patient profile allows one (<code>Patient.identifier:socialSecurityNumber</code>, max = 1).</p><h3>Test: Step1-RejectNonConformantPatient</h3><ol><li><b>Operation</b> <code>create</code> on Patient: POST the fixture to [base]/Patient. The response is stored as <code>create-response</code>.</li><li><b>Assert</b> (response): HTTP status code is in 200, 201. This MUST pass - the server accepts the resource because it is valid base R4. It isolates the next assertion, proving the failure comes from profile validation and not from the server.</li><li><b>Assert</b> (response): the returned resource is valid against <code>at-core-patient-profile</code>. This MUST fail, reporting the second social security number.</li></ol><p>Expected result: 1 failed, 0 passed, with the failure naming <code>Patient.identifier:socialSecurityNumber</code>.</p></div>"
   },
   "url" : "http://hl7.at/fhir/HL7ATCoreProfiles/4.0.1/TestScript/testscript-patient-create-negative-at-core",
   "version" : "1.0.0",
@@ -27,7 +27,7 @@
       "value" : "tc-fhir@hl7.at"
     }]
   }],
-  "description" : "Negative control for the AT Core Patient profile validation. THIS TEST SCRIPT IS EXPECTED TO FAIL. It posts a Patient that is valid against base FHIR R4 but violates the AT Core Patient profile by omitting the mandatory elements Patient.name and Patient.gender, then asserts profile conformance. A correctly working test runner reports this script as failed, naming both missing elements. A runner that reports it as passed is not performing profile validation at all - for example because the HL7 validator CLI is missing, is being run by an incompatible Java runtime, is validating against the wrong FHIR version, or the assertion result is being discarded. Run this script alongside TestScriptATCorePatientCreate: that one must pass and this one must fail. Only the pair demonstrates that validation discriminates between conformant and non-conformant resources.",
+  "description" : "Negative control for the AT Core Patient profile validation. THIS TEST SCRIPT IS EXPECTED TO FAIL. It posts a Patient that is valid against base FHIR R4 but violates the AT Core Patient profile by carrying two social security numbers where the profile allows one (Patient.identifier:socialSecurityNumber, max = 1), then asserts profile conformance. A correctly working test runner reports this script as failed, naming the socialSecurityNumber slice. A runner that reports it as passed is not performing profile validation at all - for example because the HL7 validator CLI is missing, is being run by an incompatible Java runtime, is validating against the wrong FHIR version, or the assertion result is being discarded. Run this script alongside TestScriptATCorePatientCreate: that one must pass and this one must fail. Only the pair demonstrates that validation discriminates between conformant and non-conformant resources.",
   "copyright" : "This FHIR Test Script is licensed under Creative Commons (CC0) 'No Rights Reserved'. Learn more at https://creativecommons.org/licenses",
   "origin" : [{
     "index" : 1,
@@ -53,7 +53,7 @@
   }],
   "profile" : [{
     "id" : "at-core-patient-profile",
-    "reference" : "http://hl7.at/fhir/HL7ATCoreProfiles/4.0.1/StructureDefinition/at-core-patient"
+    "reference" : "https://fhir.hl7.at/core/r4/StructureDefinition/at-core-patient"
   }],
   "test" : [{
     "id" : "Step1-RejectNonConformantPatient",
@@ -91,7 +91,7 @@
     },
     {
       "assert" : {
-        "description" : "Assert the returned resource conforms to the HL7 AT Core Patient profile. This assertion is EXPECTED TO FAIL with errors for Patient.name and Patient.gender. If it passes, profile validation is not running.",
+        "description" : "Assert the returned resource conforms to the HL7 AT Core Patient profile. This assertion is EXPECTED TO FAIL with an error for Patient.identifier:socialSecurityNumber (max allowed = 1, but found 2). If it passes, profile validation is not running.",
         "direction" : "response",
         "validateProfileId" : "at-core-patient-profile",
         "warningOnly" : false
