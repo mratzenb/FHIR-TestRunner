@@ -1,0 +1,14 @@
+# Build output
+target/
+
+# Results of local runs (output-dir defaults to testrunner-results; the dev configs use target/)
+testrunner-results/
+
+# The HL7 validator (~200 MB) is downloaded, not versioned; see docs/validation.md
+validator_cli.jar
+
+# IDE and OS
+*.iml
+.idea/
+.vscode/
+.DS_Store
