@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>at.hl7.testing</groupId>
+        <artifactId>testrunner-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>testrunner-fhir-hapi</artifactId>
+    <name>TestRunner :: FHIR :: HAPI support</name>
+    <description>Version-independent HAPI FHIR glue shared by all FHIR version modules: TestScript reading
+        with structural checks, and FHIRPath evaluation. A version module only adds its FhirContext and dialect.</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>testrunner-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-base</artifactId>
+        </dependency>
+        <dependency>
+            <!-- optional in HAPI, but its FHIRPath engines need it for quantities -->
+            <groupId>org.fhir</groupId>
+            <artifactId>ucum</artifactId>
+        </dependency>
+        <dependency>
+            <!-- HAPI's FHIRPath engines need a cache provider at runtime -->
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-caching-caffeine</artifactId>
+        </dependency>
+    </dependencies>
+</project>
