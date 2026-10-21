@@ -1,0 +1,13 @@
+{
+  "resourceType" : "Patient",
+  "id" : "HL7ATCorePatientNonConformantTestExample",
+  "meta" : {
+    "profile" : ["http://hl7.at/fhir/HL7ATCoreProfiles/4.0.1/StructureDefinition/at-core-patient"]
+  },
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Deliberately non-conformant Patient.</b> This resource claims conformance to the HL7&#174; AT Core Patient profile in <code>meta.profile</code> but omits two elements the profile makes mandatory: <code>Patient.name</code> (min = 1) and <code>Patient.gender</code> (min = 1). It is valid against the base FHIR R4 Patient resource, so a FHIR server accepts it on create. Only profile validation can reject it. Used as the negative control for the AT Core profile validation test script.</p></div>"
+  },
+  "active" : true,
+  "birthDate" : "1980-01-01"
+}

@@ -1,0 +1,101 @@
+{
+  "resourceType" : "TestScript",
+  "id" : "testscript-patient-create-negative-at-core",
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><h2>HL7&#174; AT Core TestScript - Patient Create (Negative Control)</h2><p><b>Status:</b> active | <b>Version:</b> 1.0.0 | <b>Date:</b> 2026-09-15 | <b>Publisher:</b> HL7&#174; Austria, TC FHIR&#174;</p><p><b>THIS TEST SCRIPT IS EXPECTED TO FAIL.</b> It is a negative control that proves profile validation is actually running. A test runner whose profile validation is disabled, misconfigured or silently broken will report this script as PASSED - that is the failure condition.</p><p>Fixture <code>patient-create-nonconformant</code> references <code>Patient/HL7ATCorePatientNonConformantTestExample</code>, a Patient that is valid against base FHIR R4 but omits <code>Patient.name</code> and <code>Patient.gender</code>, both of which the AT Core Patient profile requires (min = 1).</p><h3>Test: Step1-RejectNonConformantPatient</h3><ol><li><b>Operation</b> <code>create</code> on Patient: POST the fixture to [base]/Patient. The response is stored as <code>create-response</code>.</li><li><b>Assert</b> (response): HTTP status code is in 200, 201. This MUST pass - the server accepts the resource because it is valid base R4. It isolates the next assertion, proving the failure comes from profile validation and not from the server.</li><li><b>Assert</b> (response): the returned resource is valid against <code>at-core-patient-profile</code>. This MUST fail, reporting the two missing mandatory elements.</li></ol><p>Expected result: 1 failed, 0 passed, with the failure naming <code>Patient.name</code> and <code>Patient.gender</code>.</p></div>"
+  },
+  "url" : "http://hl7.at/fhir/HL7ATCoreProfiles/4.0.1/TestScript/testscript-patient-create-negative-at-core",
+  "version" : "1.0.0",
+  "name" : "TestScriptATCorePatientCreateNegativeControl",
+  "title" : "HL7® AT Core TestScript - Patient Create (Negative Control)",
+  "status" : "active",
+  "experimental" : false,
+  "date" : "2026-09-15",
+  "publisher" : "HL7® Austria, TC FHIR®",
+  "contact" : [{
+    "name" : "HL7® Austria, TC FHIR®",
+    "telecom" : [{
+      "system" : "url",
+      "value" : "https://hl7.at/technische-komitees/tc-fhir/"
+    }]
+  },
+  {
+    "name" : "Technical Committee for FHIR® at HL7® Austria",
+    "telecom" : [{
+      "system" : "email",
+      "value" : "tc-fhir@hl7.at"
+    }]
+  }],
+  "description" : "Negative control for the AT Core Patient profile validation. THIS TEST SCRIPT IS EXPECTED TO FAIL. It posts a Patient that is valid against base FHIR R4 but violates the AT Core Patient profile by omitting the mandatory elements Patient.name and Patient.gender, then asserts profile conformance. A correctly working test runner reports this script as failed, naming both missing elements. A runner that reports it as passed is not performing profile validation at all - for example because the HL7 validator CLI is missing, is being run by an incompatible Java runtime, is validating against the wrong FHIR version, or the assertion result is being discarded. Run this script alongside TestScriptATCorePatientCreate: that one must pass and this one must fail. Only the pair demonstrates that validation discriminates between conformant and non-conformant resources.",
+  "copyright" : "This FHIR Test Script is licensed under Creative Commons (CC0) 'No Rights Reserved'. Learn more at https://creativecommons.org/licenses",
+  "origin" : [{
+    "index" : 1,
+    "profile" : {
+      "system" : "http://terminology.hl7.org/CodeSystem/testscript-profile-origin-types",
+      "code" : "FHIR-Client"
+    }
+  }],
+  "destination" : [{
+    "index" : 1,
+    "profile" : {
+      "system" : "http://terminology.hl7.org/CodeSystem/testscript-profile-destination-types",
+      "code" : "FHIR-Server"
+    }
+  }],
+  "fixture" : [{
+    "id" : "patient-create-nonconformant",
+    "autocreate" : false,
+    "autodelete" : false,
+    "resource" : {
+      "reference" : "Patient-HL7ATCorePatientNonConformantTestExample.html"
+    }
+  }],
+  "profile" : [{
+    "id" : "at-core-patient-profile",
+    "reference" : "http://hl7.at/fhir/HL7ATCoreProfiles/4.0.1/StructureDefinition/at-core-patient"
+  }],
+  "test" : [{
+    "id" : "Step1-RejectNonConformantPatient",
+    "name" : "RejectNonConformantPatient",
+    "description" : "Post a Patient that is valid base R4 but not conformant to AT Core, and assert profile conformance. The profile assertion is expected to fail.",
+    "action" : [{
+      "operation" : {
+        "type" : {
+          "system" : "http://terminology.hl7.org/CodeSystem/testscript-operation-codes",
+          "code" : "create"
+        },
+        "resource" : "Patient",
+        "description" : "POST the non-conformant Patient fixture to [base]/Patient. The server assigns the resource id.",
+        "accept" : "application/fhir+json",
+        "contentType" : "application/fhir+json",
+        "destination" : 1,
+        "encodeRequestUrl" : true,
+        "origin" : 1,
+        "requestHeader" : [{
+          "field" : "Prefer",
+          "value" : "return=representation"
+        }],
+        "responseId" : "create-response",
+        "sourceId" : "patient-create-nonconformant"
+      }
+    },
+    {
+      "assert" : {
+        "description" : "Confirm the server accepted the resource (200 or 201). This assertion is expected to PASS: the resource is valid base FHIR R4, so any failure of the following assertion is attributable to profile validation alone.",
+        "direction" : "response",
+        "operator" : "in",
+        "responseCode" : "200,201",
+        "warningOnly" : false
+      }
+    },
+    {
+      "assert" : {
+        "description" : "Assert the returned resource conforms to the HL7 AT Core Patient profile. This assertion is EXPECTED TO FAIL with errors for Patient.name and Patient.gender. If it passes, profile validation is not running.",
+        "direction" : "response",
+        "validateProfileId" : "at-core-patient-profile",
+        "warningOnly" : false
+      }
+    }]
+  }]
+}
