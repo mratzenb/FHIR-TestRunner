@@ -1,0 +1,27 @@
+# Development configuration: every sample suite, FHIR version detected per TestScript, run in parallel.
+# R4 and R5 TestScripts need a server of the matching version; give a suite its own server for that.
+testrunner:
+  fhir-server:
+    base-url: http://localhost:8080/fhir
+    headers:
+      # Authorization: Bearer ${FHIR_TOKEN}
+  suites:
+    - name: samples
+      base-dir: testdata/samples   # R4 and R5 mixed: the version is detected per TestScript
+    - name: at-core-r4
+      base-dir: testdata/r4
+    - name: at-core-r5
+      base-dir: testdata/r5
+      fhir-server:
+        base-url: http://localhost:8081/fhir
+  execution:
+    parallelism: 4
+  validation:
+    validator-jar: ${VALIDATOR_JAR:validator_cli.jar}
+    timeout: 3m
+    igs: []          # e.g. [ "hl7.at.fhir.core.r4#2.0.0" ] to validate against the published package
+  reporting:
+    output-dir: target/testrunner-results
+    formats: [junit, summary, json]
+    communication-log: true
+    log-file-level: DEBUG

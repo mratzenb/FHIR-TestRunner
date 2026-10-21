@@ -1,0 +1,18 @@
+# Development configuration: the AT Core R4 TestScripts against a local HAPI server.
+#   java -jar testrunner-app/target/testrunner-app-*.jar --config=config/dev-r4.yml
+testrunner:
+  fhir-server:
+    base-url: http://localhost:8080/fhir
+  suites:
+    - name: at-core-r4
+      fhir-version: R4
+      base-dir: testdata/r4
+      # the negative control (TestScript-testscript-patient-create-negative-at-core.json) is expected to FAIL
+      # and has a configuration of its own, see config/negative-control.yml and docs/validation.md
+      include:
+        - TestScript-testscript-patient-create-at-core.json
+        - TestScript-testscript-patient-update-at-core.json
+  validation:
+    validator-jar: ${VALIDATOR_JAR:validator_cli.jar}
+  reporting:
+    output-dir: target/testrunner-results
