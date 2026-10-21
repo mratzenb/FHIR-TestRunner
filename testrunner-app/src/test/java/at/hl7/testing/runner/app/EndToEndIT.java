@@ -235,6 +235,33 @@ class EndToEndIT {
     }
 
     @Test
+    void serverModeValidatesWithOneServerAndStopsItWithTheApplication() throws Exception {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+        Path calls = dir.resolve("validator-calls.log");
+
+        RunResult run = run("testrunner.fhir-server.base-url=" + r4Server.baseUrl(),
+                "testrunner.validation.mode=server",
+                "testrunner.validation.jvm-arguments=-DFAKE_VALIDATOR_LOG=" + calls,
+                "testrunner.execution.parallelism=2",
+                "testrunner.suites[0].base-dir=" + SampleData.r4(),
+                "testrunner.suites[0].include[0]=TestScript-testscript-patient-create-at-core.json",
+                "testrunner.suites[0].include[1]=TestScript-testscript-patient-update-at-core.json");
+
+        assertThat(run.testScripts()).hasSize(2).allMatch(r -> r.outcome() == Outcome.PASS);
+        List<String> lines = Files.readAllLines(calls);
+        // two TestScript validations + two validateProfileId assertions, all by one server
+        assertThat(lines).filteredOn(l -> l.startsWith("start")).hasSize(1);
+        assertThat(lines).filteredOn(l -> l.startsWith("validate")).hasSize(4);
+        assertThat(lines).filteredOn(l -> l.startsWith("process")).isEmpty();
+        assertThat(run.runDirectory().resolve("testrunner.log")).content()
+                .contains("Profile validation: HL7 validator in server mode");
+
+        context.close();
+        context = null;
+        assertThat(Files.readAllLines(calls)).as("closing the application stops the server").contains("stop");
+    }
+
+    @Test
     void validatorMissingIsAnErrorNotAPass() {
         r4Server = InMemoryFhirServer.start("4.0.1");
 

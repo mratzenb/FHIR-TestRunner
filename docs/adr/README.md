@@ -9,8 +9,9 @@ Format: context, decision, alternatives considered, consequences. Status of all:
 | [0003](0003-configuration.md) | One immutable configuration object, externalized via Spring Boot binding |
 | [0004](0004-no-global-state.md) | No global state: run context and execution state are passed explicitly |
 | [0005](0005-fhir-version-mapping.md) | Version-neutral model, one generic HAPI mapper, a dialect per FHIR version |
-| [0006](0006-validator-cli.md) | Profile validation with the HL7 Validator CLI as an external process |
+| [0006](0006-validator-cli.md) | Profile validation with the HL7 Validator CLI as an external process (extended by 0011) |
 | [0007](0007-logging.md) | SLF4J + MDC, a log file and a communication folder per run, run-wide request ids |
 | [0008](0008-parallel-execution.md) | Parallelism across TestScripts, never within one |
 | [0009](0009-testing.md) | Tests without FHIR server, network or real validator |
 | [0010](0010-build.md) | Maven build: BOMs, version properties, enforcer, exec jar |
+| [0011](0011-validator-server-mode.md) | Optional validator server mode with fallback to one process per validation |

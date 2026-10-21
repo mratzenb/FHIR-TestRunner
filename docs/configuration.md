@@ -28,7 +28,8 @@ Precedence (highest first) follows Spring Boot: command line → system properti
 
 Development configurations live in [`config/`](../config): `dev-r4.yml`, `dev-r5.yml`, `dev-all.yml` (all
 samples, parallel, two servers), `negative-control.yml`. They read the validator location from the
-environment variable `VALIDATOR_JAR`.
+environment variable `VALIDATOR_JAR` and use the validator server mode; add `--testrunner.validation.mode=process`
+to switch back.
 
 ## Reference
 
@@ -60,14 +61,21 @@ testrunner:
 
   validation:
     enabled: true                          # false: validateProfileId becomes a warning, nothing is validated
+    mode: process                          # process: one validator process per validation (default)
+                                           # server: long-running validator servers, see validation.md
     validator-jar: validator_cli.jar       # REQUIRED when enabled; path to the HL7 Validator CLI
     java-executable:                       # default: the java running the runner
+    jvm-arguments: []                      # for the validator JVM, e.g. [-Xmx2g]
     terminology-server: n/a                # value of -tx; n/a = no terminology checks
     locale: en                             # language of the validator messages
-    timeout: 5m                            # per validation
+    timeout: 5m                            # per validation; in server mode consider 1m, see validation.md
     validate-test-scripts: true            # validate each TestScript against its FHIR version before running it
     igs: []                                # further -ig: package ids (hl7.at.fhir.core.r4#2.0.0), folders, files
-    extra-arguments: []                    # passed to the validator as they are
+    extra-arguments: []                    # passed to the validator as they are (both modes)
+    server:                                # only for mode: server
+      startup-timeout: 5m                  # until a server must accept connections
+      fallback-to-process: true            # server failed to start or died: use process mode for its validations;
+                                           # false: report those validations as errors
 
   reporting:
     output-dir: testrunner-results         # every run gets output-dir/run_<timestamp>/
@@ -92,6 +100,7 @@ Relaxed binding applies: `base-dir`, `baseDir` and `BASEDIR` are the same; durat
 | `validation.fhirVersion` | not needed: the version comes from each TestScript (or `suites[n].fhir-version`) |
 | `<path>/validator_cli.jar` (fixed) | `testrunner.validation.validator-jar` (any path) |
 | `--novalidator` | `--novalidator` or `testrunner.validation.enabled=false` |
+| (validator started per assertion) | `testrunner.validation.mode=process` (default); `server` keeps it running |
 | `logging.consoleLevel` | `logging.level.at.hl7.testing.runner` (Spring Boot logging) |
 | `logging.fileLevel` | `testrunner.reporting.log-file-level` |
 | `logging.communicationLogs` | `testrunner.reporting.communication-log` |
@@ -105,14 +114,20 @@ RunConfiguration configuration = new RunConfiguration(
         FhirServerConfig.of("http://localhost:8080/fhir"),
         List.of(SuiteConfig.of(Path.of("testdata/r4"), "R4")),
         null, new ExecutionConfig(4),
-        ValidationConfig.enabled(Path.of("validator_cli.jar")),
+        ValidationConfig.enabled(Path.of("validator_cli.jar")).withMode(ValidatorMode.SERVER),
         null);
 ProfileValidator validator = ProfileValidators.create(configuration.validation());
-RunResult result = TestRunners.create(configuration.http(), validator).run(configuration);
+try {
+    RunResult result = TestRunners.create(configuration.http(), validator).run(configuration);
+} finally {
+    if (validator instanceof AutoCloseable closeable) {
+        closeable.close();                 // stops the validator servers (server mode)
+    }
+}
 ```
 
 `TestRunners.create` discovers the FHIR version modules on the classpath with `ServiceLoader`;
-`ProfileValidators.create` returns the validator adapter, or `ProfileValidator.DISABLED`.
+`ProfileValidators.create` picks the adapter for `validation.mode`.
 
 ## Extending the pre-defined Spring configuration
 
@@ -123,7 +138,7 @@ part by declaring its own bean, and adds to the lists by declaring more:
 |---|---|---|
 | `RunConfiguration` | build the configuration in code or from another source | bound from `testrunner.*` |
 | `HttpTransport` | add a proxy, mutual TLS, OAuth token refresh, a recorder | `JdkHttpTransport` |
-| `ProfileValidator` | use the validator in-process or as a server | `ValidatorCliProfileValidator` (if on classpath and enabled) |
+| `ProfileValidator` | use another validator, e.g. in-process | `ValidatorCliProfileValidator` or `ValidatorServerProfileValidator` by `validation.mode` (if on classpath and enabled); Spring stops the servers when the context closes |
 | `FhirVersionSupport` (any number) | override a version's mapping | modules found by `ServiceLoader` |
 | `ReportWriter` (any number) | add a format, e.g. HTML; select it in `reporting.formats` | junit, summary, json |
 | `RunListener` (any number) | react to run/TestScript events (notifications, metrics) | `RunLogFileListener` |
