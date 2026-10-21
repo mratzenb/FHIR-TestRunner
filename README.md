@@ -1,0 +1,51 @@
+# FHIR TestScript Runner (Java)
+
+Executes FHIR® `TestScript` resources (R4 and R5, R6-ready) against a FHIR server and reports the results as
+JUnit XML, text summary and JSON, with a full log and a communication log of every request. Java re-design of the
+Python proof of concept [HL7-AT-TestFhiry-TestRunner](../HL7-AT-TestFhiry-TestRunner).
+
+## Quick start
+
+Requirements: Java 25, Maven 3.9+. For profile validation the HL7 Validator CLI (`validator_cli.jar`).
+
+```sh
+mvn verify                                   # build, unit tests, integration tests (no FHIR server needed)
+VALIDATOR_JAR=/path/to/validator_cli.jar mvn verify   # additionally with the real validator
+
+# run the AT Core R4 TestScripts against a local server
+export VALIDATOR_JAR=/path/to/validator_cli.jar
+java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml
+
+# without profile validation
+java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml --novalidator
+```
+
+A local HAPI server: `docker run -p 8080:8080 -e hapi.fhir.fhir_version=R4 hapiproject/hapi:latest`.
+
+Results go to `target/testrunner-results/run_<timestamp>/` (`junit.xml`, `summary.txt`, `result.json`,
+`testrunner.log`, `communication/`). Exit code: 0 passed, 1 failed/errors, 2 invalid configuration.
+
+## Project layout
+
+```
+pom.xml                                 parent: modules, BOMs, version properties
+testrunner-core/                        engine, version-neutral model, HTTP, reports, ports – no Spring, no HAPI
+testrunner-fhir-hapi/                   generic TestScript mapping and FHIRPath on HAPI FHIR
+testrunner-fhir-r4/  testrunner-fhir-r5/   one FHIR version each (FhirContext + dialect)
+testrunner-validation-cli/              profile validation with validator_cli.jar
+testrunner-spring-boot-autoconfigure/   pre-defined Spring configuration (testrunner.* properties)
+testrunner-app/                         executable jar, end-to-end ITs, architecture rules
+testrunner-test-support/                in-memory FHIR server, fake validator, sample data access
+config/                                 development configurations
+testdata/                               TestScripts, Example Instances, profiles from the PoC (r4, r5, samples)
+docs/                                   architecture, decisions, configuration, logging, validation, FHIR versions
+```
+
+## Documentation
+
+* [Architecture](docs/architecture.md) – modules, runtime, execution semantics, differences to the PoC, open points
+* [FHIR versions](docs/fhir-versions.md) – how R4/R5 are mapped without duplication, and how to add R6
+* [Configuration](docs/configuration.md) – all properties, PoC mapping, library use, extending the Spring configuration
+* [Logging](docs/logging.md) – run log, request ids, communication log
+* [Validation](docs/validation.md) – validator setup, silent-pass protection, the negative control
+* [Decisions (ADRs)](docs/adr/README.md)
