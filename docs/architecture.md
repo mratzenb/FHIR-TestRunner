@@ -17,7 +17,7 @@ design most.
 | No global variables | All state is owned by a run (`RunContext`) or a TestScript execution (`ExecutionState`) ([ADR-0004](adr/0004-no-global-state.md)) |
 | Optional parallel execution of TestScripts | `testrunner.execution.parallelism`, a thread pool over TestScripts ([ADR-0008](adr/0008-parallel-execution.md)) |
 | Logging and communication logging | SLF4J with MDC per TestScript, run log file, one folder per HTTP exchange ([ADR-0007](adr/0007-logging.md)) |
-| IG/profile validation like the PoC; jar path configurable | `ProfileValidator` port, HL7 Validator CLI adapter, `testrunner.validation.validator-jar` ([ADR-0006](adr/0006-validator-cli.md)) |
+| IG/profile validation like the PoC; jar path configurable | `ProfileValidator` port, HL7 Validator CLI adapter, `testrunner.validation.validator-jar` ([ADR-0006](adr/0006-validator-cli.md)); optional server mode with fallback ([ADR-0011](adr/0011-validator-server-mode.md)) |
 | R4 and R5 now, R6 later; mapping understandable, extensible, no duplication | Version-neutral model, one generic HAPI-based mapper, a tiny module per version ([ADR-0005](adr/0005-fhir-version-mapping.md)) |
 | Tests without a FHIR server, using the PoC TestScripts | In-memory FHIR server and fake validator jar in `testrunner-test-support`; PoC data in `testdata/` ([ADR-0009](adr/0009-testing.md)) |
 | A JAR taking a configuration object and a modifiable Spring configuration | `testrunner-app-*-exec.jar`; `TestRunner.run(RunConfiguration)`; every auto-configured bean is `@ConditionalOnMissingBean` |
@@ -53,7 +53,7 @@ design most.
     <text x="145" y="143" font-weight="bold">spring-boot-autoconfigure</text>
     <text x="145" y="160">binds testrunner.*, wires beans</text>
     <text x="715" y="143" font-weight="bold">validation-cli</text>
-    <text x="715" y="160">runs validator_cli.jar</text>
+    <text x="715" y="160">validator_cli.jar: process | server</text>
     <text x="360" y="143" font-weight="bold">fhir-r4</text>
     <text x="360" y="160">context + dialect</text>
     <text x="500" y="143" font-weight="bold">fhir-r5</text>
@@ -87,7 +87,7 @@ A FHIR version is a leaf module next to its siblings; adding R6 adds one box and
 | `testrunner-core` | Version-neutral TestScript model, execution engine, HTTP client with communication log, report writers, configuration records and the ports (`FhirVersionSupport`, `ProfileValidator`, `HttpTransport`, `ReportWriter`, `RunListener`) | SLF4J, Jackson, Jayway JsonPath |
 | `testrunner-fhir-hapi` | Everything HAPI-based that is the same for every FHIR version: reading a TestScript with a strict parser, the generic `TestScriptMapper`, FHIRPath | core, `hapi-fhir-base` |
 | `testrunner-fhir-r4`, `-r5` | One FHIR version each: its `FhirContext` and its `TestScriptDialect` (30–45 lines). Registered via `ServiceLoader` | fhir-hapi, `hapi-fhir-structures-rX` |
-| `testrunner-validation-cli` | `ProfileValidator` running the HL7 Validator CLI as a process | core |
+| `testrunner-validation-cli` | `ProfileValidator`s running the HL7 Validator CLI: one process per validation, or long-running validator servers (`validation.mode`) | core |
 | `testrunner-spring-boot-autoconfigure` | The pre-defined Spring configuration: binds `testrunner.*` to `RunConfiguration` and wires a `TestRunner` | core, Spring Boot (validation-cli optional) |
 | `testrunner-app` | Spring Boot CLI application, the executable jar, end-to-end ITs and architecture rules | all of the above |
 | `testrunner-test-support` | In-memory FHIR server, fake validator jar, access to `testdata/` | Jackson only, so every module can use it in tests |
@@ -127,7 +127,7 @@ the version modules must not know each other; `fhir-hapi` must not use version-s
     <text x="765" y="42" font-weight="bold">FhirHttpClient</text>
     <text x="765" y="58">REQ-0001, REQ-0002 …</text>
     <text x="765" y="132" font-weight="bold">ProfileValidator</text>
-    <text x="765" y="148">validator_cli.jar</text>
+    <text x="765" y="148">process · server mode</text>
     <text x="495" y="242" font-weight="bold">TestScriptResult</text>
     <text x="495" y="258">phases · actions · outcomes</text>
     <text x="255" y="242" font-weight="bold">ReportWriters</text>
@@ -152,7 +152,8 @@ the version modules must not know each other; `fhir-hapi` must not use version-s
   <text x="765" y="90" fill="currentColor" font-size="11" text-anchor="middle">→ communication/ folder + log</text>
 </svg>
 <figcaption>Per TestScript, the execution and its state are confined to one thread and one execution object.
-Shared across a run: the request counter and the report list.</figcaption>
+Shared across a run: the request counter and the report list. Shared across runs: the HTTP transport and, in
+validator server mode, the validator servers.</figcaption>
 </figure>
 
 1. `TestRunner.run(RunConfiguration)` checks the configuration, creates a `RunContext` (run id, run folder,
@@ -199,6 +200,9 @@ order. Variables are evaluated each time a `${name}` placeholder is used, so the
   determined first (per file), then a version-specific parser reads the file.
 * **Validation result from `-output`.** The PoC parsed the validator's console output, where an empty output
   looked like success. The adapter reads the OperationOutcome file and treats a missing file as an error.
+* **The validator can stay running.** The PoC started the validator for every assertion. With
+  `validation.mode=server` the packages are loaded once per FHIR version; a failing server falls back to the
+  per-validation process ([ADR-0011](adr/0011-validator-server-mode.md)).
 * **Assertions are typed.** An assert must carry exactly one check (FHIR invariants tst-5/tst-6); this is enforced
   when reading, not discovered during execution.
 * **One run folder** (`testrunner-results/run_<timestamp>/`) holds all artefacts of a run, instead of four
@@ -216,8 +220,9 @@ order. Variables are evaluated each time a `${name}` placeholder is used, so the
 * **Not supported assertions**: `minimumId`, `navigationLinks`, `requestMethod`/`requestURL` (need a test engine
   acting as server), `manualEval`; reported as `error`, not silently ignored. `metadata.capability` checks
   (skip if the server lacks a capability) are not implemented either, as in the PoC.
-* **Validator per validation.** Each validation starts the validator anew (5–15 s, mostly package loading). A
-  long-running validator (`validator_cli.jar server` or the in-process `org.hl7.fhir.validation` library) would
-  load the packages once; it is a drop-in `ProfileValidator`, see [ADR-0006](adr/0006-validator-cli.md).
+* **Validator start-up.** In the default process mode each validation starts the validator anew (5–15 s).
+  `testrunner.validation.mode=server` keeps validator servers running (2–6× faster on the AT Core suite,
+  [ADR-0011](adr/0011-validator-server-mode.md)); it is opt-in until it has proven itself. An in-process
+  `org.hl7.fhir.validation` validator would remove the start-up too; it is a drop-in `ProfileValidator`.
 * **TestScript-level dependencies.** Parallel TestScripts that share server data can interfere; scheduling hints
   (e.g. "serial" groups) would be the next step, see [ADR-0008](adr/0008-parallel-execution.md).

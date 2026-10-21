@@ -1,6 +1,7 @@
 package at.hl7.testing.runner.autoconfigure;
 
 import at.hl7.testing.runner.core.config.RunConfiguration;
+import at.hl7.testing.runner.core.config.ValidatorMode;
 import at.hl7.testing.runner.core.engine.RunContext;
 import at.hl7.testing.runner.core.engine.RunListener;
 import at.hl7.testing.runner.core.engine.TestRunner;
@@ -73,6 +74,33 @@ class TestRunnerAutoConfigurationTest {
             assertThat(context).hasSingleBean(TestRunner.class).hasSingleBean(RunLogFileListener.class);
             assertThat(context.getBean(ProfileValidator.class).getClass().getSimpleName())
                     .isEqualTo("ValidatorCliProfileValidator");
+        });
+    }
+
+    @Test
+    void serverModeIsSelectedByProperty() {
+        contexts.withPropertyValues("testrunner.validation.mode=server",
+                        "testrunner.validation.server.startup-timeout=2m",
+                        "testrunner.validation.server.fallback-to-process=false",
+                        "testrunner.validation.jvm-arguments=-Xmx2g")
+                .run(context -> {
+                    RunConfiguration config = context.getBean(RunConfiguration.class);
+                    assertThat(config.validation().mode()).isEqualTo(ValidatorMode.SERVER);
+                    assertThat(config.validation().server().startupTimeout()).isEqualTo(Duration.ofMinutes(2));
+                    assertThat(config.validation().server().fallbackToProcess()).isFalse();
+                    assertThat(config.validation().jvmArguments()).containsExactly("-Xmx2g");
+                    assertThat(context.getBean(ProfileValidator.class).getClass().getSimpleName())
+                            .isEqualTo("ValidatorServerProfileValidator");
+                    assertThat(context.getBean(ProfileValidator.class)).isInstanceOf(AutoCloseable.class);
+                });
+    }
+
+    @Test
+    void processModeIsTheDefault() {
+        contexts.run(context -> {
+            RunConfiguration config = context.getBean(RunConfiguration.class);
+            assertThat(config.validation().mode()).isEqualTo(ValidatorMode.PROCESS);
+            assertThat(config.validation().server().fallbackToProcess()).isTrue();
         });
     }
 

@@ -25,6 +25,8 @@ import java.util.stream.Stream;
  * validation: a validator that cannot start (missing jar, Java too old) looks exactly like one that finds nothing.
  *
  * <p>Thread-safe: every validation works in its own temporary folder.
+ *
+ * <p>This is {@code testrunner.validation.mode=process}, and the fallback of {@link ValidatorServerProfileValidator}.
  */
 public final class ValidatorCliProfileValidator implements ProfileValidator {
 

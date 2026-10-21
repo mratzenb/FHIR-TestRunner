@@ -10,11 +10,14 @@ Requirements: Java 25, Maven 3.9+. For profile validation the HL7 Validator CLI 
 
 ```sh
 mvn verify                                   # build, unit tests, integration tests (no FHIR server needed)
-VALIDATOR_JAR=/path/to/validator_cli.jar mvn verify   # additionally with the real validator
+VALIDATOR_JAR=/path/to/validator_cli.jar mvn verify   # additionally with the real validator, both modes
 
-# run the AT Core R4 TestScripts against a local server
+# run the AT Core R4 TestScripts against a local server (the dev configs keep the validator running as a server)
 export VALIDATOR_JAR=/path/to/validator_cli.jar
 java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml
+
+# with one validator process per validation instead (the default outside the dev configs)
+java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml --testrunner.validation.mode=process
 
 # without profile validation
 java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml --novalidator
@@ -32,7 +35,7 @@ pom.xml                                 parent: modules, BOMs, version propertie
 testrunner-core/                        engine, version-neutral model, HTTP, reports, ports – no Spring, no HAPI
 testrunner-fhir-hapi/                   generic TestScript mapping and FHIRPath on HAPI FHIR
 testrunner-fhir-r4/  testrunner-fhir-r5/   one FHIR version each (FhirContext + dialect)
-testrunner-validation-cli/              profile validation with validator_cli.jar
+testrunner-validation-cli/              profile validation with validator_cli.jar (process or server mode)
 testrunner-spring-boot-autoconfigure/   pre-defined Spring configuration (testrunner.* properties)
 testrunner-app/                         executable jar, end-to-end ITs, architecture rules
 testrunner-test-support/                in-memory FHIR server, fake validator, sample data access
@@ -47,5 +50,5 @@ docs/                                   architecture, decisions, configuration, 
 * [FHIR versions](docs/fhir-versions.md) – how R4/R5 are mapped without duplication, and how to add R6
 * [Configuration](docs/configuration.md) – all properties, PoC mapping, library use, extending the Spring configuration
 * [Logging](docs/logging.md) – run log, request ids, communication log
-* [Validation](docs/validation.md) – validator setup, silent-pass protection, the negative control
+* [Validation](docs/validation.md) – validator setup, process and server mode, silent-pass protection, the negative control
 * [Decisions (ADRs)](docs/adr/README.md)

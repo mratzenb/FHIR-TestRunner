@@ -8,7 +8,8 @@ import at.hl7.testing.runner.core.report.RunResult;
 import at.hl7.testing.runner.core.report.TestScriptResult;
 import at.hl7.testing.runner.testsupport.InMemoryFhirServer;
 import at.hl7.testing.runner.testsupport.SampleData;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.builder.SpringApplicationBuilder;
@@ -24,7 +25,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <pre>VALIDATOR_JAR=/path/to/validator_cli.jar mvn verify</pre>
  *
- * The FHIR server is still the in-memory one.
+ * The FHIR server is still the in-memory one. Runs once per {@code testrunner.validation.mode}, without fallback, so
+ * the server mode is really exercised.
  */
 @EnabledIfEnvironmentVariable(named = "VALIDATOR_JAR", matches = ".+")
 class RealValidatorIT {
@@ -32,18 +34,23 @@ class RealValidatorIT {
     @TempDir
     Path dir;
 
-    @Test
-    void validationRunsForReal() {
+    @ParameterizedTest
+    @ValueSource(strings = {"process", "server"})
+    void validationRunsForReal(String mode) {
         try (InMemoryFhirServer server = InMemoryFhirServer.start("4.0.1");
              ConfigurableApplicationContext context = new SpringApplicationBuilder(TestRunnerApplication.class).run(
                      "--testrunner.run-on-startup=false",
                      "--testrunner.fhir-server.base-url=" + server.baseUrl(),
                      "--testrunner.validation.validator-jar=" + System.getenv("VALIDATOR_JAR"),
+                     "--testrunner.validation.mode=" + mode,
+                     "--testrunner.validation.server.fallback-to-process=false",
                      "--testrunner.reporting.output-dir=" + dir,
                      "--testrunner.execution.parallelism=3",
                      "--testrunner.suites[0].base-dir=" + SampleData.r4())) {
 
+            long started = System.nanoTime();
             RunResult run = context.getBean(TestRunner.class).run(context.getBean(RunConfiguration.class));
+            System.out.printf("Real validator, mode %s: %d ms%n", mode, (System.nanoTime() - started) / 1_000_000);
 
             assertThat(run.testScripts()).hasSize(3);
             for (TestScriptResult result : run.testScripts()) {

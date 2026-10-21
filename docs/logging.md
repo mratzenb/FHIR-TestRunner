@@ -46,7 +46,9 @@ From a failed assertion in the report, `REQ-0003` leads to the exact bytes that 
 * `RunLogFileListener` (Spring auto-configuration, Logback only) attaches a file appender for the duration of each
   run at `reporting.log-file-level` (default `DEBUG`), independent of the console level, and detaches it afterwards.
   DEBUG adds: version detection, fixture details, operation/assert descriptions, variable values, validator command
-  lines and timings.
+  lines and timings. In validator server mode it also contains the console output of the validator servers, prefixed
+  `[validator server R4]`, and one line per validation with the server's response time; starting and stopping a
+  server is logged at INFO.
 * The start of the log records the configuration and environment (server, versions available, parallelism,
   validation, suites, TestScripts); the end records the summary and the report files.
 
