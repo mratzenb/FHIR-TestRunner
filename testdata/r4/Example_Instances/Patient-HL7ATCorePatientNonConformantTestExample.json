@@ -2,12 +2,32 @@
   "resourceType" : "Patient",
   "id" : "HL7ATCorePatientNonConformantTestExample",
   "meta" : {
-    "profile" : ["http://hl7.at/fhir/HL7ATCoreProfiles/4.0.1/StructureDefinition/at-core-patient"]
+    "profile" : ["https://fhir.hl7.at/core/r4/StructureDefinition/at-core-patient"]
   },
   "text" : {
     "status" : "generated",
-    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Deliberately non-conformant Patient.</b> This resource claims conformance to the HL7&#174; AT Core Patient profile in <code>meta.profile</code> but omits two elements the profile makes mandatory: <code>Patient.name</code> (min = 1) and <code>Patient.gender</code> (min = 1). It is valid against the base FHIR R4 Patient resource, so a FHIR server accepts it on create. Only profile validation can reject it. Used as the negative control for the AT Core profile validation test script.</p></div>"
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Deliberately non-conformant Patient.</b> This resource claims conformance to the HL7&#174; AT Core Patient profile in <code>meta.profile</code> but carries two social security numbers, while the profile allows at most one (slice <code>Patient.identifier:socialSecurityNumber</code>, max = 1). It is valid against the base FHIR R4 Patient resource, so a FHIR server accepts it on create. Only profile validation can reject it. Used as the negative control for the AT Core profile validation test script.</p></div>"
   },
+  "identifier" : [{
+    "type" : {
+      "coding" : [{
+        "system" : "http://terminology.hl7.org/CodeSystem/v2-0203",
+        "code" : "SS"
+      }]
+    },
+    "system" : "urn:oid:1.2.40.0.10.1.4.3.1",
+    "value" : "1234010180"
+  },
+  {
+    "type" : {
+      "coding" : [{
+        "system" : "http://terminology.hl7.org/CodeSystem/v2-0203",
+        "code" : "SS"
+      }]
+    },
+    "system" : "urn:oid:1.2.40.0.10.1.4.3.1",
+    "value" : "5678010180"
+  }],
   "active" : true,
   "birthDate" : "1980-01-01"
 }
