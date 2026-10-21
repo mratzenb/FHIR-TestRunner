@@ -1,0 +1,60 @@
+package at.hl7.testing.runner.fhir.r5;
+
+import at.hl7.testing.runner.core.model.Assertion;
+import at.hl7.testing.runner.core.model.Body;
+import at.hl7.testing.runner.core.model.FhirVersion;
+import at.hl7.testing.runner.core.model.TestScript;
+import at.hl7.testing.runner.testsupport.SampleData;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.io.IOException;
+import java.nio.file.Files;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class R5SupportTest {
+
+    final R5Support support = new R5Support();
+
+    static Body r5(String file) throws IOException {
+        return Body.json(Files.readString(SampleData.testScript(SampleData.r5(), file)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"TestScript-testscript-patient-create-at-core.json", "TestScript-testscript-patient-update-at-core.json"})
+    void readsTheR5SamplesExactly(String file) throws IOException {
+        assertThat(support.check(r5(file)).exact()).isTrue();
+        assertThat(support.readTestScript(r5(file)).testScript().fhirVersion()).isEqualTo(FhirVersion.R5);
+    }
+
+    @Test
+    void mapsTheCanonicalProfileWithTheIdOfThePrimitiveExtension() throws IOException {
+        TestScript ts = support.readTestScript(r5("TestScript-testscript-patient-update-at-core.json")).testScript();
+
+        // R5: TestScript.profile is a canonical, its id comes from _profile
+        assertThat(ts.profiles()).singleElement().satisfies(p -> {
+            assertThat(p.id()).isEqualTo("at-core-patient-profile");
+            assertThat(p.canonical()).isEqualTo("https://fhir.hl7.at/core/r5/StructureDefinition/at-core-patient");
+        });
+        Assertion setupAssert = (Assertion) ts.setup().get(1);
+        assertThat(setupAssert.stopTestOnFail()).isTrue();
+    }
+
+    @Test
+    void canonicalWithoutIdIsAddressedByItsLastSegment() {
+        Body content = Body.json("""
+                {"resourceType":"TestScript","name":"x","status":"active",
+                 "profile":["http://example.org/StructureDefinition/my-patient|1.0"]}""");
+
+        assertThat(support.readTestScript(content).testScript().profiles().getFirst().id()).isEqualTo("my-patient");
+    }
+
+    @Test
+    void anR4TestScriptIsNotAnExactR5TestScript() throws IOException {
+        Body r4 = Body.json(Files.readString(SampleData.testScript(SampleData.r4(), "TestScript-testscript-patient-update-at-core.json")));
+
+        assertThat(support.check(r4).exact()).isFalse();
+    }
+}
