@@ -1,0 +1,282 @@
+package at.hl7.testing.runner.testsupport;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * A small FHIR server on a free local port, answering from memory. Enough FHIR for the runner's tests; no FHIR
+ * version specifics, no validation.
+ *
+ * <ul>
+ *   <li>{@code POST [type]} stores a JSON resource under a new id (201 + Location); XML bodies get an id but are
+ *       not stored</li>
+ *   <li>{@code PUT [type]/[id]} stores (200 if it existed, else 201)</li>
+ *   <li>{@code GET [type]/[id]}, {@code GET [type]/[id]/_history(/[vid])}, {@code DELETE [type]/[id]}</li>
+ *   <li>{@code GET [type]?name=value} returns a searchset Bundle of the stored resources of the type whose JSON
+ *       contains every value (a crude stand-in for real search); {@code DELETE [type]?..} deletes them</li>
+ *   <li>{@code GET metadata} returns a CapabilityStatement</li>
+ *   <li>{@code POST [base]} returns a batch/transaction-response Bundle</li>
+ * </ul>
+ * {@link #on} replaces the answer to a request, {@link #requests()} lists the requests received.
+ */
+public final class InMemoryFhirServer implements AutoCloseable {
+
+    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final String FHIR_JSON = "application/fhir+json;charset=UTF-8";
+    private static final Pattern XML_ID = Pattern.compile("<id\\s+value=\"([^\"]*)\"\\s*/>");
+
+    /** A request as received. */
+    public record Request(String method, String path, String query, Map<String, List<String>> headers, String body) {
+
+        /** {@code METHOD path}, e.g. {@code POST /Patient}. */
+        public String line() {
+            return method + " " + path;
+        }
+
+        public String header(String name) {
+            return headers.entrySet().stream().filter(e -> e.getKey().equalsIgnoreCase(name))
+                    .map(e -> e.getValue().getFirst()).findFirst().orElse(null);
+        }
+    }
+
+    /** A fixed answer. */
+    public record Answer(int status, String body, Map<String, String> headers) {
+
+        public static Answer json(int status, String body) {
+            return new Answer(status, body, Map.of("Content-Type", FHIR_JSON));
+        }
+    }
+
+    private final HttpServer server;
+    private final String fhirVersion;
+    private final Map<String, ObjectNode> resources = new ConcurrentHashMap<>();
+    private final Map<String, List<ObjectNode>> history = new ConcurrentHashMap<>();
+    private final Map<String, Answer> answers = new ConcurrentHashMap<>();
+    private final List<Request> requests = Collections.synchronizedList(new ArrayList<>());
+    private final AtomicInteger nextId = new AtomicInteger(1);
+
+    private InMemoryFhirServer(String fhirVersion) throws IOException {
+        this.fhirVersion = fhirVersion;
+        this.server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/fhir", this::handle);
+        server.setExecutor(java.util.concurrent.Executors.newFixedThreadPool(8));
+        server.start();
+    }
+
+    /** Starts a server announcing {@code fhirVersion} (e.g. {@code 4.0.1}) in its CapabilityStatement. */
+    public static InMemoryFhirServer start(String fhirVersion) {
+        try {
+            return new InMemoryFhirServer(fhirVersion);
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not start the in-memory FHIR server", e);
+        }
+    }
+
+    /** Base URL, e.g. {@code http://127.0.0.1:53412/fhir}. */
+    public String baseUrl() {
+        return "http://127.0.0.1:" + server.getAddress().getPort() + "/fhir";
+    }
+
+    /** Answers {@code METHOD path} (path below the base, without query) with a fixed response. */
+    public InMemoryFhirServer on(String method, String path, Answer answer) {
+        answers.put(method.toUpperCase() + " " + path, answer);
+        return this;
+    }
+
+    /** The requests received, in order. */
+    public List<Request> requests() {
+        synchronized (requests) {
+            return List.copyOf(requests);
+        }
+    }
+
+    /** {@code METHOD path} of every request received. */
+    public List<String> requestLines() {
+        return requests().stream().map(Request::line).toList();
+    }
+
+    /** A stored resource, e.g. {@code Patient/1}. */
+    public JsonNode resource(String key) {
+        return resources.get(key);
+    }
+
+    private void handle(HttpExchange exchange) throws IOException {
+        try (exchange) {
+            String path = exchange.getRequestURI().getPath().substring("/fhir".length());
+            String query = exchange.getRequestURI().getRawQuery();
+            String body;
+            try (InputStream in = exchange.getRequestBody()) {
+                body = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            Map<String, List<String>> headers = new LinkedHashMap<>(exchange.getRequestHeaders());
+            requests.add(new Request(exchange.getRequestMethod(), path.isEmpty() ? "/" : path, query, headers, body));
+            Answer answer = answers.get(exchange.getRequestMethod() + " " + path);
+            if (answer == null) {
+                answer = answer(exchange.getRequestMethod(), path, query, body, headers);
+            }
+            byte[] bytes = answer.body() == null ? new byte[0] : answer.body().getBytes(StandardCharsets.UTF_8);
+            answer.headers().forEach((name, value) -> exchange.getResponseHeaders().add(name, value));
+            boolean noBody = bytes.length == 0 || exchange.getRequestMethod().equals("HEAD");
+            exchange.sendResponseHeaders(answer.status(), noBody ? -1 : bytes.length);
+            if (!noBody) {
+                exchange.getResponseBody().write(bytes);
+            }
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
+    private Answer answer(String method, String path, String query, String body, Map<String, List<String>> headers) {
+        List<String> parts = new ArrayList<>();
+        for (String part : path.split("/")) {
+            if (!part.isEmpty()) {
+                parts.add(part);
+            }
+        }
+        if (method.equals("GET") && parts.equals(List.of("metadata"))) {
+            return Answer.json(200, "{\"resourceType\":\"CapabilityStatement\",\"status\":\"active\",\"fhirVersion\":\""
+                    + fhirVersion + "\",\"kind\":\"instance\",\"format\":[\"json\",\"xml\"]}");
+        }
+        if (method.equals("POST") && parts.isEmpty()) {
+            return Answer.json(200, "{\"resourceType\":\"Bundle\",\"type\":\"batch-response\"}");
+        }
+        if (method.equals("GET") && (parts.size() == 1 || (parts.size() == 2 && parts.get(1).equals("_history")))) {
+            ObjectNode bundle = JSON.createObjectNode().put("resourceType", "Bundle")
+                    .put("type", parts.size() == 1 ? "searchset" : "history");
+            ArrayNode entries = bundle.putArray("entry");
+            matching(parts.getFirst(), parts.size() == 1 ? query : null)
+                    .forEach(resource -> entries.addObject().set("resource", resource));
+            bundle.put("total", entries.size());
+            return Answer.json(200, bundle.toString());
+        }
+        if (method.equals("DELETE") && parts.size() == 1 && query != null) {
+            matching(parts.getFirst(), query).forEach(r -> resources.remove(parts.getFirst() + "/" + r.path("id").asText()));
+            return new Answer(204, "", Map.of());
+        }
+        if (method.equals("POST") && parts.size() == 1) {
+            return store(parts.getFirst(), String.valueOf(nextId.getAndIncrement()), body, headers, 201);
+        }
+        if (parts.size() >= 2) {
+            String key = parts.get(0) + "/" + parts.get(1);
+            switch (method) {
+                case "PUT" -> {
+                    return store(parts.get(0), parts.get(1), body, headers, resources.containsKey(key) ? 200 : 201);
+                }
+                case "GET", "HEAD" -> {
+                    ObjectNode resource = resources.get(key);
+                    if (resource == null) {
+                        return Answer.json(404, outcome("not-found", key + " is not known"));
+                    }
+                    if (parts.size() == 3 && parts.get(2).equals("_history")) {
+                        ObjectNode bundle = JSON.createObjectNode().put("resourceType", "Bundle").put("type", "history");
+                        ArrayNode entries = bundle.putArray("entry");
+                        List<ObjectNode> versions = new ArrayList<>(history.getOrDefault(key, List.of()));
+                        Collections.reverse(versions);
+                        versions.forEach(v -> entries.addObject().set("resource", v));
+                        return Answer.json(200, bundle.toString());
+                    }
+                    if (parts.size() == 4 && parts.get(2).equals("_history")) {
+                        return history.getOrDefault(key, List.of()).stream()
+                                .filter(v -> v.path("meta").path("versionId").asText().equals(parts.get(3)))
+                                .findFirst().map(v -> Answer.json(200, v.toString()))
+                                .orElse(Answer.json(404, outcome("not-found", key + " has no version " + parts.get(3))));
+                    }
+                    String version = resource.path("meta").path("versionId").asText("1");
+                    return new Answer(200, resource.toString(), Map.of("Content-Type", FHIR_JSON,
+                            "ETag", "W/\"" + version + "\"", "Location", location(parts.get(0), parts.get(1), version)));
+                }
+                case "DELETE" -> {
+                    resources.remove(key);
+                    return new Answer(204, "", Map.of());
+                }
+                case "PATCH" -> {
+                    ObjectNode resource = resources.get(key);
+                    return resource == null ? Answer.json(404, outcome("not-found", key + " is not known"))
+                            : Answer.json(200, resource.toString());
+                }
+                default -> {
+                }
+            }
+        }
+        return Answer.json(400, outcome("not-supported", method + " " + path + " is not supported"));
+    }
+
+    private Answer store(String type, String id, String body, Map<String, List<String>> headers, int status) {
+        String contentType = headers.entrySet().stream().filter(e -> e.getKey().equalsIgnoreCase("Content-Type"))
+                .map(e -> e.getValue().getFirst()).findFirst().orElse("");
+        if (contentType.contains("xml")) {
+            Matcher matcher = XML_ID.matcher(body);
+            String xml = matcher.find() ? matcher.replaceFirst("<id value=\"" + id + "\"/>") : body;
+            return new Answer(status, xml, Map.of("Content-Type", "application/fhir+xml;charset=UTF-8",
+                    "Location", location(type, id, "1")));
+        }
+        ObjectNode resource;
+        try {
+            resource = (ObjectNode) JSON.readTree(body);
+        } catch (IOException | ClassCastException e) {
+            return Answer.json(400, outcome("invalid", "The body is no JSON resource"));
+        }
+        String key = type + "/" + id;
+        int version = resources.containsKey(key)
+                ? resources.get(key).path("meta").path("versionId").asInt(1) + 1 : 1;
+        resource.put("id", id);
+        ObjectNode meta = resource.has("meta") ? (ObjectNode) resource.get("meta") : resource.putObject("meta");
+        meta.put("versionId", String.valueOf(version));
+        resources.put(key, resource);
+        history.computeIfAbsent(key, k -> Collections.synchronizedList(new ArrayList<>())).add(resource.deepCopy());
+        return new Answer(status, resource.toString(), Map.of("Content-Type", FHIR_JSON,
+                "Location", location(type, id, String.valueOf(version)), "ETag", "W/\"" + version + "\""));
+    }
+
+    /** Stored resources of a type whose JSON contains the value of every search parameter not starting with '_'. */
+    private List<ObjectNode> matching(String type, String query) {
+        List<String> values = new ArrayList<>();
+        if (query != null) {
+            for (String parameter : query.split("&")) {
+                int eq = parameter.indexOf('=');
+                if (eq > 0 && !parameter.startsWith("_")) {
+                    values.add(java.net.URLDecoder.decode(parameter.substring(eq + 1), StandardCharsets.UTF_8));
+                }
+            }
+        }
+        return resources.entrySet().stream()
+                .filter(e -> e.getKey().startsWith(type + "/"))
+                .map(Map.Entry::getValue)
+                .filter(r -> values.stream().allMatch(v -> r.toString().contains(v)))
+                .toList();
+    }
+
+    private String location(String type, String id, String version) {
+        return baseUrl() + "/" + type + "/" + id + "/_history/" + version;
+    }
+
+    private static String outcome(String code, String text) {
+        return "{\"resourceType\":\"OperationOutcome\",\"issue\":[{\"severity\":\"error\",\"code\":\"" + code
+                + "\",\"diagnostics\":\"" + text + "\"}]}";
+    }
+
+    @Override
+    public void close() {
+        server.stop(0);
+        ((java.util.concurrent.ExecutorService) server.getExecutor()).shutdownNow();
+    }
+}
