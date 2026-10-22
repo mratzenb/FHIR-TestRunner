@@ -4,12 +4,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
+import org.eclipse.jetty.http.HttpField;
+import org.eclipse.jetty.io.Content;
+import org.eclipse.jetty.server.Handler;
+import org.eclipse.jetty.server.Response;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.util.Callback;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,8 +25,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * A small FHIR server on a free local port, answering from memory. Enough FHIR for the runner's tests; no FHIR
- * version specifics, no validation.
+ * A small FHIR server on a free local port (Jetty), answering from memory. Enough FHIR for the runner's tests; no
+ * FHIR version specifics, no validation.
  *
  * <ul>
  *   <li>{@code POST [type]} stores a JSON resource under a new id (201 + Location); XML bodies get an id but are
@@ -65,7 +68,8 @@ public final class InMemoryFhirServer implements AutoCloseable {
         }
     }
 
-    private final HttpServer server;
+    private final Server server = new Server();
+    private final ServerConnector connector = new ServerConnector(server);
     private final String fhirVersion;
     private final Map<String, ObjectNode> resources = new ConcurrentHashMap<>();
     private final Map<String, List<ObjectNode>> history = new ConcurrentHashMap<>();
@@ -73,11 +77,17 @@ public final class InMemoryFhirServer implements AutoCloseable {
     private final List<Request> requests = Collections.synchronizedList(new ArrayList<>());
     private final AtomicInteger nextId = new AtomicInteger(1);
 
-    private InMemoryFhirServer(String fhirVersion) throws IOException {
+    private InMemoryFhirServer(String fhirVersion) throws Exception {
         this.fhirVersion = fhirVersion;
-        this.server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/fhir", this::handle);
-        server.setExecutor(java.util.concurrent.Executors.newFixedThreadPool(8));
+        connector.setHost("127.0.0.1");
+        connector.setPort(0);
+        server.addConnector(connector);
+        server.setHandler(new Handler.Abstract() {
+            @Override
+            public boolean handle(org.eclipse.jetty.server.Request request, Response response, Callback callback) {
+                return InMemoryFhirServer.this.handle(request, response, callback);
+            }
+        });
         server.start();
     }
 
@@ -85,14 +95,14 @@ public final class InMemoryFhirServer implements AutoCloseable {
     public static InMemoryFhirServer start(String fhirVersion) {
         try {
             return new InMemoryFhirServer(fhirVersion);
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new IllegalStateException("Could not start the in-memory FHIR server", e);
         }
     }
 
     /** Base URL, e.g. {@code http://127.0.0.1:53412/fhir}. */
     public String baseUrl() {
-        return "http://127.0.0.1:" + server.getAddress().getPort() + "/fhir";
+        return "http://127.0.0.1:" + connector.getLocalPort() + "/fhir";
     }
 
     /** Answers {@code METHOD path} (path below the base, without query) with a fixed response. */
@@ -118,30 +128,38 @@ public final class InMemoryFhirServer implements AutoCloseable {
         return resources.get(key);
     }
 
-    private void handle(HttpExchange exchange) throws IOException {
-        try (exchange) {
-            String path = exchange.getRequestURI().getPath().substring("/fhir".length());
-            String query = exchange.getRequestURI().getRawQuery();
-            String body;
-            try (InputStream in = exchange.getRequestBody()) {
-                body = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+    private boolean handle(org.eclipse.jetty.server.Request exchange, Response response, Callback callback) {
+        String fullPath = exchange.getHttpURI().getDecodedPath();
+        if (!fullPath.equals("/fhir") && !fullPath.startsWith("/fhir/")) {
+            return false;
+        }
+        try {
+            String method = exchange.getMethod();
+            String path = fullPath.substring("/fhir".length());
+            String query = exchange.getHttpURI().getQuery();
+            String body = Content.Source.asString(exchange, StandardCharsets.UTF_8);
+            Map<String, List<String>> headers = new LinkedHashMap<>();
+            for (HttpField field : exchange.getHeaders()) {
+                headers.computeIfAbsent(field.getName(), name -> new ArrayList<>()).add(field.getValue());
             }
-            Map<String, List<String>> headers = new LinkedHashMap<>(exchange.getRequestHeaders());
-            requests.add(new Request(exchange.getRequestMethod(), path.isEmpty() ? "/" : path, query, headers, body));
-            Answer answer = answers.get(exchange.getRequestMethod() + " " + path);
+            requests.add(new Request(method, path.isEmpty() ? "/" : path, query, headers, body));
+            Answer answer = answers.get(method + " " + path);
             if (answer == null) {
-                answer = answer(exchange.getRequestMethod(), path, query, body, headers);
+                answer = answer(method, path, query, body, headers);
             }
-            byte[] bytes = answer.body() == null ? new byte[0] : answer.body().getBytes(StandardCharsets.UTF_8);
-            answer.headers().forEach((name, value) -> exchange.getResponseHeaders().add(name, value));
-            boolean noBody = bytes.length == 0 || exchange.getRequestMethod().equals("HEAD");
-            exchange.sendResponseHeaders(answer.status(), noBody ? -1 : bytes.length);
-            if (!noBody) {
-                exchange.getResponseBody().write(bytes);
+            response.setStatus(answer.status());
+            answer.headers().forEach((name, value) -> response.getHeaders().add(name, value));
+            boolean noBody = answer.body() == null || answer.body().isEmpty() || method.equals("HEAD");
+            if (noBody) {
+                response.write(true, null, callback);
+            } else {
+                Content.Sink.write(response, true, answer.body(), callback);
             }
-        } catch (RuntimeException e) {
+            return true;
+        } catch (IOException | RuntimeException e) {
             e.printStackTrace();
-            throw e;
+            callback.failed(e);
+            return true;
         }
     }
 
@@ -276,7 +294,10 @@ public final class InMemoryFhirServer implements AutoCloseable {
 
     @Override
     public void close() {
-        server.stop(0);
-        ((java.util.concurrent.ExecutorService) server.getExecutor()).shutdownNow();
+        try {
+            server.stop();
+        } catch (Exception e) {
+            throw new IllegalStateException("Could not stop the in-memory FHIR server", e);
+        }
     }
 }
