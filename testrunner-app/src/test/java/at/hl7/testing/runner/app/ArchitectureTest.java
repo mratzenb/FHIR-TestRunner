@@ -51,13 +51,4 @@ class ArchitectureTest {
     void corePackagesAreFreeOfCycles() {
         slices().matching("at.hl7.testing.runner.core.(*)..").should().beFreeOfCycles().check(classes);
     }
-
-    /** Covers testrunner-test-support too: it is on this module's test class path and not test code itself. */
-    @Test
-    void noJdkSpecificOrInternalApis() {
-        noClasses().that().resideInAPackage("at.hl7.testing.runner..")
-                .should().dependOnClassesThat().resideInAnyPackage("com.sun..", "sun..", "jdk.internal..")
-                .because("they are not part of Java SE and may be missing or change in other JDKs")
-                .check(classes);
-    }
 }

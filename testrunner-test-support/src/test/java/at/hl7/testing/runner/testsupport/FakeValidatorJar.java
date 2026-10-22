@@ -42,7 +42,7 @@ public final class FakeValidatorJar {
     public static final String CRASH_MARKER = "FAKE-VALIDATOR-CRASH";
     public static final String UNRESOLVABLE_PROFILE = "http://example.org/StructureDefinition/unresolvable";
 
-    /** One class of each jar (or classes folder) the fake needs: this module and the runtime of jetty-server. */
+    /** One class of each jar (or classes folder) the fake needs: this module's test classes and jetty-server. */
     private static final List<Class<?>> CLASS_PATH = List.of(FakeValidator.class, Server.class, HttpField.class,
             Content.class, Callback.class, LoggerFactory.class);
 

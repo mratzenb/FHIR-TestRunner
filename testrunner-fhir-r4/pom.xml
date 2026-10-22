@@ -28,6 +28,8 @@
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>testrunner-test-support</artifactId>
+            <type>test-jar</type>
+            <classifier>tests</classifier>
             <scope>test</scope>
         </dependency>
         <dependency>
