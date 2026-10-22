@@ -10,7 +10,8 @@ for different reasons: FHIR versions (R6), the validator (CLI vs. library), the 
   communication log, reports, configuration records – and **ports** for what varies: `FhirVersionSupport`,
   `ProfileValidator`, `HttpTransport`, `ReportWriter`, `RunListener`.
 * Each adapter is a Maven module: `fhir-hapi` + `fhir-r4`/`fhir-r5`, `validation-cli`,
-  `spring-boot-autoconfigure`, `app`. Test doubles live in `test-support`.
+  `spring-boot-autoconfigure`, `app`. Test doubles live in `test-support`, which every module uses in test scope
+  only ([ADR-0009](0009-testing.md)).
 * Inside the engine, one class per responsibility: `RequestFactory` (URL/headers/body), `AssertionEvaluator`,
   `VariableResolver`, `FixtureManager`, `TestScriptExecution` (phase semantics), `TestRunner` (orchestration).
 * Boundaries are enforced by ArchUnit (`ArchitectureTest`).

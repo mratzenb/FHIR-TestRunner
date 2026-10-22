@@ -6,7 +6,8 @@
   (`spring-boot.version`, `hapi-fhir.version`); the few artefacts not covered by them (`hapi-fhir-caching-caffeine`,
   `archunit-junit5`) are managed once in the parent with a property. Plugin versions are properties too. Module
   POMs declare no versions.
-* `maven-enforcer-plugin` requires Java ≥ 25 and Maven ≥ 3.9.
+* `maven-enforcer-plugin` requires Java ≥ 25 and Maven ≥ 3.9, and allows `testrunner-test-support` only in test
+  scope (`bannedDependencies`, [ADR-0009](0009-testing.md)).
 * The app module builds a plain jar (library) and `testrunner-app-<version>-exec.jar` (Spring Boot executable,
   classifier `exec`), so failsafe tests and library users use plain classes.
 * `-Xlint:all` without warnings.

@@ -201,6 +201,16 @@
                                 <requireMavenVersion>
                                     <version>[${required.maven.version},)</version>
                                 </requireMavenVersion>
+                                <bannedDependencies>
+                                    <!-- the test doubles must never reach a runtime class path (ADR-0009) -->
+                                    <message>testrunner-test-support may only be used in test scope</message>
+                                    <excludes>
+                                        <exclude>${project.groupId}:testrunner-test-support</exclude>
+                                    </excludes>
+                                    <includes>
+                                        <include>${project.groupId}:testrunner-test-support:*:*:test</include>
+                                    </includes>
+                                </bannedDependencies>
                             </rules>
                         </configuration>
                     </execution>

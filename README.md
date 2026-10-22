@@ -38,7 +38,7 @@ testrunner-fhir-r4/  testrunner-fhir-r5/   one FHIR version each (FhirContext + 
 testrunner-validation-cli/              profile validation with validator_cli.jar (process or server mode)
 testrunner-spring-boot-autoconfigure/   pre-defined Spring configuration (testrunner.* properties)
 testrunner-app/                         executable jar, end-to-end ITs, architecture rules
-testrunner-test-support/                in-memory FHIR server, fake validator, sample data access
+testrunner-test-support/                test doubles (test scope only): in-memory FHIR server, fake validator, sample data
 config/                                 development configurations
 testdata/                               TestScripts, Example Instances, profiles from the PoC (r4, r5, samples)
 docs/                                   architecture, decisions, configuration, logging, validation, FHIR versions
