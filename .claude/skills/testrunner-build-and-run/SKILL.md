@@ -1,0 +1,84 @@
+---
+name: testrunner-build-and-run
+description: How to build, test and run the FHIR TestScript Runner (TestRunnerOnJava) – Maven commands, the JDK/Maven paths on this machine, running single tests and the opt-in real-validator IT, starting the exec jar with dev configs, and the POM conventions (BOMs, version properties, enforcer, test-jar). Use before running mvn or java, or when editing a pom.xml.
+---
+
+# Build and run
+
+## Toolchain
+
+Requirements are enforced: Java ≥ 25, Maven ≥ 3.9 (wrong ones stop the build at `enforce`). `mvn` below means a
+Maven 3.9 with `JAVA_HOME` on a JDK 25. If the shell's `mvn` does not work, call Maven by its full path, e.g. on
+the original development machine (where the `mvn` shell function needs an unset `M2_HOME`):
+
+```sh
+export JAVA_HOME=~/iheroot/tools/JDK/jdk-25.0.2/Contents/Home
+~/iheroot/tools/Maven/3.9.16/bin/mvn -B verify
+```
+
+Offline (`-o`) works only once all dependencies and plugins are in the local repository.
+
+## Commands
+
+| Goal | Command (`mvn` as described above) |
+|---|---|
+| Everything: compile, unit tests (surefire `*Test`), ITs (failsafe `*IT`) | `mvn -B verify` (< 1 min, no FHIR server, no network) |
+| Jar without tests | `mvn -B -DskipTests package` |
+| One module and what it needs | `mvn -B -pl testrunner-validation-cli -am test` |
+| One test class | `mvn -B -pl testrunner-core -am test -Dtest=TestScriptExecutionTest -Dsurefire.failIfNoSpecifiedTests=false` |
+| One IT only | `mvn -B -pl testrunner-app -am verify -Dtest=NoSuchTest -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=EndToEndIT -Dfailsafe.failIfNoSpecifiedTests=false` |
+| With the real HL7 validator (`RealValidatorIT`, both modes, ~1 min) | `VALIDATOR_JAR=/path/to/validator_cli.jar mvn -B verify` (a validator 7.0.2 ships with the PoC: `../HL7-AT-TestFhiry-TestRunner/data_r4/validator_cli.jar`) |
+
+`RealValidatorIT` is skipped unless `VALIDATOR_JAR` is set; the skip in the summary is expected.
+
+## Running the application
+
+```sh
+java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml
+#   --testrunner.validation.mode=process   one validator process per validation (dev configs use server)
+#   --novalidator                          no profile validation
+#   --testrunner.<property>=<value>        any property, see testrunner-configuration
+```
+
+* The dev configs read `VALIDATOR_JAR` from the environment and expect a FHIR server at
+  `http://localhost:8080/fhir` (`dev-all.yml` also `8081` for R5):
+  `docker run -p 8080:8080 -e hapi.fhir.fhir_version=R4 hapiproject/hapi:latest`.
+* `config/negative-control.yml` is **expected to FAIL** (proves validation runs).
+* Results: `target/testrunner-results/run_<timestamp>/` with the dev configs (`testrunner-results/` otherwise).
+* Exit codes: 0 pass/skip, 1 fail/error, 2 invalid configuration.
+* The app module builds a plain library jar and `*-exec.jar` (Spring Boot, classifier `exec`).
+
+## POM conventions (ADR-0010)
+
+* Third-party versions come from two imported BOMs whose versions are properties in the root POM:
+  `spring-boot.version` (Jackson, SLF4J, Logback, JUnit, AssertJ, Jetty, JsonPath) and `hapi-fhir.version`. Artefacts
+  outside them (`hapi-fhir-caching-caffeine`, `archunit-junit5`) are managed once in the parent with a property.
+* Plugin versions are properties too. **Module POMs declare no versions.**
+* Compiler: `release 25`, `-parameters`, `-Xlint:all,-processing,-serial`, `--limit-modules java.se`.
+* Project modules are in the parent's `dependencyManagement`. `testrunner-test-support` is there with
+  `<type>test-jar</type><classifier>tests</classifier>`; a module uses it as
+
+  ```xml
+  <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>testrunner-test-support</artifactId>
+      <type>test-jar</type>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+  </dependency>
+  ```
+
+  Any other scope fails the enforcer (`bannedDependencies`). Its main jar is empty on purpose (Maven needs a main
+  artefact; the "JAR will be empty" warning is expected).
+* A new module: add it to `<modules>` and to `dependencyManagement`; if it is a FHIR version, also as dependency of
+  `testrunner-app` (see `testrunner-fhir-versions`).
+
+## Typical failures
+
+| Symptom | Cause |
+|---|---|
+| `/bin/mvn: no such file` | plain `mvn` used; use the full path |
+| Build stops at `enforce` | wrong JDK (`JAVA_HOME`) or Maven, or test-support used outside test scope |
+| `package com.sun... is not visible` | JDK-specific API used; only Java SE is allowed (use Jetty for HTTP servers in tests) |
+| `ArchitectureTest` fails | a module boundary was crossed, see `testrunner-overview` |
+| `No tests matching pattern` | `-Dtest`/`-Dit.test` without the matching `failIfNoSpecifiedTests=false` |

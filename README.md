@@ -42,6 +42,7 @@ testrunner-test-support/                test doubles (src/test, test-jar): in-me
 config/                                 development configurations
 testdata/                               TestScripts, Example Instances, profiles from the PoC (r4, r5, samples)
 docs/                                   architecture, decisions, configuration, logging, validation, FHIR versions
+.claude/skills/                         condensed project knowledge for coding agents (Claude Code skills)
 ```
 
 ## Documentation
@@ -52,3 +53,7 @@ docs/                                   architecture, decisions, configuration, 
 * [Logging](docs/logging.md) – run log, request ids, communication log
 * [Validation](docs/validation.md) – validator setup, process and server mode, silent-pass protection, the negative control
 * [Decisions (ADRs)](docs/adr/README.md)
+
+Condensed versions for coding agents live in [`.claude/skills/`](.claude/skills) (Claude Code project skills,
+start with `testrunner-overview`). They summarize the documents above; when a behaviour changes, update the
+document, the ADR and the matching skill together.
