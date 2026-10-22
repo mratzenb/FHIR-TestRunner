@@ -90,10 +90,12 @@ A FHIR version is a leaf module next to its siblings; adding R6 adds one box and
 | `testrunner-validation-cli` | `ProfileValidator`s running the HL7 Validator CLI: one process per validation, or long-running validator servers (`validation.mode`) | core |
 | `testrunner-spring-boot-autoconfigure` | The pre-defined Spring configuration: binds `testrunner.*` to `RunConfiguration` and wires a `TestRunner` | core, Spring Boot (validation-cli optional) |
 | `testrunner-app` | Spring Boot CLI application, the executable jar, end-to-end ITs and architecture rules | all of the above |
-| `testrunner-test-support` | In-memory FHIR server, fake validator jar, access to `testdata/` | Jackson only, so every module can use it in tests |
+| `testrunner-test-support` | Test doubles: in-memory FHIR server, fake validator jar, access to `testdata/`. Used in test scope only (enforced) | Jackson, Jetty – not core, so every module, core included, can use it in tests |
 
 The boundaries are enforced by `ArchitectureTest` (ArchUnit): the core must not use Spring, HAPI or any adapter;
-the version modules must not know each other; `fhir-hapi` must not use version-specific HAPI packages.
+the version modules must not know each other; `fhir-hapi` must not use version-specific HAPI packages; no code,
+including the test doubles, uses JDK-specific or internal APIs (`com.sun.*`, `sun.*`, `jdk.internal.*`). The
+enforcer plugin keeps `testrunner-test-support` in test scope.
 
 ## Runtime view
 
