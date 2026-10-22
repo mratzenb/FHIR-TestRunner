@@ -88,6 +88,8 @@
                 <groupId>${project.groupId}</groupId>
                 <artifactId>testrunner-test-support</artifactId>
                 <version>${project.version}</version>
+                <type>test-jar</type>
+                <classifier>tests</classifier>
             </dependency>
 
             <dependency>
@@ -137,6 +139,9 @@
                         <parameters>true</parameters>
                         <compilerArgs>
                             <arg>-Xlint:all,-processing,-serial</arg>
+                            <!-- only Java SE APIs, no com.sun.*, sun.* or jdk.* (main and test code; ADR-0010) -->
+                            <arg>--limit-modules</arg>
+                            <arg>java.se</arg>
                         </compilerArgs>
                     </configuration>
                 </plugin>

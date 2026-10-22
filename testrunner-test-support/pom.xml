@@ -13,10 +13,13 @@
     <artifactId>testrunner-test-support</artifactId>
     <name>TestRunner :: Test support</name>
     <description>Test doubles shared by the unit and integration tests: an in-memory FHIR server, a fake
-        validator CLI and access to the sample TestScripts. Deliberately independent of testrunner-core so
-        that every module, including core, can use it.</description>
+        validator CLI and access to the sample TestScripts. Test code only (src/test/java), published as test-jar
+        (classifier tests). Deliberately independent of testrunner-core so that every module, including core, can
+        use it.</description>
 
     <dependencies>
+        <!-- Compile scope on purpose: the test-jar's users get these transitively (in their test scope);
+             test-scoped dependencies would not be passed on. -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
@@ -27,4 +30,22 @@
             <artifactId>jetty-server</artifactId>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <!-- the main jar stays empty (manifest only); Maven requires it as the module's main file -->
+                        <id>test-jar</id>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

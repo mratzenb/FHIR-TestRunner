@@ -105,8 +105,8 @@ It is still a cardinality rule, not a terminology rule (terminology is off by de
 * `ValidatorCliProfileValidatorTest` and `EndToEndIT` use `FakeValidatorJar` (`testrunner-test-support`): a jar
   started with `java -jar` like the real validator, that writes OperationOutcomes (valid, invalid, or none at all to
   simulate a broken validator). This tests process handling, arguments and `-output` parsing without the 200 MB jar.
-  The jar contains only a manifest; it runs the class `FakeValidator` of `testrunner-test-support` from the test
-  class path ([ADR-0009](adr/0009-testing.md)).
+  The jar contains only a manifest; it runs the test class `FakeValidator` of `testrunner-test-support` from the
+  test class path ([ADR-0009](adr/0009-testing.md)).
 * `ValidatorServerProfileValidatorTest` runs the fake validator as a server process: one server per version and
   folder, shared by parallel validations, crash and start-up failures with and without fallback, start-up timeout,
   stop on close. `EndToEndIT.serverModeValidatesWithOneServerAndStopsItWithTheApplication` does the same through the
