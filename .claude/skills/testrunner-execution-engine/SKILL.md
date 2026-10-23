@@ -55,6 +55,16 @@ and wrong", `TestScriptException` for "cannot be evaluated".
 * Body from `sourceId` (fixture or kept response). `responseId` keeps the response for later `sourceId`/variables.
 * Every text value of an operation or assertion may contain `${variable}` (`withValues`), as in the PoC.
 
+**Adding an operation type** – only needed for a default method or URL; an unknown code already runs as `OTHER`
+with explicit `method` and `url`/`params`. A constant in `OperationType` → its R4 and R5 codes in `fromCode` → a
+case in `defaultMethod()` (exhaustive switch, will not compile without it) → `RequestFactory`, only where the type
+differs: `check` (forbidden `targetId`/`params`), `body` (may send without `sourceId`, like search/operation/
+capabilities), `url` (fixed URL like transaction/batch/capabilities, suffix like history), `targetUrl` (suffix after
+`[type]/[id]`, like vread/history), `needsResource` (needs a resource type with `params`) → `TestScriptMapper`
+needs nothing (it calls `fromCode`) → tests in `TestScriptExecutionTest.Operations` asserting
+`server.requestLines()`, extending `InMemoryFhirServer` if it must answer the new request; if a sample uses it,
+`R4SupportTest.mapsEveryOperationTypeOfTheSampleScript` and `EndToEndIT`.
+
 ## Assertions (`model.Assertion`, sealed `model.Check`, `AssertionEvaluator`)
 
 One `Check` per assertion (FHIR invariants tst-5/tst-6, enforced when mapping): `ContentType`, `Expression`

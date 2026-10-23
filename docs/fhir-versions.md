@@ -135,7 +135,8 @@ silently.
 
 * HAPI already knows every element, type and code list of each version; the strict parser gives version
   detection and structural validation for free.
-* R6 support arrives as `hapi-fhir-structures-r6`; nothing in this design has to be learnt again.
+* R6 support will arrive as `hapi-fhir-structures-r6` (not in HAPI FHIR 8.12.1, the version used now); nothing in
+  this design has to be learnt again.
 * The alternative – Jackson mapping per version – would mean maintaining the TestScript schema of every version
   by hand, the duplication the brief asks to avoid.
 
@@ -149,6 +150,10 @@ property, and the sample TestScripts rely on it. `HapiFhirPathEvaluator` evaluat
 `.type().name`, which yields the same value.
 
 ## Adding R6
+
+This needs a HAPI FHIR release with `hapi-fhir-structures-r6` and `FhirContext.forR6()`. HAPI FHIR 8.12.1 has
+neither – not even `FhirVersionEnum.R6` – so first raise `hapi-fhir.version` in the root `pom.xml` to a release
+whose BOM lists `hapi-fhir-structures-r6`, and check that `mvn verify` still passes. Then:
 
 1. Create `testrunner-fhir-r6` by copying `testrunner-fhir-r5` (pom + two classes + one service file):
 
