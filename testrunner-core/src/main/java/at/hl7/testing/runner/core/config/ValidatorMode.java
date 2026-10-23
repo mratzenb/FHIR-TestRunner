@@ -7,7 +7,7 @@ public enum ValidatorMode {
     PROCESS,
 
     /**
-     * One long-running validator server ({@code validator_cli.jar server}) per FHIR version and profiles folder,
+     * One long-running validator server ({@code validator_cli.jar server}) per FHIR version, profiles folder and IGs,
      * started on first use and stopped with the application. Packages are loaded once.
      */
     SERVER

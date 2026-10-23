@@ -15,19 +15,63 @@ HL7 FHIR Validator CLI in one of two modes: one process per validation (default,
 * The validator is started with the Java running the runner (≥ 25 here, the validator needs ≥ 17);
   `testrunner.validation.java-executable` overrides it.
 * On its first run the validator downloads the FHIR core packages into `~/.fhir/packages`; afterwards it works offline.
-* The suite's `Profiles/` folder is always passed as `-ig`; packages (e.g. `hl7.at.fhir.core.r4#2.0.0`) can be added
-  with `testrunner.validation.igs`.
+* The definitions a profile needs come from the suite (see [Where the profiles come from](#where-the-profiles-come-from)).
 * The FHIR version (`-version 4.0` / `5.0`) is the version of the TestScript – the PoC's `validation.fhirVersion`
   setting and the bugs from forgetting it are gone.
 
 At start-up, `ValidatorCheck` warns if validation is enabled but the jar or java is missing (both modes). The first
 lines of every run log name the mode in use (`Profile validation: …`).
 
+## Where the profiles come from
+
+A TestScript names a profile only by its canonical URL (`TestScript.profile`); it does not say which IG package
+and version define it, and an R4 TestScript has no element for that. The validator, however, can only validate
+against definitions it has loaded with `-ig`. So the definitions are configured **per suite**, since a suite is
+typically one IG:
+
+```yaml
+testrunner:
+  suites:
+    - name: at-core-r4
+      base-dir: testdata/r4
+      fhir-version: R4                    # required when igs is set: packages are bound to one FHIR version
+      profiles-dir: Profiles              # default; passed as -ig if the folder exists
+      igs: ["hl7.at.fhir.core.r4#2.0.0"]  # further -ig: package ids, folders or files
+```
+
+Each validation of a suite's TestScripts gets `-ig <profiles-dir>` followed by one `-ig` per `igs` entry. Suites
+do not see each other's IGs, so two suites can use different IGs or versions of one IG. An `igs` entry can be:
+
+| Entry | Resolved by the validator | Network |
+|---|---|---|
+| package id with version, `hl7.at.fhir.core.r4#2.0.0` | package cache `~/.fhir/packages`, else downloaded from the package registry (packages.fhir.org) together with its dependencies | first use only |
+| package id with `#dev` | package cache: a locally built IG (the IG Publisher puts it there); never published | no |
+| package id with `#current` | latest CI build (build.fhir.org) | yes |
+| package id without version | latest version in the cache, else the latest published one; avoid, the result changes when a new version is cached | maybe |
+| folder or file | read as it is (StructureDefinitions, ValueSets, …) | no |
+| URL of an IG | downloaded | yes |
+
+So the definitions do not need to be local beforehand: a package id is downloaded once into `~/.fhir/packages` and
+used offline afterwards. Only the `Profiles/` folder, folders/files and `#dev` packages must exist locally. A package
+that cannot be resolved makes the validator fail to start, which is an `error`, never a pass.
+
+**The canonical URLs must match.** The validator looks the profile up by the canonical URL in the TestScript, so
+the package has to define exactly that URL. Example: the AT Core R4 TestScripts reference
+`https://fhir.hl7.at/core/r4/StructureDefinition/at-core-patient` (AT Core 2.1.0), but the latest *published*
+package `hl7.at.fhir.core.r4#2.0.0` uses `http://hl7.at/fhir/HL7ATCoreProfiles/4.0.1/StructureDefinition/at-core-patient`.
+With only that package, the validator tries to fetch the URL from the web and the assertion is an `error`. Until
+2.1.0 is published, these TestScripts need the `Profiles/` copies or the locally built `hl7.at.fhir.core.r4#dev`
+(validated with the latter: the negative control fails with the socialSecurityNumber error, as it should).
+
+**Server mode:** a server is bound to the `-ig` arguments it was started with, so there is one server per FHIR
+version, profiles folder and IGs – in practice one per suite and FHIR version. Suites with the same folder and IGs
+share a server.
+
 ## Process mode and server mode
 
 | | `mode: process` (default) | `mode: server` |
 |---|---|---|
-| How | `java -jar validator_cli.jar <file> ... -output <file>` per validation | `java -jar validator_cli.jar server <port> ...` once per FHIR version and profiles folder; `POST /validateResource` per validation |
+| How | `java -jar validator_cli.jar <file> ... -output <file>` per validation | `java -jar validator_cli.jar server <port> ...` once per FHIR version, profiles folder and IGs; `POST /validateResource` per validation |
 | Cost per validation | 5–15 s (loads packages every time) | 0.1–0.5 s after a start-up of 5–7 s |
 | AT Core R4 suite, parallelism 1 / 3 (measured, validator 7.0.2) | 35.2 s / 18.1 s | 6.2 s / 6.6 s |
 | Parallel validations | Run in parallel, one JVM each | Queue on the server (one request at a time) |
@@ -123,6 +167,7 @@ It is still a cardinality rule, not a terminology rule (terminology is off by de
 
 * **Terminology** with the default `terminology-server: n/a`. Set it to `https://tx.fhir.org/r4` (or an
   Austrian terminology server) to check codes; expect slower and network-dependent runs.
-* **Local profile drift** (PoC notes, section 6): the `Profiles/` folders are hand-maintained copies. Prefer
-  `igs: [hl7.at.fhir.core.r4#<version>]` to validate against the published package; confirm the version first, it
+* **Local profile drift** (PoC notes, section 6): the `Profiles/` folders are hand-maintained copies. Prefer the
+  published package in the suite's `igs` (`hl7.at.fhir.core.r4#<version>`) once it defines the canonical URLs the
+  TestScripts use (see [Where the profiles come from](#where-the-profiles-come-from)); confirm the version first, it
   changes what every profile assertion means.

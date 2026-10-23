@@ -10,6 +10,8 @@ testrunner:
       base-dir: testdata/samples   # R4 and R5 mixed: the version is detected per TestScript
     - name: at-core-r4
       base-dir: testdata/r4
+      # fhir-version: R4             # required with igs
+      # igs: [ "hl7.at.fhir.core.r4#dev" ]  # IG package instead of / in addition to Profiles/, see docs/validation.md
     - name: at-core-r5
       base-dir: testdata/r5
       fhir-server:
@@ -18,13 +20,12 @@ testrunner:
     parallelism: 4
   validation:
     validator-jar: ${VALIDATOR_JAR:validator_cli.jar}
-    mode: server               # one validator server per FHIR version and profiles folder (3 here)
+    mode: server               # one validator server per FHIR version, profiles folder and IGs (3 here)
     jvm-arguments: [-Xmx2g]
     server:
       startup-timeout: 5m
       fallback-to-process: true
     timeout: 3m
-    igs: []          # e.g. [ "hl7.at.fhir.core.r4#2.0.0" ] to validate against the published package
   reporting:
     output-dir: target/testrunner-results
     formats: [junit, summary, json]

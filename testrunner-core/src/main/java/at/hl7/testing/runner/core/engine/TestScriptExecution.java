@@ -49,14 +49,14 @@ final class TestScriptExecution {
     private final FixtureManager fixtures;
 
     TestScriptExecution(LoadedTestScript loaded, FhirHttpClient http, String fhirBase, ProfileValidator validator,
-                        Path profilesDir) {
+                        Path profilesDir, List<String> igs) {
         this.loaded = loaded;
         this.testScript = loaded.testScript();
         this.http = http;
         this.variables = new VariableResolver(testScript.variables(), state, loaded.support().fhirPath());
         this.requests = new RequestFactory(fhirBase, state);
         this.assertions = new AssertionEvaluator(state, loaded.support().fhirPath(), validator, testScript.profiles(),
-                testScript.fhirVersion(), profilesDir);
+                testScript.fhirVersion(), profilesDir, igs);
         this.fixtures = new FixtureManager(state, http, fhirBase);
     }
 

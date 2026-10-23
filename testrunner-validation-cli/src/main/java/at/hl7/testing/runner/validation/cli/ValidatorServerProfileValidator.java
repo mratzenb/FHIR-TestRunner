@@ -21,7 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>The validator loads the FHIR core packages and IGs once per server instead of once per validation, which turns
  * 7–15 s per validation into a few milliseconds after start-up. A server is bound to the settings it was started
- * with, so there is one per FHIR version and profiles folder, started on first use and stopped by {@link #close()}
+ * with, so there is one per FHIR version, profiles folder and IGs (in practice one per suite and FHIR version),
+ * started on first use and stopped by {@link #close()}
  * (a JVM shutdown hook makes sure no validator outlives the runner).
  *
  * <p>When a server cannot be started or stops by itself, the validations it should have done fall back to
@@ -62,7 +63,7 @@ public final class ValidatorServerProfileValidator implements ProfileValidator, 
 
     @Override
     public String description() {
-        return "HL7 validator in server mode, one server per FHIR version and profiles folder ("
+        return "HL7 validator in server mode, one server per FHIR version, profiles folder and IGs ("
                 + config.validatorJar() + "; fallback to one process per validation: "
                 + (config.server().fallbackToProcess() ? "on" : "off") + ")";
     }
@@ -81,9 +82,9 @@ public final class ValidatorServerProfileValidator implements ProfileValidator, 
         if (!problems.isEmpty()) {
             throw new ValidatorUnavailableException(String.join("; ", problems));
         }
-        Key key = new Key(request.fhirVersion(), normalize(request.profilesDir()));
+        Key key = new Key(request.fhirVersion(), normalize(request.profilesDir()), request.igs());
         ValidatorServer server = servers.computeIfAbsent(key,
-                k -> new ValidatorServer(config, k.version(), k.profilesDir(), http));
+                k -> new ValidatorServer(config, k.version(), k.profilesDir(), k.igs(), http));
         try {
             return server.validate(request);
         } catch (ValidatorServer.ServerFailedException e) {
@@ -127,6 +128,6 @@ public final class ValidatorServerProfileValidator implements ProfileValidator, 
     }
 
     /** What a server is bound to; validations with the same key share a server. */
-    private record Key(FhirVersion version, Path profilesDir) {
+    private record Key(FhirVersion version, Path profilesDir, List<String> igs) {
     }
 }

@@ -18,15 +18,13 @@ import java.util.List;
  * @param timeout             maximum time of one validation, default 5 minutes
  * @param validateTestScripts whether every TestScript is validated against the base specification before it runs,
  *                            default true
- * @param igs                 further {@code -ig} arguments: package ids ({@code hl7.at.fhir.core.r4#2.0.0}), folders
- *                            or files; the profiles folder of the suite is always passed
- * @param extraArguments      further validator arguments passed as they are, in both modes
+ * @param extraArguments      further validator arguments passed as they are, in both modes; the IGs to load are set
+ *                            per suite ({@link SuiteConfig#profilesDir()}, {@link SuiteConfig#igs()})
  * @param server              settings of the server mode
  */
 public record ValidationConfig(Boolean enabled, ValidatorMode mode, Path validatorJar, Path javaExecutable,
                                List<String> jvmArguments, String terminologyServer, String locale, Duration timeout,
-                               Boolean validateTestScripts, List<String> igs, List<String> extraArguments,
-                               ServerModeConfig server) {
+                               Boolean validateTestScripts, List<String> extraArguments, ServerModeConfig server) {
 
     public ValidationConfig {
         enabled = enabled == null || enabled;
@@ -36,7 +34,6 @@ public record ValidationConfig(Boolean enabled, ValidatorMode mode, Path validat
         locale = locale == null || locale.isBlank() ? "en" : locale;
         timeout = timeout == null ? Duration.ofMinutes(5) : timeout;
         validateTestScripts = validateTestScripts == null || validateTestScripts;
-        igs = igs == null ? List.of() : List.copyOf(igs);
         extraArguments = extraArguments == null ? List.of() : List.copyOf(extraArguments);
         server = server == null ? ServerModeConfig.defaults() : server;
     }
@@ -48,29 +45,29 @@ public record ValidationConfig(Boolean enabled, ValidatorMode mode, Path validat
 
     /** Validation with the given validator jar and otherwise the defaults. */
     public static ValidationConfig enabled(Path validatorJar) {
-        return new ValidationConfig(true, null, validatorJar, null, null, null, null, null, null, null, null, null);
+        return new ValidationConfig(true, null, validatorJar, null, null, null, null, null, null, null, null);
     }
 
     public static ValidationConfig disabled() {
-        return new ValidationConfig(false, null, null, null, null, null, null, null, false, null, null, null);
+        return new ValidationConfig(false, null, null, null, null, null, null, null, false, null, null);
     }
 
     /** A copy with another mode. */
     public ValidationConfig withMode(ValidatorMode newMode) {
         return new ValidationConfig(enabled, newMode, validatorJar, javaExecutable, jvmArguments, terminologyServer,
-                locale, timeout, validateTestScripts, igs, extraArguments, server);
+                locale, timeout, validateTestScripts, extraArguments, server);
     }
 
     /** A copy with other server settings. */
     public ValidationConfig withServer(ServerModeConfig newServer) {
         return new ValidationConfig(enabled, mode, validatorJar, javaExecutable, jvmArguments, terminologyServer,
-                locale, timeout, validateTestScripts, igs, extraArguments, newServer);
+                locale, timeout, validateTestScripts, extraArguments, newServer);
     }
 
     /** A copy with other extra arguments. */
     public ValidationConfig withExtraArguments(List<String> newExtraArguments) {
         return new ValidationConfig(enabled, mode, validatorJar, javaExecutable, jvmArguments, terminologyServer,
-                locale, timeout, validateTestScripts, igs, newExtraArguments, server);
+                locale, timeout, validateTestScripts, newExtraArguments, server);
     }
 
     /** The java executable to start the validator with. */

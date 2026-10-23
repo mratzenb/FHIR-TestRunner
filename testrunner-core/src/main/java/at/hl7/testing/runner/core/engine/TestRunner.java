@@ -216,7 +216,7 @@ public final class TestRunner {
                 .collect(LinkedHashMap::new, (m, e) -> m.put(e.getKey(), List.of(e.getValue())), Map::putAll));
         FhirHttpClient http = new FhirHttpClient(transport, run.requestCounter(), communication, defaultHeaders);
         List<PhaseResult> phases = new TestScriptExecution(loaded, http, server.base(), validator,
-                suite.resolvedProfilesDir()).run();
+                suite.resolvedProfilesDir(), suite.igs()).run();
         return result(index, loaded, started, phases);
     }
 
@@ -226,10 +226,11 @@ public final class TestRunner {
             log.debug("TestScript validation skipped (disabled)");
             return List.of();
         }
-        // the suite's profiles folder is passed although a TestScript needs none of it: in server mode, validations
-        // with the same FHIR version and folder share one validator server
+        // the suite's profiles folder and IGs are passed although a TestScript needs none of them: in server mode,
+        // validations with the same FHIR version, folder and IGs share one validator server
+        var suite = loaded.source().suite();
         ValidationResult result = validator.validate(new ValidationRequest(loaded.original(),
-                loaded.testScript().fhirVersion(), null, loaded.source().suite().resolvedProfilesDir()));
+                loaded.testScript().fhirVersion(), null, suite.resolvedProfilesDir(), suite.igs()));
         if (!result.isValid()) {
             return List.of("TestScript is not valid FHIR " + loaded.testScript().fhirVersion() + ":\n"
                     + ValidationResult.describe(result.errors()));

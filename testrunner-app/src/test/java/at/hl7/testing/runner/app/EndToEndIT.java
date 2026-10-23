@@ -244,13 +244,16 @@ class EndToEndIT {
                 "testrunner.validation.jvm-arguments=-DFAKE_VALIDATOR_LOG=" + calls,
                 "testrunner.execution.parallelism=2",
                 "testrunner.suites[0].base-dir=" + SampleData.r4(),
+                "testrunner.suites[0].fhir-version=R4",
+                "testrunner.suites[0].igs=hl7.at.fhir.core.r4#2.0.0",
                 "testrunner.suites[0].include[0]=TestScript-testscript-patient-create-at-core.json",
                 "testrunner.suites[0].include[1]=TestScript-testscript-patient-update-at-core.json");
 
         assertThat(run.testScripts()).hasSize(2).allMatch(r -> r.outcome() == Outcome.PASS);
         List<String> lines = Files.readAllLines(calls);
-        // two TestScript validations + two validateProfileId assertions, all by one server
-        assertThat(lines).filteredOn(l -> l.startsWith("start")).hasSize(1);
+        // two TestScript validations + two validateProfileId assertions, all by one server with the suite's IGs
+        assertThat(lines).filteredOn(l -> l.startsWith("start")).singleElement().asString()
+                .contains("-ig " + SampleData.r4().resolve("Profiles").toAbsolutePath(), "-ig hl7.at.fhir.core.r4#2.0.0");
         assertThat(lines).filteredOn(l -> l.startsWith("validate")).hasSize(4);
         assertThat(lines).filteredOn(l -> l.startsWith("process")).isEmpty();
         assertThat(run.runDirectory().resolve("testrunner.log")).content()

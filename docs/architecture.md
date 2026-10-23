@@ -218,7 +218,8 @@ order. Variables are evaluated each time a `${name}` placeholder is used, so the
 
 * **IG download.** The PoC scraped `artifacts.html` of an IG. The cleaner replacement is to consume the IG's
   NPM package (`package.tgz`) as a `TestScriptSource`; the validator can already use packages via
-  `testrunner.validation.igs`. Not implemented in this PoC.
+  `testrunner.suites[n].igs`. A suite read from a package could then take its `igs` from the package's
+  dependencies (`package.json`) instead of the configuration. Not implemented in this PoC.
 * **Not supported assertions**: `minimumId`, `navigationLinks`, `requestMethod`/`requestURL` (need a test engine
   acting as server), `manualEval`; reported as `error`, not silently ignored. `metadata.capability` checks
   (skip if the server lacks a capability) are not implemented either, as in the PoC.
