@@ -47,6 +47,8 @@ testrunner:
       test-scripts-dir: Test_Scripts       # default
       example-instances-dir: Example_Instances  # default; resources behind fixture.resource.reference
       profiles-dir: Profiles               # default; passed to the validator as -ig
+      igs: []                              # further -ig for this suite: package ids (hl7.at.fhir.core.r4#2.0.0),
+                                           # folders, files; needs a pinned fhir-version; see validation.md
       include: ["*.json", "*.xml"]         # glob patterns relative to test-scripts-dir; default all JSON/XML
       fhir-server:                         # optional: own server for this suite (e.g. an R5 server)
         base-url: http://localhost:8081/fhir
@@ -70,7 +72,6 @@ testrunner:
     locale: en                             # language of the validator messages
     timeout: 5m                            # per validation; in server mode consider 1m, see validation.md
     validate-test-scripts: true            # validate each TestScript against its FHIR version before running it
-    igs: []                                # further -ig: package ids (hl7.at.fhir.core.r4#2.0.0), folders, files
     extra-arguments: []                    # passed to the validator as they are (both modes)
     server:                                # only for mode: server
       startup-timeout: 5m                  # until a server must accept connections

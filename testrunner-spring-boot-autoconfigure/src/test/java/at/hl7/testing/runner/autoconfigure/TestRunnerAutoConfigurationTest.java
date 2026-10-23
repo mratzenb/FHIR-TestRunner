@@ -39,12 +39,12 @@ class TestRunnerAutoConfigurationTest {
                 "testrunner.suites[0].base-dir=testdata/r4",
                 "testrunner.suites[0].fhir-version=R4",
                 "testrunner.suites[0].include=TestScript-*.json",
+                "testrunner.suites[0].igs=hl7.at.fhir.core.r4#2.0.0",
                 "testrunner.suites[1].base-dir=testdata/r5",
                 "testrunner.suites[1].fhir-server.base-url=http://r5/fhir",
                 "testrunner.execution.parallelism=4",
                 "testrunner.http.request-timeout=2m",
                 "testrunner.validation.validator-jar=/opt/validator_cli.jar",
-                "testrunner.validation.igs=hl7.at.fhir.core.r4#2.0.0",
                 "testrunner.reporting.formats=junit,json",
                 "testrunner.reporting.output-dir=/tmp/results")
                 .run(context -> {
@@ -55,13 +55,14 @@ class TestRunnerAutoConfigurationTest {
                     assertThat(config.suites().getFirst().baseDir()).isEqualTo(Path.of("testdata/r4"));
                     assertThat(config.suites().getFirst().pinnedFhirVersion()).contains(FhirVersion.R4);
                     assertThat(config.suites().getFirst().include()).containsExactly("TestScript-*.json");
+                    assertThat(config.suites().getFirst().igs()).containsExactly("hl7.at.fhir.core.r4#2.0.0");
                     assertThat(config.suites().get(1).pinnedFhirVersion()).isEmpty();
+                    assertThat(config.suites().get(1).igs()).isEmpty();
                     assertThat(config.fhirServerOf(config.suites().get(1)).base()).isEqualTo("http://r5/fhir");
                     assertThat(config.execution().parallelism()).isEqualTo(4);
                     assertThat(config.http().requestTimeout()).isEqualTo(Duration.ofMinutes(2));
                     assertThat(config.http().connectTimeout()).isEqualTo(Duration.ofSeconds(10));
                     assertThat(config.validation().validatorJar()).isEqualTo(Path.of("/opt/validator_cli.jar"));
-                    assertThat(config.validation().igs()).containsExactly("hl7.at.fhir.core.r4#2.0.0");
                     assertThat(config.validation().terminologyServer()).isEqualTo("n/a");
                     assertThat(config.reporting().formats()).containsExactly("junit", "json");
                     assertThat(config.reporting().outputDir()).isEqualTo(Path.of("/tmp/results"));
@@ -93,6 +94,14 @@ class TestRunnerAutoConfigurationTest {
                             .isEqualTo("ValidatorServerProfileValidator");
                     assertThat(context.getBean(ProfileValidator.class)).isInstanceOf(AutoCloseable.class);
                 });
+    }
+
+    @Test
+    void theFormerRunWideIgsAreRejectedInsteadOfIgnored() {
+        contexts.withPropertyValues("testrunner.validation.igs=hl7.at.fhir.core.r4#2.0.0")
+                .run(context -> assertThat(context).hasFailed().getFailure()
+                        .rootCause().hasMessageContaining("testrunner.validation.igs")
+                        .hasMessageContaining("testrunner.suites[n].igs"));
     }
 
     @Test

@@ -39,9 +39,10 @@ final class AssertionEvaluator {
     private final Map<String, String> profiles;
     private final FhirVersion fhirVersion;
     private final Path profilesDir;
+    private final List<String> igs;
 
     AssertionEvaluator(ExecutionState state, FhirPathEvaluator fhirPath, ProfileValidator validator,
-                       List<ProfileDeclaration> profiles, FhirVersion fhirVersion, Path profilesDir) {
+                       List<ProfileDeclaration> profiles, FhirVersion fhirVersion, Path profilesDir, List<String> igs) {
         this.state = state;
         this.fhirPath = fhirPath;
         this.validator = validator;
@@ -49,6 +50,7 @@ final class AssertionEvaluator {
                 .collect(Collectors.toMap(ProfileDeclaration::id, ProfileDeclaration::canonical, (a, b) -> a));
         this.fhirVersion = fhirVersion;
         this.profilesDir = profilesDir;
+        this.igs = igs;
     }
 
     /**
@@ -174,7 +176,8 @@ final class AssertionEvaluator {
             throw new AssertionFailure("The body is no FHIR resource and cannot be validated against " + canonical);
         }
         log.info("Validating {} against profile {}", describe(source), canonical);
-        ValidationResult result = validator.validate(new ValidationRequest(body, fhirVersion, canonical, profilesDir));
+        ValidationResult result = validator.validate(new ValidationRequest(body, fhirVersion, canonical, profilesDir,
+                igs));
         if (!result.isValid()) {
             throw new AssertionFailure("Not conformant to " + canonical + ":\n" + ValidationResult.describe(result.errors()));
         }

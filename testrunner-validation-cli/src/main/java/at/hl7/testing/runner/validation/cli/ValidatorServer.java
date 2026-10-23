@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * One HL7 validator running as HTTP server ({@code java -jar validator_cli.jar server <port> ...}) for one FHIR
- * version and one profiles folder.
+ * version, one profiles folder and one list of IGs.
  *
  * <p>Started on first use. Once it has failed – it could not start, or it stopped by itself – it stays failed and
  * every call throws {@link ServerFailedException}; it is not restarted, so a validator that crashes on some input does
@@ -45,16 +45,18 @@ final class ValidatorServer {
     private final ValidationConfig config;
     private final FhirVersion version;
     private final Path profilesDir;
+    private final List<String> igs;
     private final HttpClient http;
     private final Deque<String> output = new ArrayDeque<>();
     private Process process;
     private URI base;
     private String failure;
 
-    ValidatorServer(ValidationConfig config, FhirVersion version, Path profilesDir, HttpClient http) {
+    ValidatorServer(ValidationConfig config, FhirVersion version, Path profilesDir, List<String> igs, HttpClient http) {
         this.config = config;
         this.version = version;
         this.profilesDir = profilesDir;
+        this.igs = igs;
         this.http = http;
     }
 
@@ -109,8 +111,8 @@ final class ValidatorServer {
         for (int attempt = 1; ; attempt++) {
             int port = freePort();
             List<String> command = command(port);
-            log.info("Starting the validator server for FHIR {} (profiles {}) on port {}", version,
-                    profilesDir == null ? "-" : profilesDir, port);
+            log.info("Starting the validator server for FHIR {} (profiles {}, IGs {}) on port {}", version,
+                    profilesDir == null ? "-" : profilesDir, igs.isEmpty() ? "-" : igs, port);
             log.debug("Validator server command: {}", String.join(" ", command));
             long started = System.nanoTime();
             try {
@@ -183,7 +185,7 @@ final class ValidatorServer {
         List<String> command = ValidatorArguments.launcher(config);
         command.add("server");
         command.add(String.valueOf(port));
-        command.addAll(ValidatorArguments.engine(config, version, profilesDir));
+        command.addAll(ValidatorArguments.engine(config, version, profilesDir, igs));
         return command;
     }
 

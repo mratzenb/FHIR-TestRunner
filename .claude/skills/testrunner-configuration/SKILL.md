@@ -23,6 +23,8 @@ testrunner:
       test-scripts-dir: Test_Scripts
       example-instances-dir: Example_Instances
       profiles-dir: Profiles                 # passed to the validator as -ig
+      igs: []                                # further -ig of this suite (package ids, folders, files); needs a
+                                             # pinned fhir-version (problems()), see testrunner-validation
       include: ["*.json", "*.xml"]           # globs relative to test-scripts-dir
       fhir-server: {base-url: }              # optional own server per suite
   http: {connect-timeout: 10s, request-timeout: 60s, follow-redirects: true}
@@ -36,8 +38,7 @@ testrunner:
     terminology-server: n/a
     locale: en
     timeout: 5m
-    validate-test-scripts: true
-    igs: []
+    validate-test-scripts: true              # (validation.igs moved to suites[n].igs; the old key fails the start)
     extra-arguments: []
     server: {startup-timeout: 5m, fallback-to-process: true}
   reporting:

@@ -14,7 +14,9 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.InvalidConfigurationPropertyValueException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -50,7 +52,16 @@ public class TestRunnerAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public RunConfiguration testRunnerConfiguration(Environment environment) {
-        return Binder.get(environment).bind(PREFIX, RunConfiguration.class)
+        Binder binder = Binder.get(environment);
+        // the binder ignores unknown properties; this one moved and would otherwise silently stop loading the IGs
+        binder.bind(PREFIX + ".validation.igs", Bindable.listOf(String.class)).ifBound(igs -> {
+            if (!igs.isEmpty()) {
+                throw new InvalidConfigurationPropertyValueException(PREFIX + ".validation.igs", igs,
+                        "The IGs are set per suite now: move them to " + PREFIX + ".suites[n].igs and pin "
+                                + PREFIX + ".suites[n].fhir-version");
+            }
+        });
+        return binder.bind(PREFIX, RunConfiguration.class)
                 .orElseGet(() -> new RunConfiguration(null, null, null, null, null, null));
     }
 

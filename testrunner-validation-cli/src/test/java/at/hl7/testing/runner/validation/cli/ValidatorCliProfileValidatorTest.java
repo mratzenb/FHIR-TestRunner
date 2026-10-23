@@ -33,11 +33,11 @@ class ValidatorCliProfileValidatorTest {
 
     static ValidatorCliProfileValidator validator(Path validatorJar) {
         return new ValidatorCliProfileValidator(new ValidationConfig(true, null, validatorJar, null, null, null, null,
-                Duration.ofSeconds(60), true, List.of("hl7.at.fhir.core.r4#2.0.0"), null, null));
+                Duration.ofSeconds(60), true, null, null));
     }
 
     static ValidationRequest request(String json) {
-        return new ValidationRequest(Body.json(json), FhirVersion.R4, PROFILE, dir);
+        return new ValidationRequest(Body.json(json), FhirVersion.R4, PROFILE, dir, List.of("hl7.at.fhir.core.r4#2.0.0"));
     }
 
     @Test

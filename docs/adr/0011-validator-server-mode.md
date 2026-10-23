@@ -12,8 +12,8 @@ survive its failures.
 ## Decision
 * `testrunner.validation.mode`: `process` (default, ADR-0006) or `server`. Same jar, same `-version`, `-tx`,
   `-locale`, `-ig`, extra arguments (built by one class, `ValidatorArguments`), same OperationOutcome parsing.
-* `ValidatorServerProfileValidator` keeps one `ValidatorServer` per **FHIR version and profiles folder** – the
-  settings a server is started with. Servers start lazily on first use, bind to `127.0.0.1` on a free port, are
+* `ValidatorServerProfileValidator` keeps one `ValidatorServer` per **FHIR version, profiles folder and IGs**
+  (the suite's `igs`) – the settings a server is started with. Servers start lazily on first use, bind to `127.0.0.1` on a free port, are
   ready when the port accepts connections, and are stopped (`/stop`, then process termination) when the application
   closes; a JVM shutdown hook covers abnormal ends.
 * Failure handling, because "unforeseen problems" are expected:
@@ -28,8 +28,8 @@ survive its failures.
 
   Never a silent pass: every path ends in an OperationOutcome that was actually returned, or in an error.
 * `testrunner.validation.jvm-arguments` (both modes) sets e.g. `-Xmx` for the validator JVM.
-* The check of a TestScript itself (base specification, no profile) passes the suite's profiles folder although it
-  needs none of it, so that it lands on the same server as the `validateProfileId` assertions of that suite instead
+* The check of a TestScript itself (base specification, no profile) passes the suite's profiles folder and IGs
+  although it needs none of them, so that it lands on the same server as the `validateProfileId` assertions of that suite instead
   of starting a second one.
 * The default stays `process`. The development configurations in `config/` opt in to `server`, so the mode gets
   used before it becomes the default.
@@ -58,7 +58,7 @@ survive its failures.
 
   The server time is almost entirely its single start-up (5–7 s); a validation then takes 0.1–0.5 s. The gain
   grows with the number of validations: process mode pays the start-up per validation, server mode once.
-* A server uses ≈ 1 GB per FHIR version × profiles folder while the application runs.
+* A server uses ≈ 1 GB per FHIR version × profiles folder × IGs (in practice per suite) while the application runs.
 * The validator server handles requests one at a time; parallel TestScripts queue on it, which is still far faster
   than parallel processes (see the table: parallelism no longer shortens validation, ADR-0008).
 * **Known limitation – a hanging server is not detected as failed.** A validation that exceeds

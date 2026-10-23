@@ -38,6 +38,7 @@ class ValidatorServerProfileValidatorTest {
     static final String PROFILE = "https://fhir.hl7.at/core/r4/StructureDefinition/at-core-patient";
     static final String VALID = "{\"resourceType\":\"Patient\"}";
     static final String INVALID = "{\"resourceType\":\"Patient\",\"x\":\"" + FakeValidatorJar.INVALID_MARKER + "\"}";
+    static final List<String> IGS = List.of("hl7.at.fhir.core.r4#2.0.0");
 
     @TempDir
     static Path shared;
@@ -73,12 +74,15 @@ class ValidatorServerProfileValidatorTest {
         List<String> jvm = new ArrayList<>(List.of("-DFAKE_VALIDATOR_LOG=" + calls));
         jvm.addAll(List.of(jvmArguments));
         return new ValidationConfig(true, ValidatorMode.SERVER, validatorJar, null, jvm, null, null,
-                Duration.ofSeconds(30), true, List.of("hl7.at.fhir.core.r4#2.0.0"), null,
-                new ServerModeConfig(Duration.ofSeconds(30), fallback));
+                Duration.ofSeconds(30), true, null, new ServerModeConfig(Duration.ofSeconds(30), fallback));
     }
 
     ValidationRequest request(String json, FhirVersion version, Path profiles) {
-        return new ValidationRequest(Body.json(json), version, PROFILE, profiles);
+        return request(json, version, profiles, IGS);
+    }
+
+    ValidationRequest request(String json, FhirVersion version, Path profiles, List<String> igs) {
+        return new ValidationRequest(Body.json(json), version, PROFILE, profiles, igs);
     }
 
     List<String> calls(String prefix) throws IOException {
@@ -92,7 +96,7 @@ class ValidatorServerProfileValidatorTest {
 
         ValidationResult valid = validator.validate(request(VALID, FhirVersion.R4, profilesR4));
         ValidationResult invalid = validator.validate(request(INVALID, FhirVersion.R4, profilesR4));
-        validator.validate(new ValidationRequest(Body.json(VALID), FhirVersion.R4, null, profilesR4));
+        validator.validate(new ValidationRequest(Body.json(VALID), FhirVersion.R4, null, profilesR4, IGS));
 
         assertThat(valid.isValid()).isTrue();
         assertThat(valid.issues()).isEmpty();
@@ -108,16 +112,18 @@ class ValidatorServerProfileValidatorTest {
     }
 
     @Test
-    void separateServersPerFhirVersionAndProfilesFolder() throws Exception {
+    void separateServersPerFhirVersionProfilesFolderAndIgs() throws Exception {
         validator = new ValidatorServerProfileValidator(config(true, jar));
 
         validator.validate(request(VALID, FhirVersion.R4, profilesR4));
         validator.validate(request(VALID, FhirVersion.R5, profilesR4));
         validator.validate(request(VALID, FhirVersion.R4, profilesOther));
+        validator.validate(request(VALID, FhirVersion.R4, profilesR4, List.of()));
         validator.validate(request(VALID, FhirVersion.R4, profilesR4));
 
-        assertThat(validator.serverCount()).isEqualTo(3);
-        assertThat(calls("start")).hasSize(3).anyMatch(l -> l.contains("-version 5.0"));
+        assertThat(validator.serverCount()).isEqualTo(4);
+        assertThat(calls("start")).hasSize(4).anyMatch(l -> l.contains("-version 5.0"))
+                .anyMatch(l -> !l.contains("hl7.at.fhir.core.r4#2.0.0"));
     }
 
     @Test
@@ -220,7 +226,7 @@ class ValidatorServerProfileValidatorTest {
         validator = new ValidatorServerProfileValidator(config(true, jar));
 
         assertThatThrownBy(() -> validator.validate(new ValidationRequest(Body.json(VALID), FhirVersion.R4,
-                FakeValidatorJar.UNRESOLVABLE_PROFILE, profilesR4)))
+                FakeValidatorJar.UNRESOLVABLE_PROFILE, profilesR4, IGS)))
                 .isInstanceOf(ValidatorUnavailableException.class)
                 .hasMessageContaining("HTTP 500")
                 .hasMessageContaining("Unable to resolve profile");
@@ -256,7 +262,7 @@ class ValidatorServerProfileValidatorTest {
 
     @Test
     void serverCommandUsesTheSameEngineArgumentsAsTheProcess() {
-        ValidatorServer server = new ValidatorServer(config(true, jar), FhirVersion.R5, profilesR4, null);
+        ValidatorServer server = new ValidatorServer(config(true, jar), FhirVersion.R5, profilesR4, IGS, null);
 
         assertThat(String.join(" ", server.command(4711))).contains("-DFAKE_VALIDATOR_LOG=", "-jar " + jar.toAbsolutePath(),
                 "server 4711 -version 5.0 -tx n/a -locale en -ig " + profilesR4.toAbsolutePath(),

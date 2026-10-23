@@ -106,7 +106,7 @@ public final class ValidatorCliProfileValidator implements ProfileValidator {
     List<String> command(ValidationRequest request, Path resource, Path output) {
         List<String> command = ValidatorArguments.launcher(config);
         command.add(resource.toString());
-        command.addAll(ValidatorArguments.engine(config, request.fhirVersion(), request.profilesDir()));
+        command.addAll(ValidatorArguments.engine(config, request.fhirVersion(), request.profilesDir(), request.igs()));
         if (request.profile() != null) {
             command.add("-profile");
             command.add(request.profile());

@@ -60,7 +60,10 @@ public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> su
                         + " does not exist");
             }
             try {
-                suite.pinnedFhirVersion();
+                if (suite.pinnedFhirVersion().isEmpty() && !suite.igs().isEmpty()) {
+                    problems.add(prefix + ".igs is set, but fhir-version is AUTO: IG packages are bound to one FHIR"
+                            + " version, so set " + prefix + ".fhir-version (e.g. R4)");
+                }
             } catch (IllegalArgumentException e) {
                 problems.add(prefix + ".fhir-version: " + e.getMessage() + " or AUTO");
             }

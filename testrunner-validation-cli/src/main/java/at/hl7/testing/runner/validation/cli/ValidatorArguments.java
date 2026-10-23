@@ -24,8 +24,11 @@ final class ValidatorArguments {
         return command;
     }
 
-    /** The engine settings: version, terminology, locale, IGs (including the profiles folder) and extra arguments. */
-    static List<String> engine(ValidationConfig config, FhirVersion version, Path profilesDir) {
+    /**
+     * The engine settings: version, terminology, locale, the suite's IGs (its profiles folder, then its {@code igs})
+     * and extra arguments.
+     */
+    static List<String> engine(ValidationConfig config, FhirVersion version, Path profilesDir, List<String> igs) {
         List<String> arguments = new ArrayList<>(List.of(
                 "-version", version.majorMinor(),
                 "-tx", config.terminologyServer(),
@@ -34,7 +37,7 @@ final class ValidatorArguments {
             arguments.add("-ig");
             arguments.add(profilesDir.toAbsolutePath().toString());
         }
-        for (String ig : config.igs()) {
+        for (String ig : igs) {
             arguments.add("-ig");
             arguments.add(ig);
         }
