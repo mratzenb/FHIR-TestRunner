@@ -49,12 +49,15 @@ it). `ModelOnlyValidationSupport` keeps `hapi-fhir-validation` (24 MB for R5) of
 ## Recipes
 
 **Map a new TestScript element** (e.g. a new assert attribute) – it must exist in the HAPI structures of at least
-one version, since `ElementView` reads by FHIR element name (a non-FHIR element would need an extension): add it to the neutral model record → read it once in
-`TestScriptMapper` with `ElementView` (by name; absent in versions that lack it) → only if its *meaning* differs per
-version, add a dialect method with a default → tests: `R4SupportTest`/`R5SupportTest` map every sample of their
-version (`readsEverySample...Exactly`), plus engine tests (`testrunner-execution-engine`).
+one version, since `ElementView` reads by FHIR element name (a non-FHIR element would need an extension): add it to
+the neutral model record → read it once in `TestScriptMapper` with `ElementView` (by name; absent in versions that
+lack it) → only if its *meaning* differs per version, add a dialect method with a default → tests: every sample of
+a version is mapped exactly by `R4SupportTest.readsEverySampleR4TestScriptExactly` and
+`R5SupportTest.readsTheR5SamplesExactly`, plus engine tests (`testrunner-execution-engine`).
 
-**Add R6**:
+**Add R6** – only possible with a HAPI FHIR release that has `hapi-fhir-structures-r6` and `FhirContext.forR6()`;
+8.12.1 has neither (not even `FhirVersionEnum.R6`). So first raise `hapi-fhir.version` in the root POM to a release
+whose BOM lists `hapi-fhir-structures-r6` and check that `mvn verify` still passes. Then:
 1. Copy `testrunner-fhir-r5` to `testrunner-fhir-r6` (pom, `R6Support`, `R6Dialect`, service file); dependency
    `ca.uhn.hapi.fhir:hapi-fhir-structures-r6` (version from the HAPI BOM, none in the module POM).
 2. Read the R6 TestScript diff; for each changed *meaning* add a `TestScriptDialect` method (R4/R5 default) and
