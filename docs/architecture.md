@@ -273,5 +273,6 @@ configured server.
   0.1–0.5 s per validation, [ADR-0011](adr/0011-validator-server-mode.md)); process mode pays 5–15 s per validation.
   An in-process `org.hl7.fhir.validation` validator would remove the start-up too; it is a drop-in
   `ProfileValidator`, but ties the runner to the validator's Java and dependency versions (ADR-0006).
-* **TestScript-level dependencies.** Parallel TestScripts that share server data can interfere; scheduling hints
-  (e.g. "serial" groups) would be the next step, see [ADR-0008](adr/0008-parallel-execution.md).
+* **Finer scheduling.** Parallel TestScripts that share server data either use data of their own
+  (`${testrunner.testScriptId}`) or sit in a suite with `parallel: false`. Named serial groups (serial within, in
+  parallel across groups) were not needed yet, see [ADR-0008](adr/0008-parallel-execution.md).

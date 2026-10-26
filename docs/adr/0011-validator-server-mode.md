@@ -36,9 +36,9 @@ survive its failures.
   got used before it became the default.
 
 ## Alternatives
-* *Server as default* – 2–6× faster on the AT Core suite (more on larger suites), but newer and with a larger blast radius
-  (one process for all validations). Kept opt-in until it has proven itself; flipping the default is a one-line
-  change.
+* *Server as default from the start* – 2–6× faster on the AT Core suite (more on larger suites), but newer and with a
+  larger blast radius (one process for all validations). Kept opt-in until it had proven itself; the default was
+  flipped in 2026-10 (see the update below).
 * *Restart a crashed server* – risks a crash loop on an input that kills it each time; the process fallback isolates
   such inputs instead.
 * *One server per run* – would need to restart servers per run; servers per application (Spring singleton) reuse
