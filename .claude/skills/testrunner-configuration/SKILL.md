@@ -43,7 +43,7 @@ testrunner:
     server: {startup-timeout: 5m, fallback-to-process: true}
   reporting:
     output-dir: testrunner-results           # run folder output-dir/run_<timestamp>/
-    formats: [junit, summary]                # record default; the app's application.yml sets [junit, summary, json]
+    formats: [junit, summary]                # record default; the app's application.yml sets [junit, summary, json, testreport]
     communication-log: true
     log-file: true
     log-file-level: DEBUG                    # TRACE|DEBUG|INFO|WARN|ERROR
@@ -87,7 +87,7 @@ Spring closes it (stops validator servers). Registered in
 | `HttpTransport` | `JdkHttpTransport` (closed with context) | proxy, mTLS, token refresh |
 | `ProfileValidator` | by `validation.mode` | another validator (e.g. in-process) |
 | `FhirVersionSupport` (list) | `ServiceLoader` modules | override a version |
-| `ReportWriter` (list) | junit, summary, json | add a format; select via `reporting.formats` |
+| `ReportWriter` (list) | junit, summary, json, testreport | add a format; select via `reporting.formats` |
 | `RunListener` (list) | `RunLogFileListener` (only with Logback) | events, metrics |
 | `Clock` | system | fixed time in tests |
 | `TestRunner` | wired from the above | wire yourself |

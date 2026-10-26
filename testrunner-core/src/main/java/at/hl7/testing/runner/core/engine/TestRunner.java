@@ -162,13 +162,13 @@ public final class TestRunner {
                 log.error("TestScript {} could not be loaded: {}", source.file().getFileName(), e.getMessage());
                 var version = e instanceof TestScriptFormatException format ? format.fhirVersion() : null;
                 result = new TestScriptResult(index, source.suite().name(), source.baseName(), source.file().toString(),
-                        source.file(), version, started, Duration.between(started, clock.instant()),
+                        source.file(), version, null, started, Duration.between(started, clock.instant()),
                         List.of(PhaseResult.error(PhaseKind.LOAD, "Load", Duration.between(started, clock.instant()),
                                 "TestScript could not be loaded: " + e.getMessage())));
             } catch (RuntimeException e) {
                 log.error("Unexpected error in TestScript {}: {}", source.file().getFileName(), e.toString(), e);
                 result = new TestScriptResult(index, source.suite().name(), source.baseName(), source.file().toString(),
-                        source.file(), null, started, Duration.between(started, clock.instant()),
+                        source.file(), null, null, started, Duration.between(started, clock.instant()),
                         List.of(PhaseResult.error(PhaseKind.LOAD, "Unexpected error",
                                 Duration.between(started, clock.instant()), "Unexpected error: " + e)));
             }
@@ -199,7 +199,7 @@ public final class TestRunner {
             phases.add(PhaseResult.error(PhaseKind.LOAD, "Load", Duration.between(started, clock.instant()),
                     "TestScript is not valid: " + String.join("; ", problems)));
             skipAll(testScript.tests(), "Skipped: the TestScript is not valid", phases);
-            return result(index, loaded, started, phases);
+            return result(index, loaded, null, started, phases);
         }
 
         FhirServerConfig server = run.configuration().fhirServerOf(suite);
@@ -208,7 +208,7 @@ public final class TestRunner {
             List<PhaseResult> phases = new ArrayList<>();
             phases.add(PhaseResult.skipped(PhaseKind.SETUP, "Setup", 0, "Skipped: no FHIR server configured"));
             skipAll(testScript.tests(), "Skipped: no FHIR server configured", phases);
-            return result(index, loaded, started, phases);
+            return result(index, loaded, null, started, phases);
         }
 
         CommunicationLog communication = run.configuration().reporting().communicationLog()
@@ -219,7 +219,7 @@ public final class TestRunner {
         FhirHttpClient http = new FhirHttpClient(transport, run.requestCounter(), communication, defaultHeaders);
         List<PhaseResult> phases = new TestScriptExecution(loaded, http, server.base(), validator,
                 suite.resolvedProfilesDir(), suite.igs(), capabilities).run();
-        return result(index, loaded, started, phases);
+        return result(index, loaded, server.base(), started, phases);
     }
 
     /** Validates the TestScript itself against the base specification of its version. */
@@ -241,11 +241,12 @@ public final class TestRunner {
         return List.of();
     }
 
-    private TestScriptResult result(int index, LoadedTestScript loaded, Instant started, List<PhaseResult> phases) {
+    private TestScriptResult result(int index, LoadedTestScript loaded, String fhirServer, Instant started,
+                                    List<PhaseResult> phases) {
         var testScript = loaded.testScript();
         return new TestScriptResult(index, loaded.source().suite().name(), testScript.displayName(),
                 testScript.url() != null ? testScript.url() : loaded.source().file().toString(), loaded.source().file(),
-                testScript.fhirVersion(), started, Duration.between(started, clock.instant()), phases);
+                testScript.fhirVersion(), fhirServer, started, Duration.between(started, clock.instant()), phases);
     }
 
     private static void skipAll(List<TestDefinition> tests, String reason, List<PhaseResult> phases) {

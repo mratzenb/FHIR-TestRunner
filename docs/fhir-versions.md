@@ -111,6 +111,11 @@ Three layers, each with one job:
 FHIRPath (`assert.expression`, `variable.expression`) is evaluated with the HAPI engine of the TestScript's version
 (`HapiFhirPathEvaluator`), so `Patient.name` is evaluated on an R4 or R5 model as appropriate, for JSON and XML alike.
 
+The results go the other way the same way: the core describes a FHIR TestReport version-neutrally
+(`TestReportContent`), and one `TestReportEncoder` writes it for the TestScript's version by element name. The only
+difference so far is a type difference – `TestReport.testScript` is a `Reference` in R4 and a `canonical` in R5 –
+handled in one `if`.
+
 ### Version detection
 
 A suite either pins its version (`fhir-version: R4`) or uses `AUTO` (default). With `AUTO`, every available
@@ -170,7 +175,8 @@ whose BOM lists `hapi-fhir-structures-r6`, and check that `mvn verify` still pas
 2. Read the R6 TestScript diff. For every element whose *meaning* changed, add a method to `TestScriptDialect`
    (with an R4/R5 default) and override it in `R6Dialect`. Renamed or newly typed elements usually need nothing.
    If R6 adds an element the engine should execute, add it to the neutral model and read it in `TestScriptMapper`
-   – once, for all versions.
+   – once, for all versions. Check the TestReport diff too: `TestReportEncoder` writes elements by name and absorbs
+   type differences (`testScript` Reference vs. canonical); a renamed element needs a case there.
 3. Add the module to the root `pom.xml` and as dependency of `testrunner-app`.
 4. Put R6 samples under `testdata/r6/` and copy `R5SupportTest`.
 

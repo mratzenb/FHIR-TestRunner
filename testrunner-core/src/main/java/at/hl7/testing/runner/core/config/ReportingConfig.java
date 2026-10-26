@@ -9,7 +9,8 @@ import java.util.Locale;
  * {@code outputDir}.
  *
  * @param outputDir        default {@code testrunner-results}
- * @param formats          report formats, default {@code junit} and {@code summary}; also {@code json}
+ * @param formats          report formats, default {@code junit} and {@code summary}; also {@code json} and
+ *                         {@code testreport} (a FHIR TestReport per TestScript)
  * @param communicationLog whether every request and response is written to {@code communication/}, default true
  * @param logFile          whether the run writes its own log file {@code testrunner.log}, default true
  * @param logFileLevel     lowest level written to the log file, default {@code DEBUG}
@@ -20,6 +21,7 @@ public record ReportingConfig(Path outputDir, List<String> formats, Boolean comm
     public static final String JUNIT = "junit";
     public static final String SUMMARY = "summary";
     public static final String JSON = "json";
+    public static final String TESTREPORT = "testreport";
 
     public ReportingConfig {
         outputDir = outputDir == null ? Path.of("testrunner-results") : outputDir;

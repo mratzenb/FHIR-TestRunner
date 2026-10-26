@@ -86,8 +86,9 @@ final class Harness {
                 ValidationConfig.disabled(),
                 new ReportingConfig(dir.resolve("results"), List.of("junit", "summary", "json"), true, false, null));
         try (JdkHttpTransport transport = new JdkHttpTransport(HttpConfig.defaults())) {
-            TestRunner runner = new TestRunner(new FhirVersionRegistry(List.of(StubVersionSupport.of(scripts))),
-                    transport, validator, TestRunners.defaultReportWriters(), List.of(), Clock.systemDefaultZone());
+            FhirVersionRegistry versions = new FhirVersionRegistry(List.of(StubVersionSupport.of(scripts)));
+            TestRunner runner = new TestRunner(versions, transport, validator, TestRunners.defaultReportWriters(versions),
+                    List.of(), Clock.systemDefaultZone());
             return runner.run(configuration);
         }
     }

@@ -15,7 +15,7 @@ communication log of every HTTP exchange. Group `at.hl7.testing`, version `0.1.0
 | Module | Package | Holds | Depends on |
 |---|---|---|---|
 | `testrunner-core` | `core.{model,engine,http,report,source,spi,config,content}` | version-neutral model, engine, HTTP client + communication log, reports, config records, **ports** | SLF4J, Jackson, Jayway JsonPath – **no Spring, no HAPI** |
-| `testrunner-fhir-hapi` | `fhir.hapi` | generic `TestScriptMapper`, `ElementView`, `HapiFhirPathEvaluator`, `TestScriptDialect`, `HapiFhirVersionSupport` | core, `hapi-fhir-base` |
+| `testrunner-fhir-hapi` | `fhir.hapi` | generic `TestScriptMapper`, `ElementView`, `HapiFhirPathEvaluator`, `TestReportEncoder`, `TestScriptDialect`, `HapiFhirVersionSupport` | core, `hapi-fhir-base` |
 | `testrunner-fhir-r4`, `-r5` | `fhir.r4`, `fhir.r5` | `R4Support`/`R5Support` + `R4Dialect`/`R5Dialect`, `META-INF/services` registration | fhir-hapi, `hapi-fhir-structures-rX` |
 | `testrunner-validation-cli` | `validation.cli` | `ValidatorCliProfileValidator` (process), `ValidatorServerProfileValidator` + `ValidatorServer` (server), `ProfileValidators` factory | core |
 | `testrunner-spring-boot-autoconfigure` | `autoconfigure` | `TestRunnerAutoConfiguration`, `ValidatorCliAutoConfiguration`, `RunLogFileListener` | core, Spring Boot |
@@ -29,10 +29,10 @@ Other folders: `config/` dev configurations (`dev-r4.yml`, `dev-r5.yml`, `dev-al
 
 | Port | Purpose | Implementations |
 |---|---|---|
-| `spi.FhirVersionSupport` | read TestScripts of one version, FHIRPath for it | `R4Support`, `R5Support` via `ServiceLoader` |
+| `spi.FhirVersionSupport` | read TestScripts of one version, FHIRPath for it, write its TestReports | `R4Support`, `R5Support` via `ServiceLoader` |
 | `spi.ProfileValidator` | `validateProfileId` + check of each TestScript | `ValidatorCliProfileValidator`, `ValidatorServerProfileValidator`, `ProfileValidator.DISABLED` |
 | `http.HttpTransport` | send one request (functional interface) | `JdkHttpTransport` |
-| `report.ReportWriter` | one report format, selected by `format()` | `JUnitXmlReportWriter` (`junit`), `SummaryReportWriter` (`summary`), `JsonReportWriter` (`json`) |
+| `report.ReportWriter` | one report format, selected by `format()` | `JUnitXmlReportWriter` (`junit`), `SummaryReportWriter` (`summary`), `JsonReportWriter` (`json`), `TestReportWriter` (`testreport`) |
 | `engine.RunListener` | run / TestScript events | `RunLogFileListener` |
 
 Entry points: `TestRunner.run(RunConfiguration)`; without Spring `TestRunners.create(HttpConfig, ProfileValidator)`
