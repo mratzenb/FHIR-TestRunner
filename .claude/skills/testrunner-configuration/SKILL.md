@@ -28,6 +28,7 @@ testrunner:
       include: ["*.json", "*.xml"]           # globs relative to test-scripts-dir
       fhir-server: {base-url: }              # optional own server per suite
       parallel: true                         # false: TestScripts one after the other, before the parallel ones
+      package-id:                            # instead of base-dir: name#version of a FHIR package (PackageSuites)
   http: {connect-timeout: 10s, request-timeout: 60s, follow-redirects: true}
   execution: {parallelism: 1}               # must be ≥ 1
   validation:
@@ -48,6 +49,7 @@ testrunner:
     communication-log: true
     log-file: true
     log-file-level: DEBUG                    # TRACE|DEBUG|INFO|WARN|ERROR
+  packages: {cache-dir: ~/.fhir/packages, registry: https://packages.fhir.org}   # PackagesConfig
   run-on-startup: true                       # app only (RunCommand); false = wire without running
 ```
 
@@ -101,7 +103,7 @@ Spring closes it (stops validator servers). Registered in
 ```java
 RunConfiguration configuration = new RunConfiguration(FhirServerConfig.of("http://localhost:8080/fhir"),
         List.of(SuiteConfig.of(Path.of("testdata/r4"), "R4")), null, new ExecutionConfig(4),
-        ValidationConfig.enabled(Path.of("validator_cli.jar")).withMode(ValidatorMode.SERVER), null);
+        ValidationConfig.enabled(Path.of("validator_cli.jar")).withMode(ValidatorMode.SERVER), null, null);
 ProfileValidator validator = ProfileValidators.create(configuration.validation());
 try {
     RunResult result = TestRunners.create(configuration.http(), validator).run(configuration);

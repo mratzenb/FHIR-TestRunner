@@ -43,6 +43,9 @@ class TestRunnerAutoConfigurationTest {
                 "testrunner.suites[1].base-dir=testdata/r5",
                 "testrunner.suites[1].fhir-server.base-url=http://r5/fhir",
                 "testrunner.suites[1].parallel=false",
+                "testrunner.suites[2].package-id=hl7.at.fhir.core.r4#dev",
+                "testrunner.packages.cache-dir=/tmp/fhir-packages",
+                "testrunner.packages.registry=https://registry.example",
                 "testrunner.execution.parallelism=4",
                 "testrunner.http.request-timeout=2m",
                 "testrunner.validation.validator-jar=/opt/validator_cli.jar",
@@ -52,7 +55,10 @@ class TestRunnerAutoConfigurationTest {
                     RunConfiguration config = context.getBean(RunConfiguration.class);
                     assertThat(config.fhirServer().base()).isEqualTo("http://server/fhir");
                     assertThat(config.fhirServer().headers()).containsEntry("Authorization", "Bearer x");
-                    assertThat(config.suites()).hasSize(2);
+                    assertThat(config.suites()).hasSize(3);
+                    assertThat(config.suites().get(2).packageId()).isEqualTo("hl7.at.fhir.core.r4#dev");
+                    assertThat(config.packages().cacheDir()).isEqualTo(Path.of("/tmp/fhir-packages"));
+                    assertThat(config.packages().registry()).hasToString("https://registry.example");
                     assertThat(config.suites().getFirst().baseDir()).isEqualTo(Path.of("testdata/r4"));
                     assertThat(config.suites().getFirst().pinnedFhirVersion()).contains(FhirVersion.R4);
                     assertThat(config.suites().getFirst().include()).containsExactly("TestScript-*.json");
@@ -125,7 +131,7 @@ class TestRunnerAutoConfigurationTest {
     @Test
     void everyBeanBacksOffForTheApplicationsOwn() {
         HttpTransport transport = request -> new FhirResponse(200, "OK", "HTTP/1.1", null, "");
-        RunConfiguration own = new RunConfiguration(null, null, null, null, null, null);
+        RunConfiguration own = new RunConfiguration(null, null, null, null, null, null, null);
         contexts.withBean(HttpTransport.class, () -> transport)
                 .withBean(RunConfiguration.class, () -> own)
                 .withBean(ProfileValidator.class, () -> ProfileValidator.DISABLED)

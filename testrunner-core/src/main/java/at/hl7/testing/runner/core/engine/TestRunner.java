@@ -14,6 +14,7 @@ import at.hl7.testing.runner.core.report.ReportWriter;
 import at.hl7.testing.runner.core.report.RunResult;
 import at.hl7.testing.runner.core.report.TestScriptResult;
 import at.hl7.testing.runner.core.source.LoadedTestScript;
+import at.hl7.testing.runner.core.source.PackageSuites;
 import at.hl7.testing.runner.core.source.TestScriptDiscovery;
 import at.hl7.testing.runner.core.source.TestScriptLoader;
 import at.hl7.testing.runner.core.source.TestScriptSource;
@@ -44,6 +45,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 
 /**
  * Runs the TestScripts of a {@link RunConfiguration} and writes the reports. The entry point of the engine.
@@ -65,24 +67,43 @@ public final class TestRunner {
     private final List<ReportWriter> reportWriters;
     private final List<RunListener> listeners;
     private final Clock clock;
+    private final Function<RunConfiguration, PackageSuites> packages;
 
     public TestRunner(FhirVersionRegistry versions, HttpTransport transport, ProfileValidator validator,
                       List<ReportWriter> reportWriters, List<RunListener> listeners, Clock clock) {
+        this(versions, transport, validator, reportWriters, listeners, clock, c -> new PackageSuites(c.packages()));
+    }
+
+    /**
+     * @param packages resolves the suites read from FHIR packages, given the configuration of the run
+     */
+    public TestRunner(FhirVersionRegistry versions, HttpTransport transport, ProfileValidator validator,
+                      List<ReportWriter> reportWriters, List<RunListener> listeners, Clock clock,
+                      Function<RunConfiguration, PackageSuites> packages) {
         this.versions = versions;
         this.transport = transport;
         this.validator = validator;
         this.reportWriters = List.copyOf(reportWriters);
         this.listeners = List.copyOf(listeners);
         this.clock = clock;
+        this.packages = packages;
     }
 
     /**
      * Runs the configured TestScripts.
      *
-     * @throws ConfigurationException if the configuration cannot be used; nothing is run then
+     * @throws ConfigurationException if the configuration cannot be used, e.g. a package of a suite cannot be found;
+     *                                nothing is run then
      */
     public RunResult run(RunConfiguration configuration) {
         List<String> problems = new ArrayList<>(configuration.problems());
+        if (problems.isEmpty()) {
+            try {
+                configuration = configuration.withSuites(packages.apply(configuration).resolve(configuration.suites()));
+            } catch (PackageSuites.PackageException e) {
+                problems.add(e.getMessage());
+            }
+        }
         problems.addAll(configuration.unsupportedVersions(versions.versions()));
         problems.addAll(configuration.unknownFormats(reportWriters.stream().map(ReportWriter::format)
                 .collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new))));
@@ -307,7 +328,11 @@ public final class TestRunner {
         log.info("  Parallelism:        {}", c.execution().parallelism());
         log.info("  Profile validation: {}", validator.description());
         log.info("  Communication logs: {}", c.reporting().communicationLog() ? run.communicationDirectory() : "disabled");
-        c.suites().forEach(s -> log.info("  Suite '{}': {} (FHIR {})", s.name(), s.baseDir().toAbsolutePath(), s.fhirVersion()));
+        c.suites().forEach(s -> log.info("  Suite '{}': {}{} (FHIR {})", s.name(),
+                s.packageId() == null ? "" : "package " + s.packageId() + " in ", s.baseDir().toAbsolutePath(),
+                s.fhirVersion()));
+        c.suites().stream().filter(s -> !s.igs().isEmpty())
+                .forEach(s -> log.info("  Suite '{}' validates with IGs {}", s.name(), s.igs()));
         log.info("{} TestScript(s) to run", sources.size());
         for (int i = 0; i < sources.size(); i++) {
             log.info("  {}. {}", i + 1, sources.get(i).file());

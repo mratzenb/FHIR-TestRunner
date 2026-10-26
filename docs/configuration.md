@@ -54,6 +54,7 @@ testrunner:
         base-url: http://localhost:8081/fhir
       parallel: true                       # false: with parallelism > 1, run this suite's TestScripts one after
                                            # the other before all others, see ADR-0008
+    - package-id: hl7.at.fhir.core.r4#2.1.0  # instead of base-dir: a suite read from a FHIR package, see below
 
   http:
     connect-timeout: 10s
@@ -88,8 +89,39 @@ testrunner:
     log-file: true                         # testrunner.log in the run folder
     log-file-level: DEBUG                  # TRACE | DEBUG | INFO | WARN | ERROR
 
+  packages:                                # for suites with package-id
+    cache-dir: ~/.fhir/packages            # default; the cache of the validator, IG Publisher and SUSHI
+    registry: https://packages.fhir.org    # default; where missing packages are downloaded from
+
   run-on-startup: true                     # app only: false to wire everything without running (tests, embedding)
 ```
+
+### Suites from FHIR packages
+
+An IG is published as a FHIR package; the IG Publisher puts the TestScripts into it (`package/TestScript-*.json`)
+and the examples into its example folder. A suite with `package-id` instead of `base-dir` runs them from there:
+
+```yaml
+testrunner:
+  suites:
+    - package-id: hl7.at.fhir.core.r4#2.1.0   # name#version; #dev = built locally by the IG Publisher
+      include: ["TestScript-*-create-*.json"] # optional, default all TestScript-*.json|xml of the package
+```
+
+Before the run (`PackageSuites`), the package is looked up in the package cache (`packages.cache-dir`, as
+`<id>#<version>/package/`); a missing one is downloaded from `packages.registry` and unpacked into the cache, where
+the validator finds it too. A `#dev` package is never downloaded. From the package's `package.json` the suite takes
+
+| Suite setting | From the package |
+|---|---|
+| TestScripts | `package/`, the files matching `include` (default `TestScript-*.json`, `TestScript-*.xml`) |
+| Example Instances (fixtures, required CapabilityStatements) | `directories.example` (`example/` or `examples/`) |
+| `fhir-version` | `fhirVersions`, unless configured |
+| `igs` | the package itself, its `dependencies` without the core package, then the configured `igs` |
+| `name` | the package id, unless configured |
+
+A package that cannot be found, downloaded or read stops the run before anything is sent (exit code 2), like any
+other configuration problem.
 
 Relaxed binding applies: `base-dir`, `baseDir` and `BASEDIR` are the same; durations accept `90s`, `2m`, `PT1M`.
 
@@ -109,7 +141,7 @@ Relaxed binding applies: `base-dir`, `baseDir` and `BASEDIR` are the same; durat
 | `logging.fileLevel` | `testrunner.reporting.log-file-level` |
 | `logging.communicationLogs` | `testrunner.reporting.communication-log` |
 | `logging.includeCommunicationInLog` | `logging.level.at.hl7.testing.runner.communication=DEBUG` |
-| `url` (IG download) | not supported yet, see architecture.md › Open points |
+| `url` (IG download) | a suite read from the IG's package: `suites[n].package-id`, see [Suites from FHIR packages](#suites-from-fhir-packages) |
 
 ## Using it as a library
 
@@ -119,7 +151,7 @@ RunConfiguration configuration = new RunConfiguration(
         List.of(SuiteConfig.of(Path.of("testdata/r4"), "R4")),
         null, new ExecutionConfig(4),
         ValidationConfig.enabled(Path.of("validator_cli.jar")).withMode(ValidatorMode.SERVER),
-        null);
+        null, null);                       // reporting and packages: defaults
 ProfileValidator validator = ProfileValidators.create(configuration.validation());
 try {
     RunResult result = TestRunners.create(configuration.http(), validator).run(configuration);

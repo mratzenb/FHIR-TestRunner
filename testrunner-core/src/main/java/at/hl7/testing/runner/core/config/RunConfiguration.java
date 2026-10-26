@@ -20,9 +20,11 @@ import java.util.Set;
  * @param execution  execution settings, e.g. parallelism
  * @param validation profile validation settings
  * @param reporting  result and log settings
+ * @param packages   where suites read from FHIR packages come from
  */
 public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> suites, HttpConfig http,
-                               ExecutionConfig execution, ValidationConfig validation, ReportingConfig reporting) {
+                               ExecutionConfig execution, ValidationConfig validation, ReportingConfig reporting,
+                               PackagesConfig packages) {
 
     private static final Set<String> LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR");
 
@@ -33,6 +35,12 @@ public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> su
         execution = execution == null ? ExecutionConfig.defaults() : execution;
         validation = validation == null ? ValidationConfig.defaults() : validation;
         reporting = reporting == null ? ReportingConfig.defaults() : reporting;
+        packages = packages == null ? PackagesConfig.defaults() : packages;
+    }
+
+    /** A copy with other suites, e.g. those of packages resolved to folders. */
+    public RunConfiguration withSuites(List<SuiteConfig> newSuites) {
+        return new RunConfiguration(fhirServer, newSuites, http, execution, validation, reporting, packages);
     }
 
     /** The FHIR server of a suite: its own if configured, otherwise the one of the run. */
@@ -53,8 +61,14 @@ public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> su
         for (int i = 0; i < suites.size(); i++) {
             SuiteConfig suite = suites.get(i);
             String prefix = "testrunner.suites[" + i + "]";
+            if (suite.packageId() != null) {
+                if (suite.baseDir() != null) {
+                    problems.add(prefix + " has both base-dir and package-id; a suite comes from one of them");
+                }
+                continue; // the package is checked when it is resolved, before the run
+            }
             if (suite.baseDir() == null) {
-                problems.add(prefix + ".base-dir is not set");
+                problems.add(prefix + ".base-dir (or package-id) is not set");
             } else if (!Files.isDirectory(suite.resolvedTestScriptsDir())) {
                 problems.add(prefix + ": TestScript folder " + suite.resolvedTestScriptsDir().toAbsolutePath()
                         + " does not exist");

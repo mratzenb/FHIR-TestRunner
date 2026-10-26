@@ -62,7 +62,7 @@ public class TestRunnerAutoConfiguration {
             }
         });
         return binder.bind(PREFIX, RunConfiguration.class)
-                .orElseGet(() -> new RunConfiguration(null, null, null, null, null, null));
+                .orElseGet(() -> new RunConfiguration(null, null, null, null, null, null, null));
     }
 
     /**

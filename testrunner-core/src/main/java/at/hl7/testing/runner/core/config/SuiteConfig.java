@@ -3,6 +3,7 @@ package at.hl7.testing.runner.core.config;
 import at.hl7.testing.runner.core.model.FhirVersion;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -11,10 +12,15 @@ import java.util.Optional;
  * A set of TestScripts together with the Example Instances and profiles they use, typically the content of one
  * Implementation Guide. The folders are resolved against {@code baseDir}.
  *
- * @param name                name for logs and reports; defaults to the folder name of {@code baseDir}
+ * <p>A suite comes from a folder ({@code baseDir}) or from a FHIR package ({@code packageId}). A package is resolved
+ * before the run ({@code source.PackageSuites}) into a suite with a folder: the package's {@code package/} folder for
+ * the TestScripts, its example folder for the Example Instances, its FHIR version and the package itself as IG.
+ *
+ * @param name                name for logs and reports; defaults to the folder name of {@code baseDir}, or the
+ *                            package id
  * @param fhirVersion         {@code AUTO} (default) to detect the version of each TestScript, or a version such
  *                            as {@code R4}, {@code R5}, {@code 4.0}
- * @param baseDir             folder holding the sub folders below
+ * @param baseDir             folder holding the sub folders below; not with {@code packageId}
  * @param testScriptsDir      folder of the TestScripts, default {@code Test_Scripts}
  * @param exampleInstancesDir folder of the resources backing the fixtures, default {@code Example_Instances}
  * @param profilesDir         folder of the StructureDefinitions used for profile validation, default {@code Profiles}
@@ -27,12 +33,16 @@ import java.util.Optional;
  * @param parallel            whether the TestScripts of this suite may run in parallel with others (default true,
  *                            effective with {@code execution.parallelism > 1}); false runs them one after the other,
  *                            while nothing else runs, for TestScripts that share data on the server
+ * @param packageId           a FHIR package the suite is read from instead of {@code baseDir}, with its version, e.g.
+ *                            {@code hl7.at.fhir.core.r4#2.1.0} or {@code hl7.at.fhir.core.r4#dev}; see
+ *                            {@link PackagesConfig}
  */
 public record SuiteConfig(String name, String fhirVersion, Path baseDir, Path testScriptsDir,
                           Path exampleInstancesDir, Path profilesDir, List<String> igs, List<String> include,
-                          FhirServerConfig fhirServer, Boolean parallel) {
+                          FhirServerConfig fhirServer, Boolean parallel, String packageId) {
 
     public static final String AUTO = "AUTO";
+    private static final List<String> DEFAULT_INCLUDE = List.of("*.json", "*.xml");
 
     public SuiteConfig {
         fhirVersion = fhirVersion == null || fhirVersion.isBlank() ? AUTO : fhirVersion.trim();
@@ -40,16 +50,41 @@ public record SuiteConfig(String name, String fhirVersion, Path baseDir, Path te
         exampleInstancesDir = exampleInstancesDir == null ? Path.of("Example_Instances") : exampleInstancesDir;
         profilesDir = profilesDir == null ? Path.of("Profiles") : profilesDir;
         igs = igs == null ? List.of() : List.copyOf(igs);
-        include = include == null || include.isEmpty() ? List.of("*.json", "*.xml") : List.copyOf(include);
+        include = include == null || include.isEmpty() ? DEFAULT_INCLUDE : List.copyOf(include);
         parallel = parallel == null || parallel;
-        if ((name == null || name.isBlank()) && baseDir != null && baseDir.getFileName() != null) {
+        packageId = packageId == null || packageId.isBlank() ? null : packageId.trim();
+        if ((name == null || name.isBlank()) && packageId != null) {
+            name = packageId;
+        } else if ((name == null || name.isBlank()) && baseDir != null && baseDir.getFileName() != null) {
             name = baseDir.getFileName().toString();
         }
     }
 
     /** A suite with the default folder layout below {@code baseDir}. */
     public static SuiteConfig of(Path baseDir, String fhirVersion) {
-        return new SuiteConfig(null, fhirVersion, baseDir, null, null, null, null, null, null, null);
+        return new SuiteConfig(null, fhirVersion, baseDir, null, null, null, null, null, null, null, null);
+    }
+
+    /**
+     * The suite of an unpacked FHIR package: TestScripts in {@code package/}, Example Instances in the package's example
+     * folder, no Profiles folder (the package is an IG of its own), the package itself before the configured IGs.
+     * Name, include, server and parallel are kept; the FHIR version is the package's unless one is configured.
+     *
+     * @param packageDir   the {@code package/} folder of the unpacked package
+     * @param examplesDir  the example folder, relative to {@code packageDir}
+     * @param version      the FHIR version of the package
+     * @param dependencies further IGs the package depends on, as package ids
+     */
+    public SuiteConfig withPackage(Path packageDir, Path examplesDir, FhirVersion version, List<String> dependencies) {
+        List<String> packageIgs = new ArrayList<>();
+        packageIgs.add(packageId);
+        packageIgs.addAll(dependencies);
+        igs.stream().filter(ig -> !packageIgs.contains(ig)).forEach(packageIgs::add);
+        // the package's own definitions come in with the package id; a Profiles folder does not exist in a package
+        return new SuiteConfig(name, AUTO.equals(fhirVersion) ? version.name() : fhirVersion, packageDir, Path.of("."),
+                examplesDir, packageDir.resolve("other").resolve("no-profiles-folder"), packageIgs,
+                include.equals(DEFAULT_INCLUDE) ? List.of("TestScript-*.json", "TestScript-*.xml") : include,
+                fhirServer, parallel, packageId);
     }
 
     /** The configured version, or empty for {@code AUTO}. */
@@ -61,7 +96,7 @@ public record SuiteConfig(String name, String fhirVersion, Path baseDir, Path te
     }
 
     public Path resolvedTestScriptsDir() {
-        return baseDir.resolve(testScriptsDir);
+        return baseDir.resolve(testScriptsDir).normalize();
     }
 
     public Path resolvedExampleInstancesDir() {

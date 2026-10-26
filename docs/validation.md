@@ -63,6 +63,10 @@ With only that package, the validator tries to fetch the URL from the web and th
 2.1.0 is published, these TestScripts need the `Profiles/` copies or the locally built `hl7.at.fhir.core.r4#dev`
 (validated with the latter: the negative control fails with the socialSecurityNumber error, as it should).
 
+**Suites read from a package** (`package-id`, see [configuration.md](configuration.md#suites-from-fhir-packages))
+need no `igs`: the package itself and its dependencies are the suite's IGs, and the FHIR version comes from the
+package. The TestScripts of a published IG and its profiles then match by construction – both are in the package.
+
 **Server mode:** a server is bound to the `-ig` arguments it was started with, so there is one server per FHIR
 version, profiles folder and IGs – in practice one per suite and FHIR version. Suites with the same folder and IGs
 share a server.
