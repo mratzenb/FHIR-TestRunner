@@ -194,6 +194,12 @@ Taken over from the PoC (and its README/VALIDATION-NOTES), now encoded in one pl
 Outcome precedence for a TestScript and the run: `error > fail > skip > pass`. Exit code of the CLI: 0 pass/skip,
 1 fail/error, 2 invalid configuration.
 
+Two assertions compare whole resources: `minimumId` passes if the checked response or fixture contains every element
+and value of the named fixture (the resource id excepted, the server assigns its own), by the rules of the FHIR
+testing specification – element and repetition order do not matter, more is allowed, but a repeated value needs a
+counterpart of its own; every difference is listed. `navigationLinks = true` passes if the Bundle has a `first`,
+`last` and `next` link (the specification's definition), `false` if it lacks one of them.
+
 Fixtures with `autocreate` are created in dependency order (references between fixtures are rewritten to the
 server-assigned ids); a cycle is an `error`. Fixtures with `autodelete` are deleted after the teardown, in reverse
 order. Variables are evaluated each time a `${name}` placeholder is used, so they always reflect the latest response.
@@ -242,8 +248,8 @@ configured server.
   NPM package (`package.tgz`) as a `TestScriptSource`; the validator can already use packages via
   `testrunner.suites[n].igs`. A suite read from a package could then take its `igs` from the package's
   dependencies (`package.json`) instead of the configuration. Not implemented in this PoC.
-* **Not supported assertions**: `minimumId`, `navigationLinks`, `requestMethod`/`requestURL` (need a test engine
-  acting as server), `manualEval`; reported as `error`, not silently ignored.
+* **Not supported assertions**: `requestMethod`/`requestURL` and `direction = request` (need a test engine acting
+  as server), `manualEval`; reported as `error`, not silently ignored.
 * **Several servers, client tests.** TestScripts addressing more than one `destination` need a test engine that
   manages several servers; the runner rejects them. It plays every `origin` itself, so TestScripts that expect another
   client to send a request (testing a client rather than a server) cannot be run.

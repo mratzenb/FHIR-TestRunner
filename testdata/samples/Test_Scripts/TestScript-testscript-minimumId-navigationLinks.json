@@ -1,0 +1,108 @@
+{
+  "resourceType": "TestScript",
+  "id": "testscript-minimumId-navigationLinks",
+  "url": "http://hl7.at/fhir/HL7ATCoreProfiles/4.0.1/TestScript/testscript-minimumId-navigationLinks",
+  "version": "1.0.0",
+  "name": "TestScriptMinimumIdNavigationLinks",
+  "title": "HL7 AT Core TestScript - minimumId and navigationLinks",
+  "status": "active",
+  "date": "2026-10-26",
+  "publisher": "HL7 Austria",
+  "description": "Creates a patient in JSON and in XML and checks with minimumId that the server returns what was sent, in either format; checks navigationLinks on a search result.",
+  "fixture": [
+    {
+      "id": "patient-create",
+      "autocreate": false,
+      "autodelete": false,
+      "resource": {
+        "reference": "Patient-HL7ATCorePatientCreateTestExample.json"
+      }
+    },
+    {
+      "id": "patient-create-xml",
+      "autocreate": false,
+      "autodelete": false,
+      "resource": {
+        "reference": "Patient-HL7ATCorePatientCreateTestExampleXML.xml"
+      }
+    }
+  ],
+  "test": [
+    {
+      "id": "Step1-MinimumId",
+      "name": "MinimumId",
+      "description": "The server returns the created patient with everything that was sent (the id excepted).",
+      "action": [
+        {
+          "operation": {
+            "type": {
+              "system": "http://terminology.hl7.org/CodeSystem/testscript-operation-codes",
+              "code": "create"
+            },
+            "resource": "Patient",
+            "description": "Create the patient in JSON.",
+            "accept": "json",
+            "contentType": "json",
+            "encodeRequestUrl": true,
+            "responseId": "created-json",
+            "sourceId": "patient-create",
+            "requestHeader": [
+              {
+                "field": "Prefer",
+                "value": "return=representation"
+              }
+            ]
+          }
+        },
+        {
+          "assert": {
+            "description": "The JSON response contains the JSON fixture.",
+            "minimumId": "patient-create",
+            "warningOnly": false
+          }
+        },
+        {
+          "assert": {
+            "description": "The JSON response does not contain the XML fixture, which is another patient.",
+            "minimumId": "patient-create-xml",
+            "warningOnly": true
+          }
+        },
+        {
+          "assert": {
+            "description": "The XML fixture contains itself, read from XML.",
+            "minimumId": "patient-create-xml",
+            "sourceId": "patient-create-xml",
+            "warningOnly": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "Step2-NavigationLinks",
+      "name": "NavigationLinks",
+      "description": "A search result of one page has no next link.",
+      "action": [
+        {
+          "operation": {
+            "type": {
+              "system": "http://terminology.hl7.org/CodeSystem/testscript-operation-codes",
+              "code": "search"
+            },
+            "resource": "Patient",
+            "description": "Search all patients.",
+            "accept": "json",
+            "encodeRequestUrl": true
+          }
+        },
+        {
+          "assert": {
+            "description": "The result is not paged: first, last and next are not all present.",
+            "navigationLinks": false,
+            "warningOnly": false
+          }
+        }
+      ]
+    }
+  ]
+}

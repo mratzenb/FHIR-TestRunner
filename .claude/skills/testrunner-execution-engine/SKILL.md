@@ -72,9 +72,12 @@ needs nothing (it calls `fromCode`) → tests in `TestScriptExecutionTest.Operat
 
 One `Check` per assertion (FHIR invariants tst-5/tst-6, enforced when mapping): `ContentType`, `Expression`
 (FHIRPath, version-correct), `HeaderField`, `Path` (JSONPath/XPath via `content.PathEvaluator`), `Resource`,
-`Response` (code + HTTP status from the version's table), `ResponseCode`, `ValidateProfile`.
-**Not supported, reported as `error`**: `MinimumId`, `NavigationLinks`, `RequestMethod`, `RequestUrl`,
-`direction=request`, operator `manualEval`.
+`Response` (code + HTTP status from the version's table), `ResponseCode`, `ValidateProfile`, `MinimumId`
+(source contains every element/value of the fixture, id ignored; `content.FhirElement.notContainedIn`, same rules as
+the capability check, all differences listed), `NavigationLinks` (Bundle has `first`, `last` and `next` links;
+`false` expects them incomplete; non-Bundle ⇒ fail). Both only allow operator `equals` (the default).
+**Not supported, reported as `error`**: `RequestMethod`, `RequestUrl`, `direction=request` (need a test engine acting
+as server), operator `manualEval`.
 
 * Source: `sourceId` (fixture or response) else the last response; none ⇒ error.
 * `operator(assertion, default, allowed...)` fixes default and allowed operators per check; `Operators.apply` does

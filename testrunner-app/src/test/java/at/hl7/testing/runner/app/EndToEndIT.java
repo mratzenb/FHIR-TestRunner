@@ -167,7 +167,7 @@ class EndToEndIT {
                 "testrunner.validation.enabled=false",
                 "testrunner.suites[0].base-dir=" + SampleData.samples());
 
-        assertThat(run.testScripts()).hasSize(8);
+        assertThat(run.testScripts()).hasSize(9);
         TestScriptResult all = script(run, "TestScript-testscript-all-operation-variants-with-assertions.json");
         assertThat(all.phases()).filteredOn(p -> p.outcome() != Outcome.PASS)
                 .as("every operation type against the in-memory server").isEmpty();
@@ -183,6 +183,12 @@ class EndToEndIT {
         TestScriptResult profile = script(run, "TestScript-testscript-validateProfile.json");
         assertThat(phase(profile, "CheckProfileSupportFalseWarningFalse").outcome())
                 .as("undeclared profile id").isEqualTo(Outcome.ERROR);
+
+        // minimumId on JSON and XML, navigationLinks on a search result
+        TestScriptResult minimum = script(run, "TestScript-testscript-minimumId-navigationLinks.json");
+        assertThat(minimum.outcome()).isEqualTo(Outcome.PASS);
+        assertThat(phase(minimum, "MinimumId").messages()).singleElement().asString()
+                .startsWith("WARNING:").contains("does not contain everything of minimumId 'patient-create-xml'");
 
         TestScriptResult xml = script(run, "TestScript-testscript-patient-create-xml-expression.json");
         assertThat(xml.outcome()).isEqualTo(Outcome.PASS);

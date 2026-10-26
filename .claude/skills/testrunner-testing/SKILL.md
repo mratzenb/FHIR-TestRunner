@@ -82,8 +82,9 @@ try (InMemoryFhirServer server = InMemoryFhirServer.start("4.0.1")) {
 
 ## Test data (`testdata/`, from the PoC)
 
-`r4/` AT Core R4 create, update, **negative control** (must fail); `r5/` AT Core R5 create, update; `samples/` 8
-TestScripts covering every operation type and many assertions, mostly R4, `TestScript-testscript-delete.json` is R5
+`r4/` AT Core R4 create, update, **negative control** (must fail); `r5/` AT Core R5 create, update; `samples/` 9
+TestScripts covering every operation type and many assertions (incl. `minimumId` on JSON and XML and
+`navigationLinks`), mostly R4, `TestScript-testscript-delete.json` is R5
 (and lacks its Example Instance – an expected error). Each has `Test_Scripts/`, `Example_Instances/`, `Profiles/`.
 `EndToEndIT.sampleScriptsRunWithTheExpectedOutcomes` pins the expected outcome of each sample – update it when
 changing samples.
