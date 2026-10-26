@@ -13,6 +13,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 /**
@@ -37,6 +38,7 @@ final class TestScriptChecks {
                 unique(ids, operation.requestId(), "requestId", problems);
             }
         });
+        problems.addAll(destinationProblems(testScript));
         Set<String> variableNames = new HashSet<>();
         for (VariableDefinition variable : testScript.variables()) {
             if (!variableNames.add(variable.name())) {
@@ -52,6 +54,27 @@ final class TestScriptChecks {
             }
         }
         return problems;
+    }
+
+    /**
+     * The runner sends every request to the one server configured for the suite. A TestScript written for several
+     * servers cannot run as written; running it against one server anyway would test something else. A single
+     * destination index that is not declared is accepted: many TestScripts use {@code destination: 1} without
+     * declaring it, and they address one server all the same.
+     */
+    private static List<String> destinationProblems(TestScript testScript) {
+        Set<Integer> used = new TreeSet<>();
+        allActions(testScript).forEach(action -> {
+            if (action instanceof Operation operation && operation.destination() != null) {
+                used.add(operation.destination());
+            }
+        });
+        if (testScript.destinations().size() <= 1 && used.size() <= 1) {
+            return List.of();
+        }
+        return List.of("The TestScript sends requests to more than one server (TestScript.destination "
+                + testScript.destinations() + ", operation.destination " + used + "); the runner sends every request"
+                + " to the one FHIR server configured for the suite");
     }
 
     private static void unique(Map<String, String> ids, String id, String kind, List<String> problems) {

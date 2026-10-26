@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -41,23 +42,31 @@ public final class ExampleInstanceResolver {
      * @throws FixtureNotFoundException naming every file tried, if there is none
      */
     public Body load(FixtureDefinition fixture) {
-        List<Path> tried = new ArrayList<>();
-        for (String stem : candidates(fixture.reference())) {
+        return find(fixture.reference()).orElseThrow(() -> new FixtureNotFoundException("No Example Instance found"
+                + " for fixture '" + fixture.id() + "' referencing '" + fixture.reference() + "'. Tried: "
+                + files(fixture.reference())));
+    }
+
+    /** Loads the resource a reference or URL points to, e.g. {@code CapabilityStatement/example}, if there is one. */
+    public Optional<Body> find(String reference) {
+        return files(reference).stream().filter(Files::isRegularFile).findFirst().map(ExampleInstanceResolver::read);
+    }
+
+    /** The files a reference may be stored in, most specific first. */
+    private List<Path> files(String reference) {
+        List<Path> files = new ArrayList<>();
+        for (String stem : candidates(reference)) {
             for (String extension : EXTENSIONS) {
-                Path file = folder.resolve(stem + extension);
-                tried.add(file);
-                if (Files.isRegularFile(file)) {
-                    return read(file);
-                }
+                files.add(folder.resolve(stem + extension));
             }
         }
-        throw new FixtureNotFoundException("No Example Instance found for fixture '" + fixture.id() + "' referencing '"
-                + fixture.reference() + "'. Tried: " + tried);
+        return files;
     }
 
     /** The file stems to look for, most specific first. */
     static List<String> candidates(String reference) {
-        String[] segments = reference.split("[/\\\\]");
+        int version = reference.indexOf('|'); // a canonical URL may name a version: http://…/Type/id|1.0
+        String[] segments = (version >= 0 ? reference.substring(0, version) : reference).split("[/\\\\]");
         List<String> parts = new ArrayList<>();
         for (String segment : segments) {
             if (!segment.isBlank()) {

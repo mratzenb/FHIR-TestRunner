@@ -1,6 +1,7 @@
 package at.hl7.testing.runner.core.source;
 
 import at.hl7.testing.runner.core.model.Body;
+import at.hl7.testing.runner.core.model.CapabilityRequirement;
 import at.hl7.testing.runner.core.model.ContentFormat;
 import at.hl7.testing.runner.core.model.FhirVersion;
 import at.hl7.testing.runner.core.model.FixtureDefinition;
@@ -21,7 +22,7 @@ import java.util.Optional;
 
 /**
  * Reads a TestScript file: determines its FHIR version, maps it to the model with the matching version module and
- * loads the resources of its fixtures.
+ * loads the resources of its fixtures and the CapabilityStatements it requires from the Example Instances.
  */
 public final class TestScriptLoader {
 
@@ -53,7 +54,13 @@ public final class TestScriptLoader {
                 }
             }
         }
-        return new LoadedTestScript(source, content, testScript, support, resources, read.warnings());
+        Map<String, Body> capabilities = new LinkedHashMap<>();
+        for (CapabilityRequirement capability : testScript.capabilities()) {
+            if (capability.capabilities() != null) {
+                resolver.find(capability.capabilities()).ifPresent(body -> capabilities.put(capability.capabilities(), body));
+            }
+        }
+        return new LoadedTestScript(source, content, testScript, support, resources, capabilities, read.warnings());
     }
 
     private static Body read(TestScriptSource source) {

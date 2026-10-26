@@ -58,6 +58,12 @@ final class Harness {
         return this;
     }
 
+    /** Writes an Example Instance under its own file name, e.g. {@code CapabilityStatement-needs-read.json}. */
+    Harness exampleInstance(String fileName, String json) {
+        write("suite/Example_Instances/" + fileName, json);
+        return this;
+    }
+
     Harness validator(ProfileValidator validator) {
         this.validator = validator;
         return this;

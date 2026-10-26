@@ -2,7 +2,9 @@ package at.hl7.testing.runner.fhir.hapi;
 
 import at.hl7.testing.runner.core.model.Action;
 import at.hl7.testing.runner.core.model.Assertion;
+import at.hl7.testing.runner.core.model.CapabilityRequirement;
 import at.hl7.testing.runner.core.model.Check;
+import at.hl7.testing.runner.core.model.Destination;
 import at.hl7.testing.runner.core.model.FhirVersion;
 import at.hl7.testing.runner.core.model.FixtureDefinition;
 import at.hl7.testing.runner.core.model.HttpMethod;
@@ -43,12 +45,31 @@ public final class TestScriptMapper {
                 testScript.string("url"),
                 testScript.string("name"),
                 testScript.string("title"),
+                testScript.children("destination").stream().map(TestScriptMapper::destination).toList(),
+                testScript.child("metadata").map(m -> m.children("capability")).orElse(List.of()).stream()
+                        .map(TestScriptMapper::capability).toList(),
                 testScript.children("fixture").stream().map(this::fixture).toList(),
                 profiles(testScript),
                 testScript.children("variable").stream().map(this::variable).toList(),
                 testScript.child("setup").map(this::actions).orElse(List.of()),
                 testScript.children("test").stream().map(this::test).toList(),
                 testScript.child("teardown").map(this::actions).orElse(List.of()));
+    }
+
+    /** {@code TestScript.destination}: an index and a profile {@code Coding}. */
+    private static Destination destination(ElementView destination) {
+        String index = destination.string("index");
+        if (index == null) {
+            throw new TestScriptFormatException("A TestScript.destination has no index");
+        }
+        return new Destination(Integer.parseInt(index), destination.child("profile").map(p -> p.string("code")).orElse(null));
+    }
+
+    private static CapabilityRequirement capability(ElementView capability) {
+        // required and validated are mandatory in R4 and R5; absent means false
+        return new CapabilityRequirement(capability.bool("required", false), capability.bool("validated", false),
+                capability.string("description"), capability.string("capabilities"),
+                capability.children("link").stream().map(ElementView::primitiveValue).toList());
     }
 
     private FixtureDefinition fixture(ElementView fixture) {
@@ -126,7 +147,8 @@ public final class TestScriptMapper {
                 method == null ? null : HttpMethod.parse(method),
                 operation.string("params"), headers,
                 operation.string("requestId"), operation.string("responseId"),
-                operation.string("sourceId"), operation.string("targetId"), operation.string("url"));
+                operation.string("sourceId"), operation.string("targetId"), operation.string("url"),
+                integer(operation.string("destination")));
     }
 
     private Assertion assertion(ElementView assertion) {
@@ -185,6 +207,10 @@ public final class TestScriptMapper {
             return null;
         }
         return value.substring(value.lastIndexOf('/') + 1);
+    }
+
+    private static Integer integer(String value) {
+        return value == null ? null : Integer.valueOf(value);
     }
 
     private static void add(List<Check> checks, String value, java.util.function.Function<String, Check> factory) {

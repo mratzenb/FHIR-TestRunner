@@ -24,11 +24,12 @@ import java.util.function.UnaryOperator;
  * @param sourceId         fixture or response sent as body
  * @param targetId         fixture or response the id, type and version of the request URL are taken from
  * @param url              complete request URL, overrides everything else
+ * @param destination      index of the {@code TestScript.destination} receiving the request, {@code null} if not set
  */
 public record Operation(OperationType type, String typeCode, String resource, String label, String description,
                         String accept, String contentType, boolean encodeRequestUrl, HttpMethod method,
                         String params, List<RequestHeader> requestHeaders, String requestId, String responseId,
-                        String sourceId, String targetId, String url) implements Action {
+                        String sourceId, String targetId, String url, Integer destination) implements Action {
 
     public Operation {
         requestHeaders = requestHeaders == null ? List.of() : List.copyOf(requestHeaders);
@@ -42,7 +43,7 @@ public record Operation(OperationType type, String typeCode, String resource, St
         return new Operation(type, typeCode, apply(values, resource), label, description, apply(values, accept),
                 apply(values, contentType), encodeRequestUrl, method, apply(values, params),
                 requestHeaders.stream().map(h -> h.map(values)).toList(), apply(values, requestId),
-                apply(values, responseId), apply(values, sourceId), apply(values, targetId), apply(values, url));
+                apply(values, responseId), apply(values, sourceId), apply(values, targetId), apply(values, url), destination);
     }
 
     static String apply(UnaryOperator<String> values, String value) {

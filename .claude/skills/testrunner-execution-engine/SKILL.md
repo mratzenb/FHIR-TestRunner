@@ -16,12 +16,13 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
    version, maps the file via that version's `FhirVersionSupport`, loads fixture resources from `Example_Instances/`
    (`ExampleInstanceResolver`).
 4. Before anything is sent: `TestScriptChecks.problems` (unique fixture/responseId/requestId ids; a variable has at
-   most one of expression/path/headerField, and at least one of them or a `defaultValue`) and, if
+   most one of expression/path/headerField, and at least one of them or a `defaultValue`; at most one server
+   addressed via `TestScript.destination`/`operation.destination`) and, if
    `validation.validate-test-scripts`, the
    validator checks the TestScript against its base spec. Problems ⇒ phase `Load` = `error`, nothing sent.
-5. `TestScriptExecution` runs setup → tests → teardown with its own `ExecutionState` (fixtures, responses by
-   `responseId`, last response). Helpers: `VariableResolver`, `RequestFactory`, `AssertionEvaluator`,
-   `FixtureManager`, `PhaseRecorder`.
+5. `TestScriptExecution` checks `metadata.capability` (`CapabilityCheck`, see below), then runs setup → tests →
+   teardown with its own `ExecutionState` (fixtures, responses by `responseId`, last response). Helpers:
+   `VariableResolver`, `RequestFactory`, `AssertionEvaluator`, `FixtureManager`, `PhaseRecorder`.
 6. Every request goes through `http.FhirHttpClient` (request id, log line, communication folder).
 7. `TestScriptResult`s → `RunResult` (in discovery order) → `ReportWriter`s → `RunListener.runFinished`.
 
@@ -37,7 +38,9 @@ The MDC key `testScript` (`TestRunner.MDC_TEST_SCRIPT`) = `<NN>_<file base name>
 | Action cannot be executed (`TestScriptException`, `ValidatorUnavailableException`, `FhirHttpClient.ExchangeFailedException`) | `error` | current phase stops |
 | `validateProfileId` while validation disabled (`ValidationSkipped`) | `pass` + warning | never a silent pass |
 | Setup not `pass` | tests `skip` | teardown and autodelete still run |
-| TestScript unreadable / invalid | phase `Load` `error` | other TestScripts continue |
+| TestScript unreadable / invalid, or addresses > 1 server (`destination`) | phase `Load` `error` | other TestScripts continue |
+| Server lacks a required `metadata.capability` | Setup + tests `skip`, differences listed | only `GET [base]/metadata` sent; no fixtures, no teardown |
+| Required capability not checkable (statement not in Example Instances, no CapabilityStatement from server) | warning on Setup | TestScript runs |
 | Content the version ignores (detection warnings, e.g. R5-only element in R4) | warning on the `Setup` phase (always present) | outcome unchanged |
 | No FHIR server configured | `skip` | – |
 
@@ -95,6 +98,21 @@ and, if a sample uses it, `EndToEndIT`.
 * Variables are evaluated **at each use** (latest response under that id), from `expression` (FHIRPath),
   `path`, or `headerField`, on `sourceId`; `defaultValue` if empty. Undefined variable ⇒ `TestScriptException`.
 
+## Required capabilities (`CapabilityCheck`) and destinations
+
+* `metadata.capability` → `model.CapabilityRequirement`. Only `required = true` is checked. The CapabilityStatement
+  named by `capabilities` is loaded with the TestScript from Example Instances (`ExampleInstanceResolver.find`, like a
+  fixture: `CapabilityStatement-<id>.json|xml`; a `|version` is ignored) into `LoadedTestScript.capabilities()`.
+* The server's statement: `GET [base]/metadata`, once per base URL per run (one `CapabilityCheck` per run, cache is
+  a `ConcurrentHashMap`), sent with the client of the first TestScript needing it.
+* Comparison: `content.FhirElement` (JSON and XML in one shape, `_x` primitive extensions merged) →
+  `only(CapabilityCheck.COMPARED)` (RESTful interface: fhirVersion, formats, resource types, interactions, search
+  params, operations, conditional/versioning flags) → `notContainedIn(server)`, the `minimumId` rules (order free,
+  extra allowed, duplicates need own counterpart; bipartite matching). Every difference is a message.
+* Destinations: `TestScript.destination` → `model.Destination`; `operation.destination` → `Operation.destination()`.
+  The runner plays every origin and sends everything to the one configured server; > 1 server addressed ⇒ Load
+  error (`TestScriptChecks`). One undeclared `destination: 1` is fine (common in IG TestScripts).
+
 ## Parallelism (ADR-0008)
 
 `execution.parallelism` (default 1) = TestScripts at once on a fixed pool of platform threads `testscript-N`; the
@@ -105,5 +123,6 @@ that is why the default is 1.
 ## Where to look
 
 `TestScriptExecution` (rules), `AssertionEvaluator` (checks), `RequestFactory` (URLs/headers/body),
-`FixtureManager`, `VariableResolver`, `TestScriptChecks`, `TestRunner` (orchestration, logging of config/summary).
+`FixtureManager`, `VariableResolver`, `TestScriptChecks`, `CapabilityCheck`, `TestRunner` (orchestration, logging of
+config/summary).
 Docs: `docs/architecture.md` › Runtime view, Execution semantics, Open points; ADR-0004, ADR-0008.
