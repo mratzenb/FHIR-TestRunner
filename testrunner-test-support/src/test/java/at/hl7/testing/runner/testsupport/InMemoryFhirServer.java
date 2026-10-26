@@ -35,7 +35,8 @@ import java.util.regex.Pattern;
  *   <li>{@code GET [type]/[id]}, {@code GET [type]/[id]/_history(/[vid])}, {@code DELETE [type]/[id]}</li>
  *   <li>{@code GET [type]?name=value} returns a searchset Bundle of the stored resources of the type whose JSON
  *       contains every value (a crude stand-in for real search); {@code DELETE [type]?..} deletes them</li>
- *   <li>{@code GET metadata} returns a CapabilityStatement</li>
+ *   <li>{@code GET metadata} returns a CapabilityStatement announcing these interactions for Patient and
+ *       Organization (the others work as well, but are not announced)</li>
  *   <li>{@code POST [base]} returns a batch/transaction-response Bundle</li>
  * </ul>
  * {@link #on} replaces the answer to a request, {@link #requests()} lists the requests received.
@@ -171,8 +172,15 @@ public final class InMemoryFhirServer implements AutoCloseable {
             }
         }
         if (method.equals("GET") && parts.equals(List.of("metadata"))) {
+            // what this server does for every resource type; announced for Patient and Organization
+            String interactions = "[{\"code\":\"read\"},{\"code\":\"vread\"},{\"code\":\"update\"},"
+                    + "{\"code\":\"delete\"},{\"code\":\"history-instance\"},{\"code\":\"history-type\"},"
+                    + "{\"code\":\"create\"},{\"code\":\"search-type\"}]";
             return Answer.json(200, "{\"resourceType\":\"CapabilityStatement\",\"status\":\"active\",\"fhirVersion\":\""
-                    + fhirVersion + "\",\"kind\":\"instance\",\"format\":[\"json\",\"xml\"]}");
+                    + fhirVersion + "\",\"kind\":\"instance\",\"format\":[\"json\",\"xml\"],\"rest\":[{\"mode\":\"server\","
+                    + "\"resource\":[{\"type\":\"Patient\",\"interaction\":" + interactions + "},"
+                    + "{\"type\":\"Organization\",\"interaction\":" + interactions + "}],"
+                    + "\"interaction\":[{\"code\":\"transaction\"},{\"code\":\"batch\"}]}]}");
         }
         if (method.equals("POST") && parts.isEmpty()) {
             return Answer.json(200, "{\"resourceType\":\"Bundle\",\"type\":\"batch-response\"}");

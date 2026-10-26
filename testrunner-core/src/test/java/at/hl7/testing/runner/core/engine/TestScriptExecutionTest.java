@@ -26,6 +26,7 @@ import static at.hl7.testing.runner.core.engine.Scripts.responseCode;
 import static at.hl7.testing.runner.core.engine.Scripts.script;
 import static at.hl7.testing.runner.core.engine.Scripts.stopTestOnFail;
 import static at.hl7.testing.runner.core.engine.Scripts.test;
+import static at.hl7.testing.runner.core.engine.Scripts.toDestination;
 import static at.hl7.testing.runner.core.engine.Scripts.warningOnly;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -336,6 +337,88 @@ class TestScriptExecutionTest {
     }
 
     @Nested
+    class Capabilities {
+
+        static final String NEEDS_READ_AND_DELETE = """
+                {"resourceType":"CapabilityStatement","id":"needs","url":"http://example.org/CapabilityStatement/needs",
+                 "name":"Needs","status":"active","date":"2026-01-01","kind":"requirements","fhirVersion":"4.0.1",
+                 "format":["json"],"rest":[{"mode":"server","resource":[
+                   {"type":"Patient","interaction":[{"code":"read"},{"code":"delete"}]}]}]}""";
+
+        @BeforeEach
+        void serverSupportsPatientRead() {
+            server.on("GET", "/metadata", InMemoryFhirServer.Answer.json(200, """
+                    {"resourceType":"CapabilityStatement","status":"active","date":"2026-10-01","kind":"instance",
+                     "fhirVersion":"4.0.1","format":["xml","json"],"rest":[{"mode":"server","resource":[
+                       {"type":"Organization","interaction":[{"code":"read"}]},
+                       {"type":"Patient","interaction":[{"code":"search-type"},{"code":"read"}]}]}]}"""));
+        }
+
+        @Test
+        void serverWithoutARequiredCapabilitySkipsTheTestScriptBeforeTheSetup() {
+            harness.exampleInstance("CapabilityStatement-needs.json", NEEDS_READ_AND_DELETE)
+                    .resource("patient", PATIENT)
+                    .add("ts", script().requires("http://example.org/CapabilityStatement/needs")
+                            .fixture("patient", true, true)
+                            .setup(op("capabilities"))
+                            .test(test("t", op("search", "Patient", null, null, null, null), responseCode("200")))
+                            .build());
+
+            TestScriptResult result = harness.runOne();
+
+            assertThat(result.outcome()).isEqualTo(Outcome.SKIP);
+            assertThat(result.phases()).extracting(PhaseResult::kind, PhaseResult::outcome).containsExactly(
+                    org.assertj.core.groups.Tuple.tuple(PhaseKind.SETUP, Outcome.SKIP),
+                    org.assertj.core.groups.Tuple.tuple(PhaseKind.TEST, Outcome.SKIP));
+            assertThat(phase(result, "Setup").messages().getFirst()).contains("REQ-0001",
+                    "'needs http://example.org/CapabilityStatement/needs'",
+                    "CapabilityStatement.rest.resource.interaction[1]: no match for {code=delete}");
+            assertThat(server.requestLines()).as("only the CapabilityStatement, no fixture").containsExactly("GET /metadata");
+        }
+
+        @Test
+        void serverWithTheRequiredCapabilitiesRunsTheTestScript() {
+            harness.exampleInstance("CapabilityStatement-needs.json", NEEDS_READ_AND_DELETE.replace(",{\"code\":\"delete\"}", ""))
+                    .add("ts", script().requires("http://example.org/CapabilityStatement/needs")
+                            .test(test("t", op("search", "Patient", null, null, null, null), responseCode("200")))
+                            .build());
+
+            TestScriptResult result = harness.runOne();
+
+            assertThat(result.outcome()).isEqualTo(Outcome.PASS);
+            assertThat(server.requestLines()).containsExactly("GET /metadata", "GET /Patient");
+        }
+
+        @Test
+        void theServerIsAskedOncePerRun() {
+            harness.exampleInstance("CapabilityStatement-needs.json", NEEDS_READ_AND_DELETE);
+            for (String name : List.of("a", "b", "c")) {
+                harness.add(name, script().requires("http://example.org/CapabilityStatement/needs")
+                        .test(test("t", op("capabilities"))).build());
+            }
+
+            var run = harness.run();
+
+            assertThat(run.testScripts()).allMatch(r -> r.outcome() == Outcome.SKIP);
+            assertThat(server.requestLines()).containsExactly("GET /metadata");
+        }
+
+        @Test
+        void requiredCapabilityThatIsNotAmongTheExampleInstancesIsAWarning() {
+            harness.add("ts", script().requires("http://example.org/CapabilityStatement/unknown")
+                    .test(test("t", op("capabilities"), responseCode("200"))).build());
+
+            TestScriptResult result = harness.runOne();
+
+            assertThat(result.outcome()).isEqualTo(Outcome.PASS);
+            assertThat(phase(result, "Setup").messages()).anyMatch(m -> m.startsWith("WARNING:")
+                    && m.contains("not checked") && m.contains("not among the Example Instances"));
+            assertThat(server.requestLines()).as("nothing to compare, so the server is not asked")
+                    .containsExactly("GET /metadata");
+        }
+    }
+
+    @Nested
     class Phases {
 
         @Test
@@ -365,6 +448,27 @@ class TestScriptExecutionTest {
             assertThat(result.phases().getFirst().kind()).isEqualTo(PhaseKind.LOAD);
             assertThat(result.phases().getFirst().messages().getFirst()).contains("Duplicate id 'dup'");
             assertThat(server.requests()).isEmpty();
+        }
+
+        @Test
+        void testScriptForSeveralServersIsInvalid() {
+            harness.add("ts", script().destination(1).destination(2)
+                    .test(test("t", toDestination(op("capabilities"), 1), toDestination(op("capabilities"), 2)))
+                    .build());
+
+            TestScriptResult result = harness.runOne();
+
+            assertThat(result.phases().getFirst().kind()).isEqualTo(PhaseKind.LOAD);
+            assertThat(result.phases().getFirst().messages().getFirst())
+                    .contains("more than one server", "operation.destination [1, 2]");
+            assertThat(server.requests()).isEmpty();
+        }
+
+        @Test
+        void oneUndeclaredDestinationIsTheConfiguredServer() {
+            harness.add("ts", script().test(test("t", toDestination(op("capabilities"), 1), responseCode("200"))).build());
+
+            assertThat(harness.runOne().outcome()).isEqualTo(Outcome.PASS);
         }
 
         @Test

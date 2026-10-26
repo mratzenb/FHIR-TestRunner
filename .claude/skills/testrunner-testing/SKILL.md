@@ -12,8 +12,8 @@ No FHIR server, no network, no real validator needed: `mvn verify` runs all test
 
 | Level | Class | Covers |
 |---|---|---|
-| Unit, engine (`testrunner-core`) | `core/engine/TestScriptExecutionTest` (nested classes per area) | phase rules, operations, assertions, fixtures, variables, communication log – through the real `TestRunner` with `Harness` |
-| Unit, core (`testrunner-core`) | `RunConfigurationTest`, `PathEvaluatorTest`, `ResourceContentTest`, `UrlEncodingTest`, `CommunicationLogTest`, `ExampleInstanceResolverTest` | config defaults/problems, content helpers, log format |
+| Unit, engine (`testrunner-core`) | `core/engine/TestScriptExecutionTest` (nested classes per area) | phase rules, operations, assertions, fixtures, capabilities, variables, communication log – through the real `TestRunner` with `Harness` |
+| Unit, core (`testrunner-core`) | `RunConfigurationTest`, `PathEvaluatorTest`, `ResourceContentTest`, `FhirElementTest`, `UrlEncodingTest`, `CommunicationLogTest`, `ExampleInstanceResolverTest` | config defaults/problems, content helpers (`FhirElement`: JSON/XML alike, `minimumId` containment rules), log format |
 | Version modules (`testrunner-fhir-r4`, `-r5`) | `R4SupportTest`, `R5SupportTest` | every sample TestScript of the version maps exactly; detection cases |
 | Validator (`testrunner-validation-cli`) | `ValidatorCliProfileValidatorTest`, `ValidatorServerProfileValidatorTest` | process handling, arguments, server lifecycle, fallback, parallel use |
 | Spring (`testrunner-spring-boot-autoconfigure`) | `TestRunnerAutoConfigurationTest` (`ApplicationContextRunner`) | binding, defaults, replacing/adding beans |
@@ -32,7 +32,8 @@ test-jar's compile dependencies on to its users (in their test scope), but not i
 Only Java SE + Jetty: no `com.sun.net.httpserver` (the compiler rejects it).
 
 * **`InMemoryFhirServer`** – Jetty on `127.0.0.1`, free port, base `…/fhir`. `start("4.0.1")` (version for the
-  CapabilityStatement), `baseUrl()`, `close()` (AutoCloseable). Supports create (201 + Location/ETag), read, vread,
+  CapabilityStatement, which announces read/vread/update/delete/history/create/search-type for Patient and
+  Organization and transaction/batch), `baseUrl()`, `close()` (AutoCloseable). Supports create (201 + Location/ETag), read, vread,
   update, delete, history, crude search (all values contained in the JSON; `_`-params ignored), conditional delete,
   `metadata`, batch/transaction (empty response Bundle), XML create (id rewritten, not stored). Hooks:
   `on(method, path, Answer.json(status, body))` fixes an answer; `requests()` (method, path, query, headers, body;
@@ -73,9 +74,11 @@ try (InMemoryFhirServer server = InMemoryFhirServer.start("4.0.1")) {
 }
 ```
 
-`Scripts`: `script()` builder (`fixture`, `profile`, `variable`, `setup`, `test`, `teardown`), `op(...)`,
-`check(Check[, Operator, value])`, `responseCode`, `warningOnly`, `stopTestOnFail`, `on(assertion, sourceId)`,
-`withHeaders`, `test(name, actions...)`. `Harness`: `validator(ProfileValidator)`, `parallelism(n)`, `noServer()`.
+`Scripts`: `script()` builder (`destination`, `requires(canonical)`, `fixture`, `profile`, `variable`, `setup`,
+`test`, `teardown`), `op(...)`, `check(Check[, Operator, value])`, `responseCode`, `warningOnly`, `stopTestOnFail`,
+`on(assertion, sourceId)`, `withHeaders`, `toDestination`, `test(name, actions...)`. `Harness`:
+`resource(fixtureId, json)`, `exampleInstance(fileName, json)` (e.g. a required CapabilityStatement),
+`validator(ProfileValidator)`, `parallelism(n)`, `noServer()`.
 
 ## Test data (`testdata/`, from the PoC)
 

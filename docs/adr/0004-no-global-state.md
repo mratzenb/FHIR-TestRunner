@@ -11,6 +11,7 @@ State has an owner with a clear lifetime:
 | State | Owner | Lifetime |
 |---|---|---|
 | Run id, run folder, request counter, configuration | `RunContext` (record) | one run |
+| CapabilityStatement of each server (`metadata.capability` checks) | `CapabilityCheck`, created per run by `TestRunner` and passed down | one run |
 | Fixtures, kept responses, last response | `ExecutionState` | one TestScript execution, one thread |
 | Communication folder of a TestScript | `CommunicationLog` | one TestScript execution |
 | Results | immutable `PhaseResult`/`TestScriptResult`/`RunResult`, returned, not tracked | — |

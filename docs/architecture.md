@@ -185,6 +185,9 @@ Taken over from the PoC (and its README/VALIDATION-NOTES), now encoded in one pl
 | Action cannot be executed (invalid TestScript, unknown id, no response, validator unavailable) | `error` | Current phase stops |
 | Setup does not pass | — | All tests are `skip`, teardown still runs |
 | TestScript cannot be loaded or is invalid | `error` (phase `Load`) | Nothing is sent; other TestScripts continue |
+| TestScript addresses more than one server (`destination`) | `error` (phase `Load`) | Nothing is sent |
+| Server lacks a required capability (`metadata.capability`) | `skip` (Setup and tests) | Only `GET [base]/metadata` is sent |
+| Required capability cannot be checked (CapabilityStatement not among the Example Instances) | warning on the Setup | TestScript runs |
 | No FHIR server configured | `skip` | — |
 | `validateProfileId` with validation disabled | `pass` + warning | Never silently `pass` |
 
@@ -194,6 +197,25 @@ Outcome precedence for a TestScript and the run: `error > fail > skip > pass`. E
 Fixtures with `autocreate` are created in dependency order (references between fixtures are rewritten to the
 server-assigned ids); a cycle is an `error`. Fixtures with `autodelete` are deleted after the teardown, in reverse
 order. Variables are evaluated each time a `${name}` placeholder is used, so they always reflect the latest response.
+
+### Required capabilities and destinations
+
+`metadata.capability` with `required = true` names a CapabilityStatement (`capabilities`) the server must support.
+Before the setup, `CapabilityCheck` compares it with the server's own (`GET [base]/metadata`, asked once per server
+and run, in the communication log of the first TestScript that needs it): every element of the required statement
+that describes the RESTful interface – FHIR version, formats, resource types, interactions, search parameters,
+operations, conditional and versioning flags (`CapabilityCheck.COMPARED`) – must have a counterpart in the server's,
+compared like `assert.minimumId` (order free, more is allowed, see `content.FhirElement`). Name, status, date and
+narrative are not compared: a server does not share them with the author of a TestScript. If the server lacks
+something, the TestScript is `skip`ped with every difference listed, nothing is created on the server. The required
+CapabilityStatement is looked up in the suite's Example Instances like a fixture resource (by the last segments of
+its canonical URL, e.g. `CapabilityStatement-example.json`); if it is not there, the requirement is reported as a
+warning and the TestScript runs. Capabilities with `required = false` (only `validated`) are not checked.
+
+The runner sends every request itself (it plays every `origin`) to the one server configured for the suite. A
+TestScript that addresses more than one server – several `TestScript.destination`s or several
+`operation.destination` values – cannot run as written and is invalid. A single destination, declared or not, is the
+configured server.
 
 ## Deliberate differences to the Python PoC
 
@@ -221,8 +243,10 @@ order. Variables are evaluated each time a `${name}` placeholder is used, so the
   `testrunner.suites[n].igs`. A suite read from a package could then take its `igs` from the package's
   dependencies (`package.json`) instead of the configuration. Not implemented in this PoC.
 * **Not supported assertions**: `minimumId`, `navigationLinks`, `requestMethod`/`requestURL` (need a test engine
-  acting as server), `manualEval`; reported as `error`, not silently ignored. `metadata.capability` checks
-  (skip if the server lacks a capability) are not implemented either, as in the PoC.
+  acting as server), `manualEval`; reported as `error`, not silently ignored.
+* **Several servers, client tests.** TestScripts addressing more than one `destination` need a test engine that
+  manages several servers; the runner rejects them. It plays every `origin` itself, so TestScripts that expect another
+  client to send a request (testing a client rather than a server) cannot be run.
 * **Validator start-up.** In the default process mode each validation starts the validator anew (5–15 s).
   `testrunner.validation.mode=server` keeps validator servers running (2–6× faster on the AT Core suite,
   [ADR-0011](adr/0011-validator-server-mode.md)); it is opt-in until it has proven itself. An in-process

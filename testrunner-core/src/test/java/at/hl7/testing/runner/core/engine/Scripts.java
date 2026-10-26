@@ -2,7 +2,9 @@ package at.hl7.testing.runner.core.engine;
 
 import at.hl7.testing.runner.core.model.Action;
 import at.hl7.testing.runner.core.model.Assertion;
+import at.hl7.testing.runner.core.model.CapabilityRequirement;
 import at.hl7.testing.runner.core.model.Check;
+import at.hl7.testing.runner.core.model.Destination;
 import at.hl7.testing.runner.core.model.FhirVersion;
 import at.hl7.testing.runner.core.model.FixtureDefinition;
 import at.hl7.testing.runner.core.model.Operation;
@@ -25,18 +27,24 @@ final class Scripts {
 
     static Operation op(String type) {
         return new Operation(OperationType.fromCode(type), type, null, null, null, "json", null, true, null, null,
-                List.of(), null, null, null, null, null);
+                List.of(), null, null, null, null, null, null);
     }
 
     static Operation op(String type, String resource, String sourceId, String targetId, String params, String responseId) {
         return new Operation(OperationType.fromCode(type), type, resource, null, null, "json", null, true, null, params,
-                List.of(), null, responseId, sourceId, targetId, null);
+                List.of(), null, responseId, sourceId, targetId, null, null);
+    }
+
+    static Operation toDestination(Operation o, int destination) {
+        return new Operation(o.type(), o.typeCode(), o.resource(), o.label(), o.description(), o.accept(),
+                o.contentType(), o.encodeRequestUrl(), o.method(), o.params(), o.requestHeaders(), o.requestId(),
+                o.responseId(), o.sourceId(), o.targetId(), o.url(), destination);
     }
 
     static Operation withHeaders(Operation o, RequestHeader... headers) {
         return new Operation(o.type(), o.typeCode(), o.resource(), o.label(), o.description(), o.accept(),
                 o.contentType(), o.encodeRequestUrl(), o.method(), o.params(), List.of(headers), o.requestId(),
-                o.responseId(), o.sourceId(), o.targetId(), o.url());
+                o.responseId(), o.sourceId(), o.targetId(), o.url(), o.destination());
     }
 
     static Assertion check(Check check) {
@@ -79,12 +87,25 @@ final class Scripts {
     }
 
     static final class Builder {
+        private final List<Destination> destinations = new ArrayList<>();
+        private final List<CapabilityRequirement> capabilities = new ArrayList<>();
         private final List<FixtureDefinition> fixtures = new ArrayList<>();
         private final List<ProfileDeclaration> profiles = new ArrayList<>();
         private final List<VariableDefinition> variables = new ArrayList<>();
         private final List<Action> setup = new ArrayList<>();
         private final List<TestDefinition> tests = new ArrayList<>();
         private final List<Action> teardown = new ArrayList<>();
+
+        Builder destination(int index) {
+            destinations.add(new Destination(index, "FHIR-Server"));
+            return this;
+        }
+
+        /** A required capability: the server must support what CapabilityStatement {@code canonical} describes. */
+        Builder requires(String canonical) {
+            capabilities.add(new CapabilityRequirement(true, false, "needs " + canonical, canonical, List.of()));
+            return this;
+        }
 
         Builder fixture(String id, boolean autocreate, boolean autodelete) {
             fixtures.add(new FixtureDefinition(id, autocreate, autodelete, "file-of-" + id));
@@ -117,8 +138,8 @@ final class Scripts {
         }
 
         TestScript build() {
-            return new TestScript(FhirVersion.R4, "ts", "http://example.org/TestScript/ts", "TS", null, fixtures,
-                    profiles, variables, setup, tests, teardown);
+            return new TestScript(FhirVersion.R4, "ts", "http://example.org/TestScript/ts", "TS", null, destinations,
+                    capabilities, fixtures, profiles, variables, setup, tests, teardown);
         }
     }
 }

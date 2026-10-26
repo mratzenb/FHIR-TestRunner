@@ -43,6 +43,22 @@ class R5SupportTest {
     }
 
     @Test
+    void mapsTheRequiredCapabilitiesOfTheMetadata() throws IOException {
+        Body delete = Body.json(Files.readString(SampleData.testScript(SampleData.samples(), "TestScript-testscript-delete.json")));
+
+        TestScript ts = support.readTestScript(delete).testScript();
+
+        assertThat(ts.capabilities()).singleElement().satisfies(c -> {
+            assertThat(c.required()).isTrue();
+            assertThat(c.validated()).isFalse();
+            assertThat(c.description()).isEqualTo("Patient Update, Read and Delete Operations");
+            assertThat(c.capabilities()).isEqualTo("http://hl7.org/fhir/CapabilityStatement/example");
+            assertThat(c.links()).hasSize(3).first().isEqualTo("http://hl7.org/fhir/http.html#delete");
+        });
+        assertThat(ts.destinations()).isEmpty();
+    }
+
+    @Test
     void canonicalWithoutIdIsAddressedByItsLastSegment() {
         Body content = Body.json("""
                 {"resourceType":"TestScript","name":"x","status":"active",

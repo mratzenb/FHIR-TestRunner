@@ -33,6 +33,8 @@ import java.util.List;
  *   <li>An action that cannot be executed is recorded as {@code error} and ends the current phase.</li>
  *   <li>A setup that does not pass skips every test, since the tests depend on it.</li>
  *   <li>The teardown and the autodelete of fixtures always run once the setup has started.</li>
+ *   <li>A server that lacks a required capability ({@code metadata.capability}) skips the whole TestScript before
+ *       the setup: nothing is created, so there is nothing to tear down.</li>
  * </ul>
  */
 final class TestScriptExecution {
@@ -43,16 +45,21 @@ final class TestScriptExecution {
     private final TestScript testScript;
     private final FhirHttpClient http;
     private final ExecutionState state = new ExecutionState();
+    private final List<String> capabilityWarnings = new ArrayList<>();
     private final VariableResolver variables;
     private final RequestFactory requests;
     private final AssertionEvaluator assertions;
     private final FixtureManager fixtures;
+    private final CapabilityCheck capabilities;
+    private final String fhirBase;
 
     TestScriptExecution(LoadedTestScript loaded, FhirHttpClient http, String fhirBase, ProfileValidator validator,
-                        Path profilesDir, List<String> igs) {
+                        Path profilesDir, List<String> igs, CapabilityCheck capabilities) {
         this.loaded = loaded;
         this.testScript = loaded.testScript();
         this.http = http;
+        this.fhirBase = fhirBase;
+        this.capabilities = capabilities;
         this.variables = new VariableResolver(testScript.variables(), state, loaded.support().fhirPath());
         this.requests = new RequestFactory(fhirBase, state);
         this.assertions = new AssertionEvaluator(state, loaded.support().fhirPath(), validator, testScript.profiles(),
@@ -62,6 +69,14 @@ final class TestScriptExecution {
 
     List<PhaseResult> run() {
         List<PhaseResult> phases = new ArrayList<>();
+        PhaseResult unsupported = checkCapabilities();
+        if (unsupported != null) {
+            phases.add(unsupported);
+            String reason = "Skipped: the server lacks a required capability";
+            testScript.tests().forEach(t -> phases.add(PhaseResult.skipped(PhaseKind.TEST, t.name(), t.assertionCount(),
+                    reason)));
+            return phases;
+        }
         PhaseResult setup = setup();
         phases.add(setup);
         if (setup.outcome() == Outcome.PASS) {
@@ -79,11 +94,35 @@ final class TestScriptExecution {
         return phases;
     }
 
+    /**
+     * Checks {@code metadata.capability}.
+     *
+     * @return the skipped setup if the server lacks a required capability, {@code null} if the TestScript can run
+     */
+    private PhaseResult checkCapabilities() {
+        if (testScript.capabilities().stream().noneMatch(c -> c.required())) {
+            return null;
+        }
+        CapabilityCheck.Result result;
+        try {
+            result = capabilities.check(testScript.capabilities(), loaded.capabilities(), http, fhirBase);
+        } catch (FhirHttpClient.ExchangeFailedException e) {
+            capabilityWarnings.add("The required capabilities were not checked: " + e.getMessage());
+            return null;
+        }
+        capabilityWarnings.addAll(result.warnings());
+        if (result.unmet().isEmpty()) {
+            return null;
+        }
+        log.warn("--- Setup skipped: the server lacks a required capability");
+        PhaseRecorder phase = setupRecorder();
+        result.unmet().forEach(u -> phase.problem(Outcome.SKIP, u));
+        return finish(phase);
+    }
+
     private PhaseResult setup() {
         log.info("--- Setup");
-        PhaseRecorder phase = new PhaseRecorder(PhaseKind.SETUP, "Setup", assertionCount(testScript.setup()));
-        // content the FHIR version module had to ignore, e.g. an R5-only element in an R4 TestScript
-        loaded.readWarnings().forEach(w -> phase.warning("Ignored while reading the TestScript: " + w));
+        PhaseRecorder phase = setupRecorder();
         try {
             fixtures.register(testScript.fixtures(), loaded.fixtureResources());
             fixtures.autocreate(testScript.fixtures());
@@ -94,6 +133,15 @@ final class TestScriptExecution {
         }
         runActions(testScript.setup(), phase);
         return finish(phase);
+    }
+
+    /** The recorder of the setup, with the warnings that concern the TestScript as a whole. */
+    private PhaseRecorder setupRecorder() {
+        PhaseRecorder phase = new PhaseRecorder(PhaseKind.SETUP, "Setup", assertionCount(testScript.setup()));
+        // content the FHIR version module had to ignore, e.g. an R5-only element in an R4 TestScript
+        loaded.readWarnings().forEach(w -> phase.warning("Ignored while reading the TestScript: " + w));
+        capabilityWarnings.forEach(phase::warning);
+        return phase;
     }
 
     private PhaseResult test(TestDefinition test) {

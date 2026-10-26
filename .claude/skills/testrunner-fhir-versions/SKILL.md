@@ -7,9 +7,9 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) reads R4 and R5 T
 
 ## Three layers
 
-1. **Version-neutral model** – records in `core.model` (`TestScript`, `FixtureDefinition`,
-   `ProfileDeclaration(id, canonical)`, `Operation`, `Assertion` + sealed `Check`, `VariableDefinition`,
-   `TestDefinition`). The engine never sees a version-specific type; `FhirVersion` (`R4` 4.0.1, `R5` 5.0.0, `R6`
+1. **Version-neutral model** – records in `core.model` (`TestScript`, `Destination`, `CapabilityRequirement`,
+   `FixtureDefinition`, `ProfileDeclaration(id, canonical)`, `Operation`, `Assertion` + sealed `Check`,
+   `VariableDefinition`, `TestDefinition`). The engine never sees a version-specific type; `FhirVersion` (`R4` 4.0.1, `R5` 5.0.0, `R6`
    6.0.0; `parse` accepts `R4`, `r4`, `4.0`, `4.0.1`) only goes to the validator.
 2. **One mapper** – `fhir.hapi.TestScriptMapper` reads the HAPI model of *any* version through `ElementView`
    (children by element name via HAPI runtime definitions). An element missing in a version reads as absent

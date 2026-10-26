@@ -98,7 +98,7 @@ public final class TestRunner {
         try {
             List<TestScriptSource> sources = TestScriptDiscovery.discover(configuration.suites());
             logStart(run, sources);
-            List<TestScriptResult> results = runAll(run, sources);
+            List<TestScriptResult> results = runAll(run, sources, new CapabilityCheck());
             RunResult result = new RunResult(run.runId(), run.runDirectory(), run.started(),
                     Duration.between(run.started(), clock.instant()), results, Map.of());
             result = result.withReportFiles(writeReports(run, result));
@@ -115,12 +115,12 @@ public final class TestRunner {
         }
     }
 
-    private List<TestScriptResult> runAll(RunContext run, List<TestScriptSource> sources) {
+    private List<TestScriptResult> runAll(RunContext run, List<TestScriptSource> sources, CapabilityCheck capabilities) {
         int parallelism = Math.min(run.configuration().execution().parallelism(), Math.max(1, sources.size()));
         if (parallelism == 1) {
             List<TestScriptResult> results = new ArrayList<>();
             for (int i = 0; i < sources.size(); i++) {
-                results.add(runOne(run, i + 1, sources.size(), sources.get(i)));
+                results.add(runOne(run, i + 1, sources.size(), sources.get(i), capabilities));
             }
             return results;
         }
@@ -131,7 +131,7 @@ public final class TestRunner {
             for (int i = 0; i < sources.size(); i++) {
                 int index = i + 1;
                 TestScriptSource source = sources.get(i);
-                futures.add(executor.submit(() -> runOne(run, index, sources.size(), source)));
+                futures.add(executor.submit(() -> runOne(run, index, sources.size(), source, capabilities)));
             }
             List<TestScriptResult> results = new ArrayList<>();
             for (Future<TestScriptResult> future : futures) {
@@ -147,7 +147,8 @@ public final class TestRunner {
     }
 
     /** Runs one TestScript; never throws, every problem ends up in the result. */
-    private TestScriptResult runOne(RunContext run, int index, int total, TestScriptSource source) {
+    private TestScriptResult runOne(RunContext run, int index, int total, TestScriptSource source,
+                                    CapabilityCheck capabilities) {
         String label = "%02d_%s".formatted(index, source.baseName());
         Instant started = clock.instant();
         MDC.put(MDC_TEST_SCRIPT, label);
@@ -156,7 +157,7 @@ public final class TestRunner {
             TestScriptResult result;
             try {
                 LoadedTestScript loaded = new TestScriptLoader(versions).load(source);
-                result = execute(run, index, label, loaded, started);
+                result = execute(run, index, label, loaded, started, capabilities);
             } catch (TestScriptFormatException | ValidatorUnavailableException e) {
                 log.error("TestScript {} could not be loaded: {}", source.file().getFileName(), e.getMessage());
                 var version = e instanceof TestScriptFormatException format ? format.fhirVersion() : null;
@@ -180,7 +181,8 @@ public final class TestRunner {
         }
     }
 
-    private TestScriptResult execute(RunContext run, int index, String label, LoadedTestScript loaded, Instant started) {
+    private TestScriptResult execute(RunContext run, int index, String label, LoadedTestScript loaded, Instant started,
+                                     CapabilityCheck capabilities) {
         var testScript = loaded.testScript();
         var suite = loaded.source().suite();
         log.info("TestScript '{}' ({}, FHIR {})", testScript.displayName(),
@@ -216,7 +218,7 @@ public final class TestRunner {
                 .collect(LinkedHashMap::new, (m, e) -> m.put(e.getKey(), List.of(e.getValue())), Map::putAll));
         FhirHttpClient http = new FhirHttpClient(transport, run.requestCounter(), communication, defaultHeaders);
         List<PhaseResult> phases = new TestScriptExecution(loaded, http, server.base(), validator,
-                suite.resolvedProfilesDir(), suite.igs()).run();
+                suite.resolvedProfilesDir(), suite.igs(), capabilities).run();
         return result(index, loaded, started, phases);
     }
 

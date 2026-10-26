@@ -3,6 +3,7 @@ package at.hl7.testing.runner.fhir.r4;
 import at.hl7.testing.runner.core.model.Assertion;
 import at.hl7.testing.runner.core.model.Body;
 import at.hl7.testing.runner.core.model.Check;
+import at.hl7.testing.runner.core.model.Destination;
 import at.hl7.testing.runner.core.model.FhirVersion;
 import at.hl7.testing.runner.core.model.Operation;
 import at.hl7.testing.runner.core.model.OperationType;
@@ -96,6 +97,17 @@ class R4SupportTest {
         assertThat(ts.tests().getFirst().actions()).filteredOn(Assertion.class::isInstance)
                 .extracting(a -> ((Assertion) a).check())
                 .contains(new Check.ResponseCode("201"), new Check.Response("created", 201));
+    }
+
+    @Test
+    void mapsTheDestinationOfTheTestScriptAndOfItsOperations() throws IOException {
+        TestScript ts = support.readTestScript(read(SampleData.testScript(SampleData.samples(),
+                "TestScript-testscript-patient-update-at-core.json"))).testScript();
+
+        assertThat(ts.destinations()).containsExactly(new Destination(1, "FHIR-Server"));
+        assertThat(ts.tests().getFirst().actions()).filteredOn(Operation.class::isInstance)
+                .extracting(a -> ((Operation) a).destination()).containsExactly(1, 1);
+        assertThat(ts.capabilities()).isEmpty();
     }
 
     @Test

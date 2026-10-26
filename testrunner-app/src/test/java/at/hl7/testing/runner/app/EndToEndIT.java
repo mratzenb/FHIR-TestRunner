@@ -197,6 +197,33 @@ class EndToEndIT {
     }
 
     @Test
+    void testScriptRequiringACapabilityTheServerLacksIsSkipped() throws Exception {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+        Path suite = copy(SampleData.r4(), dir.resolve("capabilities"));
+        Path testScript = suite.resolve("Test_Scripts/TestScript-testscript-patient-create-at-core.json");
+        Files.writeString(testScript, Files.readString(testScript).replace("\"fixture\" :", """
+                "metadata" : {"capability" : [{"required" : true, "validated" : false,
+                  "description" : "Patient patch", "capabilities" : "http://example.org/CapabilityStatement/history"}]},
+                "fixture" :"""));
+        Files.writeString(suite.resolve("Example_Instances/CapabilityStatement-history.json"), """
+                {"resourceType":"CapabilityStatement","id":"history","status":"active","date":"2026-10-26",
+                 "kind":"requirements","fhirVersion":"4.0.1","format":["json"],"rest":[{"mode":"server",
+                 "resource":[{"type":"Patient","interaction":[{"code":"create"},{"code":"patch"}]}]}]}""");
+
+        RunResult run = run("testrunner.fhir-server.base-url=" + r4Server.baseUrl(),
+                "testrunner.validation.enabled=false",
+                "testrunner.suites[0].base-dir=" + suite,
+                "testrunner.suites[0].include=TestScript-testscript-patient-create-at-core.json");
+
+        TestScriptResult result = run.testScripts().getFirst();
+        assertThat(result.outcome()).isEqualTo(Outcome.SKIP);
+        assertThat(phase(result, "Setup").messages().getFirst())
+                .contains("does not support required capability 'Patient patch'", "no match for {code=patch}");
+        assertThat(r4Server.requestLines()).containsExactly("GET /metadata");
+        assertThat(run.reportFiles().get("junit")).content().contains("<skipped message=\"The server [REQ-0001]");
+    }
+
+    @Test
     void unreadableTestScriptIsAnErrorAndTheOthersStillRun() throws Exception {
         r4Server = InMemoryFhirServer.start("4.0.1");
         Path suite = copy(SampleData.r4(), dir.resolve("broken"));
