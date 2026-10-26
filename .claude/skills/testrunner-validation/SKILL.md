@@ -41,6 +41,8 @@ the validator really returned, or ends in an error. Keep it that way.
   locally. The package must define **the canonical URL the TestScript uses** – the published
   `hl7.at.fhir.core.r4#2.0.0` uses `http://hl7.at/fhir/HL7ATCoreProfiles/4.0.1/...`, the AT Core TestScripts
   `https://fhir.hl7.at/core/r4/...` (2.1.0, so far only `Profiles/` or `#dev`); a mismatch is an `error`.
+* A suite with `package-id` (`source.PackageSuites`) gets `igs` = the package, its non-core dependencies, then the
+  configured `igs`, and the package's FHIR version; its profiles folder does not exist (skipped as `-ig`).
 * `OperationOutcomeReader` parses the result; errors make it invalid, warnings are logged at DEBUG.
 * `ValidatorArguments.problems` (jar missing, java not executable) – also reported at start-up by `ValidatorCheck`.
 

@@ -254,14 +254,16 @@ configured server.
 * **Negative control repaired.** The AT Core R4 profile 2.1.0 no longer requires `name` and `gender`, so the PoC's
   negative control passed silently. The fixture now violates a cardinality the current profile enforces
   (two social security numbers); see [validation.md](validation.md).
-* Not carried over: the IG downloader (`load_ig_from_internet.py`) — see [Open points](#open-points).
+* **IGs as packages instead of scraped pages.** The PoC downloaded an IG by scraping its `artifacts.html`
+  (`load_ig_from_internet.py`). A suite now reads the IG's FHIR package (`suites[n].package-id`), from the package
+  cache shared with the validator, downloading it from the registry if needed; FHIR version and IGs come from its
+  `package.json`, see [configuration.md](configuration.md#suites-from-fhir-packages).
 
 ## Open points
 
-* **IG download.** The PoC scraped `artifacts.html` of an IG. The cleaner replacement is to consume the IG's
-  NPM package (`package.tgz`) as a `TestScriptSource`; the validator can already use packages via
-  `testrunner.suites[n].igs`. A suite read from a package could then take its `igs` from the package's
-  dependencies (`package.json`) instead of the configuration. Not implemented in this PoC.
+* **Packages: transitive dependencies, `#current`.** A package suite passes the package and its direct
+  dependencies to the validator, which resolves the rest itself. The runner downloads only the package of the suite,
+  and only by exact version: `#current` (CI builds) and versions without number are not resolved.
 * **Not supported assertions**: `requestMethod`/`requestURL` and `direction = request` (need a test engine acting
   as server), `manualEval`; reported as `error`, not silently ignored.
 * **Several servers, client tests.** TestScripts addressing more than one `destination` need a test engine that

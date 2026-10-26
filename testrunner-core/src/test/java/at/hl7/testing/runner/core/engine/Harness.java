@@ -101,13 +101,13 @@ final class Harness {
         List<SuiteConfig> suites = new java.util.ArrayList<>();
         if (serialSuite) {
             suites.add(new SuiteConfig(null, "R4", dir.resolve("serial"), null, Path.of("../suite/Example_Instances"),
-                    null, null, null, null, false));
+                    null, null, null, null, false, null));
         }
         suites.add(SuiteConfig.of(dir.resolve("suite"), "R4"));
         RunConfiguration configuration = new RunConfiguration(FhirServerConfig.of(fhirBase), suites, HttpConfig.defaults(),
                 new ExecutionConfig(parallelism),
                 ValidationConfig.disabled(),
-                new ReportingConfig(dir.resolve("results"), List.of("junit", "summary", "json"), true, false, null));
+                new ReportingConfig(dir.resolve("results"), List.of("junit", "summary", "json"), true, false, null), null);
         try (JdkHttpTransport transport = new JdkHttpTransport(HttpConfig.defaults())) {
             FhirVersionRegistry versions = new FhirVersionRegistry(List.of(StubVersionSupport.of(scripts)));
             TestRunner runner = new TestRunner(versions, transport, validator, TestRunners.defaultReportWriters(versions),

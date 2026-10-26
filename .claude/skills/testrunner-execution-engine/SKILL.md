@@ -7,7 +7,9 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
 
 ## Run flow
 
-1. `TestRunner.run(RunConfiguration)` – checks `RunConfiguration.problems()`, unknown report formats and
+1. `TestRunner.run(RunConfiguration)` – checks `RunConfiguration.problems()`, resolves suites with `package-id`
+   (`source.PackageSuites`: package cache, else download from the registry; `package.json` gives folder layout,
+   FHIR version and `igs`; a problem ⇒ `ConfigurationException`), unknown report formats and
    unsupported pinned versions (any problem ⇒ `ConfigurationException`, exit 2); creates a `RunContext` (run id
    `run_yyyy-MM-dd_HH-mm-ss-SSS` = run folder name under `output-dir`, run-wide `AtomicInteger` request counter);
    notifies `RunListener`s.

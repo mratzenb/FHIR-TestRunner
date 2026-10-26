@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.function.Predicate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Runs the sample TestScripts of the proof of concept through the complete application: Spring Boot context,
@@ -260,6 +261,47 @@ class EndToEndIT {
                 .contains("does not support required capability 'Patient patch'", "no match for {code=patch}");
         assertThat(r4Server.requestLines()).containsExactly("GET /metadata");
         assertThat(run.reportFiles().get("junit")).content().contains("<skipped message=\"The server [REQ-0001]");
+    }
+
+    @Test
+    void suiteFromAFhirPackageInTheCache() throws Exception {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+        // an IG package as the IG Publisher builds it: TestScripts and profiles in package/, examples in example/
+        Path packageDir = dir.resolve("cache/example.at.core#dev/package");
+        Files.createDirectories(packageDir.resolve("example"));
+        Files.writeString(packageDir.resolve("package.json"), """
+                {"name":"example.at.core","version":"dev","fhirVersions":["4.0.1"],
+                 "dependencies":{"hl7.fhir.r4.core":"4.0.1"},"directories":{"lib":"package","example":"example"}}""");
+        Files.copy(SampleData.r4().resolve("Test_Scripts/TestScript-testscript-patient-create-at-core.json"),
+                packageDir.resolve("TestScript-testscript-patient-create-at-core.json"));
+        Files.copy(SampleData.r4().resolve("Example_Instances/Patient-HL7ATCorePatientCreateTestExample.json"),
+                packageDir.resolve("example/Patient-HL7ATCorePatientCreateTestExample.json"));
+
+        RunResult run = run("testrunner.fhir-server.base-url=" + r4Server.baseUrl(),
+                "testrunner.packages.cache-dir=" + dir.resolve("cache"),
+                "testrunner.suites[0].package-id=example.at.core#dev");
+
+        TestScriptResult result = run.testScripts().getFirst();
+        assertThat(run.testScripts()).hasSize(1);
+        assertThat(result.suite()).isEqualTo("example.at.core#dev");
+        assertThat(result.fhirVersion()).hasToString("R4");
+        assertThat(result.outcome()).isEqualTo(Outcome.PASS);
+        assertThat(r4Server.requestLines()).contains("POST /Patient");
+        assertThat(run.runDirectory().resolve("testrunner.log")).content()
+                .contains("Suite 'example.at.core#dev': package example.at.core#dev in " + packageDir.toAbsolutePath() + " (FHIR R4)",
+                        "Suite 'example.at.core#dev' validates with IGs [example.at.core#dev]");
+    }
+
+    @Test
+    void missingPackageStopsTheRunBeforeAnythingIsSent() {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+
+        assertThatThrownBy(() -> run("testrunner.fhir-server.base-url=" + r4Server.baseUrl(),
+                "testrunner.packages.cache-dir=" + dir.resolve("empty-cache"),
+                "testrunner.suites[0].package-id=example.at.core#dev"))
+                .isInstanceOf(at.hl7.testing.runner.core.engine.ConfigurationException.class)
+                .hasMessageContaining("example.at.core#dev is not in the package cache");
+        assertThat(r4Server.requests()).isEmpty();
     }
 
     @Test
