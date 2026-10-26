@@ -27,8 +27,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Runs the sample TestScripts of the proof of concept through the complete application: Spring Boot context,
- * externalized configuration, version detection, HTTP, validator process, reports. The FHIR server is in memory and
- * the validator a fake jar, so no network and no real server are needed.
+ * externalized configuration, version detection, HTTP, validator (server mode, the default; process mode in
+ * {@link #negativeControlFailsBecauseValidationRuns}), reports. The FHIR server is in memory and the validator a fake
+ * jar, so no network and no real server are needed.
  */
 class EndToEndIT {
 
@@ -183,6 +184,7 @@ class EndToEndIT {
                 "\"_marker\" : {\"id\": \"" + FakeValidatorJar.INVALID_MARKER + "\"},\n  \"active\""));
 
         RunResult run = run("testrunner.fhir-server.base-url=" + r4Server.baseUrl(),
+                "testrunner.validation.mode=process",
                 "testrunner.validation.validate-test-scripts=false",
                 "testrunner.suites[0].base-dir=" + suite,
                 "testrunner.suites[0].include=TestScript-testscript-patient-create-negative-at-core.json");

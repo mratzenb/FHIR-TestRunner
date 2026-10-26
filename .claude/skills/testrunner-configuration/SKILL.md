@@ -33,7 +33,7 @@ testrunner:
   execution: {parallelism: 1}               # must be ≥ 1
   validation:
     enabled: true
-    mode: process                            # process | server
+    mode: server                             # server (default) | process
     validator-jar:                           # required when enabled (the app's application.yml: validator_cli.jar)
     java-executable:                         # default: the runner's java
     jvm-arguments: []

@@ -35,7 +35,7 @@ Offline (`-o`) works only once all dependencies and plugins are in the local rep
 
 ```sh
 java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml
-#   --testrunner.validation.mode=process   one validator process per validation (dev configs use server)
+#   --testrunner.validation.mode=process   one validator process per validation (default: server)
 #   --novalidator                          no profile validation
 #   --testrunner.<property>=<value>        any property, see testrunner-configuration
 ```

@@ -14,4 +14,4 @@ Format: context, decision, alternatives considered, consequences. Status of all:
 | [0008](0008-parallel-execution.md) | Parallelism across TestScripts, never within one |
 | [0009](0009-testing.md) | Tests without FHIR server, network or real validator |
 | [0010](0010-build.md) | Maven build: BOMs, version properties, enforcer, exec jar |
-| [0011](0011-validator-server-mode.md) | Optional validator server mode with fallback to one process per validation |
+| [0011](0011-validator-server-mode.md) | Validator server mode with fallback to one process per validation (default since 2026-10) |

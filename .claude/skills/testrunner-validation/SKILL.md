@@ -46,13 +46,13 @@ the validator really returned, or ends in an error. Keep it that way.
 * `OperationOutcomeReader` parses the result; errors make it invalid, warnings are logged at DEBUG.
 * `ValidatorArguments.problems` (jar missing, java not executable) – also reported at start-up by `ValidatorCheck`.
 
-## Process mode (default, `ValidatorCliProfileValidator`)
+## Process mode (`mode: process`, `ValidatorCliProfileValidator`)
 
 One `java -jar validator_cli.jar <file> ... [-profile <canonical>] -output <file>` per validation in its own temp
 folder (`ProcessRunner`), timeout `validation.timeout` (5m). 5–15 s per validation, nearly all package loading.
 Nothing shared, so a validator problem only hits that validation. It is also the fallback of the server mode.
 
-## Server mode (opt-in, `ValidatorServerProfileValidator` + `ValidatorServer`)
+## Server mode (default since 2026-10, `ValidatorServerProfileValidator` + `ValidatorServer`)
 
 * `java -jar validator_cli.jar server <port> <engine args>`; `POST /validateResource[?profile=..]` per validation,
   `POST /stop` to end. One server per **(FHIR version, profiles folder, igs)** – in practice per suite and version –
@@ -70,11 +70,12 @@ Nothing shared, so a validator problem only hits that validation. It is also the
   | process dies while running | marked failed |
   | failed server | `server.fallback-to-process=true` (default): its validations – including the one that hit the failure – run as processes, one WARN log line per server; `false`: `error` whose message names `testrunner.validation.server.fallback-to-process` and `testrunner.validation.mode=process` |
   | HTTP 500 on one validation (e.g. unknown profile) | `error` for that assertion, no fallback |
-  | validation exceeds `validation.timeout` | `error` for that assertion |
+  | validation exceeds `validation.timeout` (hanging server) | server ended (`ValidatorServer.hanging`) and marked failed ⇒ falls back like a crash; costs one timeout, a short `validation.timeout` (e.g. 1m) surfaces it sooner |
 
-* **Known limitation**: a *hanging* server is not detected as failed; queued validations time out. Mitigation: a
-  short `validation.timeout` (e.g. 1m) in server mode, or `mode=process`.
-* Switch off without rebuild: `--testrunner.validation.mode=process` (dev configs in `config/` use `server`).
+* Why it is the default (ADR-0011 › Update): dev configs used it from the start, `RealValidatorIT` passes in both
+  modes (validator 7.0.2, server without fallback), the hang gap is closed, fallback stays on by default.
+* Switch off without rebuild: `--testrunner.validation.mode=process`; tests that need process mode set it
+  (`EndToEndIT.negativeControlFailsBecauseValidationRuns`).
 
 ## The negative control
 

@@ -28,8 +28,8 @@ Precedence (highest first) follows Spring Boot: command line → system properti
 
 Development configurations live in [`config/`](../config): `dev-r4.yml`, `dev-r5.yml`, `dev-all.yml` (all
 samples, parallel, two servers), `negative-control.yml`. They read the validator location from the
-environment variable `VALIDATOR_JAR` and use the validator server mode; add `--testrunner.validation.mode=process`
-to switch back.
+environment variable `VALIDATOR_JAR`; like the defaults they use the validator server mode
+(`--testrunner.validation.mode=process` switches to one process per validation).
 
 ## Reference
 
@@ -66,8 +66,8 @@ testrunner:
 
   validation:
     enabled: true                          # false: validateProfileId becomes a warning, nothing is validated
-    mode: process                          # process: one validator process per validation (default)
-                                           # server: long-running validator servers, see validation.md
+    mode: server                           # server: long-running validator servers (default), see validation.md
+                                           # process: one validator process per validation
     validator-jar: validator_cli.jar       # REQUIRED when enabled; path to the HL7 Validator CLI
     java-executable:                       # default: the java running the runner
     jvm-arguments: []                      # for the validator JVM, e.g. [-Xmx2g]
@@ -136,7 +136,7 @@ Relaxed binding applies: `base-dir`, `baseDir` and `BASEDIR` are the same; durat
 | `validation.fhirVersion` | not needed: the version comes from each TestScript (or `suites[n].fhir-version`) |
 | `<path>/validator_cli.jar` (fixed) | `testrunner.validation.validator-jar` (any path) |
 | `--novalidator` | `--novalidator` or `testrunner.validation.enabled=false` |
-| (validator started per assertion) | `testrunner.validation.mode=process` (default); `server` keeps it running |
+| (validator started per assertion) | `testrunner.validation.mode=process`; `server` (default) keeps it running |
 | `logging.consoleLevel` | `logging.level.at.hl7.testing.runner` (Spring Boot logging) |
 | `logging.fileLevel` | `testrunner.reporting.log-file-level` |
 | `logging.communicationLogs` | `testrunner.reporting.communication-log` |

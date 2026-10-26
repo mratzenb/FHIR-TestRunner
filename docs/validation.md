@@ -3,8 +3,9 @@
 `assert.validateProfileId` checks a response (or fixture) against a profile declared in `TestScript.profile`.
 Optionally every TestScript is validated against its FHIR version before it runs
 (`testrunner.validation.validate-test-scripts`). Both go through the port `ProfileValidator`, implemented with the
-HL7 FHIR Validator CLI in one of two modes: one process per validation (default,
-[ADR-0006](adr/0006-validator-cli.md)) or long-running validator servers ([ADR-0011](adr/0011-validator-server-mode.md)).
+HL7 FHIR Validator CLI in one of two modes: long-running validator servers (default,
+[ADR-0011](adr/0011-validator-server-mode.md)) or one process per validation ([ADR-0006](adr/0006-validator-cli.md)),
+which is also the fallback of a failed server.
 
 ## Setup
 
@@ -73,7 +74,7 @@ share a server.
 
 ## Process mode and server mode
 
-| | `mode: process` (default) | `mode: server` |
+| | `mode: process` | `mode: server` (default) |
 |---|---|---|
 | How | `java -jar validator_cli.jar <file> ... -output <file>` per validation | `java -jar validator_cli.jar server <port> ...` once per FHIR version, profiles folder and IGs; `POST /validateResource` per validation |
 | Cost per validation | 5–15 s (loads packages every time) | 0.1–0.5 s after a start-up of 5–7 s |
@@ -92,11 +93,12 @@ testrunner:
       fallback-to-process: true       # false: server problems are errors instead
 ```
 
-Server mode is opt-in. If it misbehaves:
+Server mode is the default (it was opt-in until it had proven itself, see ADR-0011). If it misbehaves:
 
-1. It falls back by itself: a server that does not come up within `startup-timeout`, or whose process dies, is
-   marked failed and **not restarted**; its validations continue as one process each, with one warning in the log
-   naming the reason (including the server's last output lines).
+1. It falls back by itself: a server that does not come up within `startup-timeout`, whose process dies, or that
+   does not answer a validation within `validation.timeout` is ended, marked failed and **not restarted**; its
+   validations continue as one process each, with one warning in the log naming the reason (including the server's
+   last output lines).
 2. Switch it off with `--testrunner.validation.mode=process` – no rebuild, no other change.
 3. To make server problems visible instead of absorbed (e.g. in CI while evaluating the mode), set
    `server.fallback-to-process=false`; they are then reported as `error`s naming both switches.
@@ -104,11 +106,10 @@ Server mode is opt-in. If it misbehaves:
 A problem with one validation on a running server (e.g. HTTP 500 for an unknown profile) is reported for that
 assertion only, without fallback, since the process mode would fail the same way.
 
-**Watch out for a hanging server.** A validation that exceeds `validation.timeout` is an `error`, but the server
-process is still running, so it is not considered failed and there is no fallback. Because the server works one
-request at a time, the validations queued behind it time out too. Once a server is up a validation takes well under
-a second, so in server mode a short timeout (e.g. `validation.timeout: 1m`) surfaces this quickly; switching to
-`mode: process` avoids it entirely. The servers listen on
+**A hanging server** (a validation that exceeds `validation.timeout`) is ended and falls back like a crashed one;
+the server works one request at a time, so waiting for it would let every queued validation time out as well. A
+hang costs one `validation.timeout` (default 5 minutes); once a server is up a validation takes well under a second,
+so a shorter timeout (e.g. `validation.timeout: 1m`) surfaces it sooner. The servers listen on
 `127.0.0.1` only, the server's console output goes to the log at DEBUG (`[validator server R4] ...`), and they
 are stopped when the application ends (`POST /stop`, then process termination; a shutdown hook covers crashes of
 the runner).

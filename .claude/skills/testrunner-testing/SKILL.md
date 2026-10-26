@@ -47,6 +47,7 @@ Only Java SE + Jetty: no `com.sun.net.httpserver` (the compiler rejects it).
   * process mode: writes an OperationOutcome to `-output` – one error per `INVALID_MARKER` in the file, else
     "All OK"; `SILENT_MARKER` ⇒ writes nothing, exit 1.
   * `server <port>`: `POST /validateResource[?profile=]` same outcomes; `CRASH_MARKER` ⇒ process halts;
+    `HANG_MARKER` ⇒ never answers (hanging server);
     profile `UNRESOLVABLE_PROFILE` ⇒ HTTP 500; `POST /stop` ⇒ exits.
   * Settings (system property via `validation.jvm-arguments` `-DNAME=…`, or env): `FAKE_VALIDATOR_LOG=<file>`
     (one line per `process <profile>`, `start <args>`, `validate <profile> <content-type>`, `stop` – count calls; a

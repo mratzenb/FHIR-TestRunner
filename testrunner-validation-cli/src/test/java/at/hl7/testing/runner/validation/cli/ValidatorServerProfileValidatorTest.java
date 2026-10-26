@@ -160,6 +160,27 @@ class ValidatorServerProfileValidatorTest {
     }
 
     @Test
+    void hangingServerIsEndedAndItsValidationsFallBack() throws Exception {
+        ValidationConfig config = config(true, jar);
+        validator = new ValidatorServerProfileValidator(new ValidationConfig(true, ValidatorMode.SERVER, jar, null,
+                config.jvmArguments(), null, null, Duration.ofSeconds(2), true, null, config.server()));
+        validator.validate(request(VALID, FhirVersion.R4, profilesR4));
+
+        String hang = "{\"resourceType\":\"Patient\",\"x\":\"" + FakeValidatorJar.HANG_MARKER + "\"}";
+        long started = System.nanoTime();
+        ValidationResult afterHang = validator.validate(request(hang, FhirVersion.R4, profilesR4));
+        ValidationResult next = validator.validate(request(INVALID, FhirVersion.R4, profilesR4));
+
+        assertThat(afterHang.isValid()).as("validated by a process instead").isTrue();
+        assertThat(next.isValid()).isFalse();
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).as("one timeout, not one per queued validation")
+                .isLessThan(Duration.ofSeconds(20));
+        assertThat(calls("start")).hasSize(1);
+        assertThat(calls("process")).hasSize(2);
+        assertThat(validator.serverCount()).as("the hanging server was ended").isZero();
+    }
+
+    @Test
     void withoutFallbackAServerFailureIsAnErrorNamingTheSwitches() {
         validator = new ValidatorServerProfileValidator(config(false, jar, "-DFAKE_VALIDATOR_UNUSED=1"));
         validator.validate(request(VALID, FhirVersion.R4, profilesR4));

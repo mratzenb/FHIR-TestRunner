@@ -1,7 +1,7 @@
 # ADR-0006: Profile validation with the HL7 Validator CLI as an external process
 
-Extended by [ADR-0011](0011-validator-server-mode.md) (optional server mode). This ADR describes the default,
-`testrunner.validation.mode=process`.
+Extended by [ADR-0011](0011-validator-server-mode.md) (server mode, the default since 2026-10). This ADR describes
+`testrunner.validation.mode=process`, the original default and the fallback of the server mode.
 
 ## Context
 The PoC calls `validator_cli.jar` per assertion and parses stdout. Options: keep the CLI (jar path configurable),
