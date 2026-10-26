@@ -1,5 +1,6 @@
 package at.hl7.testing.runner.core.engine;
 
+import at.hl7.testing.runner.core.content.FhirElement;
 import at.hl7.testing.runner.core.content.MediaTypes;
 import at.hl7.testing.runner.core.content.PathEvaluator;
 import at.hl7.testing.runner.core.content.ResourceContent;
@@ -18,8 +19,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -32,6 +35,8 @@ import java.util.stream.Collectors;
 final class AssertionEvaluator {
 
     private static final Logger log = LoggerFactory.getLogger(AssertionEvaluator.class);
+    /** The links {@code navigationLinks} requires, as defined by the specification. */
+    private static final List<String> NAVIGATION_LINKS = List.of("first", "last", "next");
 
     private final ExecutionState state;
     private final FhirPathEvaluator fhirPath;
@@ -145,8 +150,16 @@ final class AssertionEvaluator {
                 yield null;
             }
             case Check.ValidateProfile c -> validateProfile(source, c.profileId());
-            case Check.MinimumId c -> throw unsupported("minimumId");
-            case Check.NavigationLinks c -> throw unsupported("navigationLinks");
+            case Check.MinimumId c -> {
+                operator(assertion, Operator.EQUALS, Operator.EQUALS);
+                minimumId(source, c.fixtureId());
+                yield null;
+            }
+            case Check.NavigationLinks c -> {
+                operator(assertion, Operator.EQUALS, Operator.EQUALS);
+                navigationLinks(source, c.expected());
+                yield null;
+            }
             case Check.RequestMethod c -> throw unsupported("requestMethod");
             case Check.RequestUrl c -> throw unsupported("requestURL");
         };
@@ -185,6 +198,54 @@ final class AssertionEvaluator {
             log.debug("Validator warnings and information:\n{}", ValidationResult.describe(result.warnings()));
         }
         return null;
+    }
+
+    /**
+     * {@code assert.minimumId}: the source contains every element and value of the fixture, by the rules of the FHIR
+     * testing specification (order free, more allowed, duplicates need a counterpart each). The resource id is
+     * ignored, as the server assigns its own.
+     */
+    private void minimumId(Source source, String fixtureId) {
+        Source minimum = state.require(fixtureId, "minimumId");
+        FhirElement expected = element(minimum.body(), "minimumId '" + fixtureId + "'").without("id");
+        FhirElement actual = element(source.body(), describe(source));
+        String type = expected.valueOf("resourceType").orElse("Resource");
+        List<String> differences = expected.notContainedIn(actual, type);
+        if (!differences.isEmpty()) {
+            throw new AssertionFailure(describe(source) + " does not contain everything of minimumId '" + fixtureId
+                    + "':\n  " + String.join("\n  ", differences));
+        }
+    }
+
+    /** {@code assert.navigationLinks}: whether the Bundle has a first, last and next link, as the spec defines it. */
+    private static void navigationLinks(Source source, boolean expected) {
+        FhirElement bundle = element(source.body(), describe(source));
+        if (!bundle.valueOf("resourceType").filter("Bundle"::equals).isPresent()) {
+            throw new AssertionFailure("navigationLinks needs a Bundle, but " + describe(source) + " is "
+                    + bundle.valueOf("resourceType").map(t -> "a " + t).orElse("no resource"));
+        }
+        Set<String> relations = new LinkedHashSet<>();
+        bundle.all("link").forEach(link -> link.valueOf("relation").ifPresent(relations::add));
+        List<String> missing = NAVIGATION_LINKS.stream().filter(r -> !relations.contains(r)).toList();
+        if (expected && !missing.isEmpty()) {
+            throw new AssertionFailure("Expected the navigation links first, last and next; missing: "
+                    + String.join(", ", missing) + " (links: " + relations + ")");
+        }
+        if (!expected && missing.isEmpty()) {
+            throw new AssertionFailure("Expected the Bundle not to have all navigation links, but it has first, last"
+                    + " and next");
+        }
+    }
+
+    private static FhirElement element(Body body, String what) {
+        if (body.isEmpty()) {
+            throw new AssertionFailure(what + " is empty");
+        }
+        try {
+            return FhirElement.of(body);
+        } catch (IllegalArgumentException e) {
+            throw new AssertionFailure(what + " is no FHIR resource: " + e.getMessage());
+        }
     }
 
     private List<Object> evaluateFhirPath(Body body, String expression) {

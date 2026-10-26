@@ -111,6 +111,17 @@ class R4SupportTest {
     }
 
     @Test
+    void mapsMinimumIdAndNavigationLinks() throws IOException {
+        TestScript ts = support.readTestScript(read(SampleData.testScript(SampleData.samples(),
+                "TestScript-testscript-minimumId-navigationLinks.json"))).testScript();
+
+        assertThat(ts.tests()).flatExtracting(t -> t.actions()).filteredOn(Assertion.class::isInstance)
+                .extracting(a -> ((Assertion) a).check())
+                .containsExactly(new Check.MinimumId("patient-create"), new Check.MinimumId("patient-create-xml"),
+                        new Check.MinimumId("patient-create-xml"), new Check.NavigationLinks(false));
+    }
+
+    @Test
     void rejectsAnR5TestScript() throws IOException {
         Body r5 = read(SampleData.testScript(SampleData.r5(), "TestScript-testscript-patient-create-at-core.json"));
 

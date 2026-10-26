@@ -310,10 +310,79 @@ class TestScriptExecutionTest {
 
         @Test
         void unsupportedChecksAreErrors() {
-            TestScriptResult result = runAfterCapabilities(check(new Check.MinimumId("x")));
+            TestScriptResult result = runAfterCapabilities(check(new Check.RequestMethod("GET")));
 
             assertThat(phase(result, "t").outcome()).isEqualTo(Outcome.ERROR);
-            assertThat(phase(result, "t").messages().getFirst()).contains("minimumId", "not supported");
+            assertThat(phase(result, "t").messages().getFirst()).contains("requestMethod", "not supported");
+        }
+
+        @Test
+        void minimumIdPassesWhenTheResponseContainsTheFixtureWhateverItsId() {
+            harness.resource("patient", PATIENT)
+                    .resource("minimum", """
+                            {"resourceType":"Patient","id":"other","name":[{"family":"Bucher"}]}""")
+                    .add("ts", script().fixture("patient", false, false).fixture("minimum", false, false)
+                            .test(test("t", op("create", "Patient", "patient", null, null, null),
+                                    check(new Check.MinimumId("minimum"))))
+                            .build());
+
+            assertThat(harness.runOne().outcome()).isEqualTo(Outcome.PASS);
+        }
+
+        @Test
+        void minimumIdListsEveryDifference() {
+            harness.resource("patient", PATIENT)
+                    .resource("minimum", """
+                            {"resourceType":"Patient","name":[{"family":"Meier"}],"gender":"female"}""")
+                    .add("ts", script().fixture("patient", false, false).fixture("minimum", false, false)
+                            .test(test("t", op("create", "Patient", "patient", null, null, null),
+                                    check(new Check.MinimumId("minimum"))))
+                            .build());
+
+            PhaseResult t = phase(harness.runOne(), "t");
+
+            assertThat(t.outcome()).isEqualTo(Outcome.FAIL);
+            assertThat(t.messages().getFirst()).contains("the response of REQ-0001 does not contain everything of"
+                    + " minimumId 'minimum'", "Patient.name.family: expected 'Meier', found 'Bucher'",
+                    "Patient.gender: missing, expected female");
+        }
+
+        @Test
+        void minimumIdOfAnUnknownFixtureIsAnError() {
+            PhaseResult t = phase(runAfterCapabilities(check(new Check.MinimumId("nope"))), "t");
+
+            assertThat(t.outcome()).isEqualTo(Outcome.ERROR);
+            assertThat(t.messages().getFirst()).contains("minimumId 'nope' is neither a fixture");
+        }
+
+        @Test
+        void navigationLinksNeedFirstLastAndNext() {
+            server.on("GET", "/Patient", InMemoryFhirServer.Answer.json(200, """
+                    {"resourceType":"Bundle","type":"searchset","link":[
+                      {"relation":"self","url":"http://x/Patient"},{"relation":"first","url":"http://x/Patient?p=1"},
+                      {"relation":"next","url":"http://x/Patient?p=2"},{"relation":"last","url":"http://x/Patient?p=9"}]}"""));
+            harness.add("ts", script().test(test("t",
+                    op("search", "Patient", null, null, null, "page"), check(new Check.NavigationLinks(true)),
+                    op("capabilities"), on(check(new Check.NavigationLinks(true)), "page"),
+                    check(new Check.NavigationLinks(true)))).build());
+
+            PhaseResult t = phase(harness.runOne(), "t");
+
+            assertThat(t.actions()).extracting(ActionResult::outcome)
+                    .containsExactly(Outcome.PASS, Outcome.PASS, Outcome.PASS, Outcome.PASS, Outcome.FAIL);
+            assertThat(t.messages().getFirst()).contains("navigationLinks needs a Bundle", "a CapabilityStatement");
+        }
+
+        @Test
+        void navigationLinksFalseExpectsTheLinksToBeIncomplete() {
+            harness.add("ts", script().test(test("t", op("search", "Patient", null, null, null, null),
+                    check(new Check.NavigationLinks(false)), check(new Check.NavigationLinks(true)))).build());
+
+            PhaseResult t = phase(harness.runOne(), "t");
+
+            assertThat(t.actions()).extracting(ActionResult::outcome)
+                    .containsExactly(Outcome.PASS, Outcome.PASS, Outcome.FAIL);
+            assertThat(t.messages().getFirst()).contains("missing: first, last, next");
         }
 
         @Test
