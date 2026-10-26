@@ -25,7 +25,7 @@ class RunConfigurationTest {
     @Test
     void reportsEveryProblem(@TempDir Path dir) {
         RunConfiguration config = new RunConfiguration(null,
-                List.of(new SuiteConfig(null, "R7", dir.resolve("missing"), null, null, null, null, null, null)),
+                List.of(new SuiteConfig(null, "R7", dir.resolve("missing"), null, null, null, null, null, null, null)),
                 null, new ExecutionConfig(0), null,
                 new ReportingConfig(null, List.of("pdf"), null, null, "LOUD"));
 
@@ -50,8 +50,8 @@ class RunConfigurationTest {
     void igsNeedAPinnedFhirVersion(@TempDir Path dir) throws Exception {
         Files.createDirectories(dir.resolve("Test_Scripts"));
         List<String> igs = List.of("hl7.at.fhir.core.r4#2.0.0");
-        SuiteConfig auto = new SuiteConfig(null, null, dir, null, null, null, igs, null, null);
-        SuiteConfig pinned = new SuiteConfig(null, "R4", dir, null, null, null, igs, null, null);
+        SuiteConfig auto = new SuiteConfig(null, null, dir, null, null, null, igs, null, null, null);
+        SuiteConfig pinned = new SuiteConfig(null, "R4", dir, null, null, null, igs, null, null, null);
 
         assertThat(new RunConfiguration(null, List.of(auto), null, null, ValidationConfig.disabled(), null).problems())
                 .singleElement().asString().contains("testrunner.suites[0].igs", "fhir-version");
@@ -63,7 +63,7 @@ class RunConfigurationTest {
     @Test
     void suiteFallsBackToTheServerOfTheRun(@TempDir Path dir) {
         SuiteConfig own = new SuiteConfig("own", null, dir, null, null, null, null, null,
-                FhirServerConfig.of("http://own/fhir/"));
+                FhirServerConfig.of("http://own/fhir/"), null);
         SuiteConfig shared = SuiteConfig.of(dir, null);
         RunConfiguration config = new RunConfiguration(FhirServerConfig.of("http://shared/fhir"), List.of(own, shared),
                 null, null, null, null);

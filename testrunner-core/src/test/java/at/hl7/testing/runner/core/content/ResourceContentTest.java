@@ -52,6 +52,24 @@ class ResourceContentTest {
         assertThat(ResourceContent.replaceReferences(JSON, r -> r)).isSameAs(JSON);
     }
 
+    @Test
+    void replacesTextValuesButNotNamesOrStructure() {
+        Body json = Body.json("""
+                {"resourceType":"Patient","${key}":"x","name":[{"family":"A-${v}","given":["${v}","${v}"]}],"active":true}""");
+        Body xml = Body.xml("""
+                <Patient xmlns="http://hl7.org/fhir"><name><family value="A-${v}"/></name><text><div>${v}</div></text></Patient>""");
+
+        Body replacedJson = ResourceContent.replaceText(json, t -> t.replace("${v}", "\"quoted\"").replace("${key}", "k"));
+        Body replacedXml = ResourceContent.replaceText(xml, t -> t.replace("${v}", "<b>&</b>"));
+
+        assertThat(ResourceContent.json(replacedJson).path("${key}").asText()).isEqualTo("x");
+        assertThat(ResourceContent.json(replacedJson).path("name").get(0).path("family").asText()).isEqualTo("A-\"quoted\"");
+        assertThat(ResourceContent.json(replacedJson).path("name").get(0).path("given").get(1).asText()).isEqualTo("\"quoted\"");
+        assertThat(ResourceContent.json(replacedJson).path("active").asBoolean()).isTrue();
+        assertThat(replacedXml.text()).contains("<family value=\"A-&lt;b&gt;&amp;&lt;/b&gt;\"/>", "<div>&lt;b&gt;&amp;&lt;/b&gt;</div>");
+        assertThat(ResourceContent.replaceText(JSON, t -> t)).isSameAs(JSON);
+    }
+
     @ParameterizedTest
     @CsvSource({
             "http://s/fhir/Patient/123/_history/2, Patient, 123, 2",

@@ -32,10 +32,14 @@ import java.nio.file.Files;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -115,29 +119,42 @@ public final class TestRunner {
         }
     }
 
+    /**
+     * Runs the TestScripts, in parallel if configured. The TestScripts of suites with {@code parallel = false} run
+     * first, one after the other, while nothing else runs; then the others. The results keep the discovery order.
+     */
     private List<TestScriptResult> runAll(RunContext run, List<TestScriptSource> sources, CapabilityCheck capabilities) {
-        int parallelism = Math.min(run.configuration().execution().parallelism(), Math.max(1, sources.size()));
-        if (parallelism == 1) {
-            List<TestScriptResult> results = new ArrayList<>();
-            for (int i = 0; i < sources.size(); i++) {
-                results.add(runOne(run, i + 1, sources.size(), sources.get(i), capabilities));
-            }
-            return results;
+        List<Integer> serial = new ArrayList<>();
+        List<Integer> parallel = new ArrayList<>();
+        for (int i = 0; i < sources.size(); i++) {
+            (sources.get(i).suite().parallel() ? parallel : serial).add(i);
         }
-        log.info("Running {} TestScripts with parallelism {}", sources.size(), parallelism);
+        int parallelism = Math.min(run.configuration().execution().parallelism(), Math.max(1, parallel.size()));
+        TestScriptResult[] results = new TestScriptResult[sources.size()];
+        if (parallelism == 1) {
+            for (int i = 0; i < sources.size(); i++) {
+                results[i] = runOne(run, i + 1, sources.size(), sources.get(i), capabilities);
+            }
+            return List.of(results);
+        }
+        if (!serial.isEmpty()) {
+            log.info("Running {} TestScript(s) of suites with parallel=false one after the other first", serial.size());
+        }
+        for (int i : serial) {
+            results[i] = runOne(run, i + 1, sources.size(), sources.get(i), capabilities);
+        }
+        log.info("Running {} TestScripts with parallelism {}", parallel.size(), parallelism);
         try (ExecutorService executor = Executors.newFixedThreadPool(parallelism,
                 Thread.ofPlatform().name("testscript-", 1).factory())) {
-            List<Future<TestScriptResult>> futures = new ArrayList<>();
-            for (int i = 0; i < sources.size(); i++) {
-                int index = i + 1;
+            Map<Integer, Future<TestScriptResult>> futures = new LinkedHashMap<>();
+            for (int i : parallel) {
                 TestScriptSource source = sources.get(i);
-                futures.add(executor.submit(() -> runOne(run, index, sources.size(), source, capabilities)));
+                futures.put(i, executor.submit(() -> runOne(run, i + 1, sources.size(), source, capabilities)));
             }
-            List<TestScriptResult> results = new ArrayList<>();
-            for (Future<TestScriptResult> future : futures) {
-                results.add(future.get());
+            for (var future : futures.entrySet()) {
+                results[future.getKey()] = future.getValue().get();
             }
-            return results;
+            return List.of(results);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while running the TestScripts", e);
@@ -218,8 +235,23 @@ public final class TestRunner {
                 .collect(LinkedHashMap::new, (m, e) -> m.put(e.getKey(), List.of(e.getValue())), Map::putAll));
         FhirHttpClient http = new FhirHttpClient(transport, run.requestCounter(), communication, defaultHeaders);
         List<PhaseResult> phases = new TestScriptExecution(loaded, http, server.base(), validator,
-                suite.resolvedProfilesDir(), suite.igs(), capabilities).run();
+                suite.resolvedProfilesDir(), suite.igs(), capabilities, builtInValues(run, index, started)).run();
         return result(index, loaded, server.base(), started, phases);
+    }
+
+    /**
+     * The values TestScripts and their fixtures can use as {@code ${testrunner.<name>}}, e.g. to give the resources
+     * of each TestScript execution identifiers of their own, so that TestScripts running in parallel, or again on the
+     * same server, do not find each other's data.
+     */
+    static Map<String, String> builtInValues(RunContext run, int index, Instant started) {
+        String uuid = UUID.randomUUID().toString();
+        return Map.of(
+                "runId", run.runId(),
+                "testScriptId", run.runId().replaceAll("[^A-Za-z0-9.-]", "-") + "-" + "%02d".formatted(index),
+                "uuid", uuid,
+                "timestamp", DateTimeFormatter.ISO_INSTANT.format(started.truncatedTo(ChronoUnit.MILLIS)),
+                "date", DateTimeFormatter.ISO_LOCAL_DATE.format(started.atZone(ZoneOffset.UTC)));
     }
 
     /** Validates the TestScript itself against the base specification of its version. */

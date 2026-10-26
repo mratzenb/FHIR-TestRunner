@@ -42,6 +42,7 @@ class TestRunnerAutoConfigurationTest {
                 "testrunner.suites[0].igs=hl7.at.fhir.core.r4#2.0.0",
                 "testrunner.suites[1].base-dir=testdata/r5",
                 "testrunner.suites[1].fhir-server.base-url=http://r5/fhir",
+                "testrunner.suites[1].parallel=false",
                 "testrunner.execution.parallelism=4",
                 "testrunner.http.request-timeout=2m",
                 "testrunner.validation.validator-jar=/opt/validator_cli.jar",
@@ -58,6 +59,8 @@ class TestRunnerAutoConfigurationTest {
                     assertThat(config.suites().getFirst().igs()).containsExactly("hl7.at.fhir.core.r4#2.0.0");
                     assertThat(config.suites().get(1).pinnedFhirVersion()).isEmpty();
                     assertThat(config.suites().get(1).igs()).isEmpty();
+                    assertThat(config.suites().getFirst().parallel()).as("default").isTrue();
+                    assertThat(config.suites().get(1).parallel()).isFalse();
                     assertThat(config.fhirServerOf(config.suites().get(1)).base()).isEqualTo("http://r5/fhir");
                     assertThat(config.execution().parallelism()).isEqualTo(4);
                     assertThat(config.http().requestTimeout()).isEqualTo(Duration.ofMinutes(2));

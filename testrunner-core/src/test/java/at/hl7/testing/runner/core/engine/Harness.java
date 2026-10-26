@@ -26,6 +26,9 @@ import java.util.Map;
 /**
  * Runs TestScript models through the real {@link TestRunner}: each model is written as a file whose content is
  * its key, the {@link StubVersionSupport} hands the model back. Fixture resources go to Example_Instances.
+ *
+ * <p>The TestScripts added with {@link #add} form the suite {@code suite}; those added with {@link #addSerial} the
+ * suite {@code serial}, which has {@code parallel = false} and comes first.
  */
 final class Harness {
 
@@ -33,6 +36,7 @@ final class Harness {
     private final Map<String, TestScript> scripts = new LinkedHashMap<>();
     private ProfileValidator validator = ProfileValidator.DISABLED;
     private int parallelism = 1;
+    private boolean serialSuite;
     private String fhirBase;
 
     Harness(Path dir, String fhirBase) {
@@ -49,6 +53,20 @@ final class Harness {
     Harness add(String name, TestScript script) {
         scripts.put(name, script);
         write("suite/Test_Scripts/" + name + ".json", name);
+        return this;
+    }
+
+    /** Adds a TestScript to the suite with {@code parallel = false}; its fixtures are in the same folder. */
+    Harness addSerial(String name, TestScript script) {
+        serialSuite = true;
+        scripts.put(name, script);
+        try {
+            Files.createDirectories(dir.resolve("serial/Test_Scripts"));
+            Files.createDirectories(dir.resolve("serial/Example_Instances"));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        write("serial/Test_Scripts/" + name + ".json", name);
         return this;
     }
 
@@ -80,8 +98,13 @@ final class Harness {
     }
 
     RunResult run() {
-        RunConfiguration configuration = new RunConfiguration(FhirServerConfig.of(fhirBase),
-                List.of(SuiteConfig.of(dir.resolve("suite"), "R4")), HttpConfig.defaults(),
+        List<SuiteConfig> suites = new java.util.ArrayList<>();
+        if (serialSuite) {
+            suites.add(new SuiteConfig(null, "R4", dir.resolve("serial"), null, Path.of("../suite/Example_Instances"),
+                    null, null, null, null, false));
+        }
+        suites.add(SuiteConfig.of(dir.resolve("suite"), "R4"));
+        RunConfiguration configuration = new RunConfiguration(FhirServerConfig.of(fhirBase), suites, HttpConfig.defaults(),
                 new ExecutionConfig(parallelism),
                 ValidationConfig.disabled(),
                 new ReportingConfig(dir.resolve("results"), List.of("junit", "summary", "json"), true, false, null));
