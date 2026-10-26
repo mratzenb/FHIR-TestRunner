@@ -14,6 +14,9 @@ must be understandable and easily extensible, but avoid duplicating everything.
 4. A version module = `FhirContext` + dialect + `ServiceLoader` registration (R4: two classes, 27 lines).
 5. The version of a TestScript is **detected** by strict parsing with every available version (errors vs. ignored
    elements), or pinned per suite.
+6. The same applies in the other direction: a FHIR **TestReport** is described version-neutrally
+   (`spi.TestReportContent`, decided in the core) and written by one generic `TestReportEncoder` that sets elements by
+   name (`FhirTerser`); the version module only provides its `FhirContext`.
 
 Details and the R6 recipe: [fhir-versions.md](../fhir-versions.md).
 

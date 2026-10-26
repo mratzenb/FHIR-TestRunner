@@ -8,6 +8,8 @@ testrunner-results/run_2026-10-21_20-58-01-838/
 ├─ junit.xml                 results for CI
 ├─ summary.txt               counts and reasons of failures
 ├─ result.json               every action, with its request id (format json)
+├─ testreports/              a FHIR TestReport per TestScript, in its FHIR version (format testreport)
+│  └─ TestReport-01_TestScript-testscript-patient-create-at-core.json
 └─ communication/
    ├─ 01_TestScript-testscript-patient-create-at-core/
    │  └─ REQ-0003_POST_Patient/
@@ -74,3 +76,29 @@ logging.level.at.hl7.testing.runner.communication: DEBUG   # requests/responses 
 The communication log contains what the server returned and any `Authorization` header configured in
 `fhir-server.headers`. Treat the result folder like the test data it contains. A redacting `CommunicationLog` is a
 small extension if the folder must be shared.
+
+## FHIR TestReports
+
+With the format `testreport` (on in the application's defaults) the run folder gets `testreports/` with one FHIR
+`TestReport` per TestScript, in the FHIR version of the TestScript, for FHIR servers and conformance tools. What goes
+in is decided in the core (`TestReportWriter`); the version module only encodes it
+(`FhirVersionSupport.testReport`, one generic `TestReportEncoder` on HAPI for all versions – `testScript` is a
+Reference in R4 and a canonical in R5):
+
+| TestReport | From |
+|---|---|
+| `identifier` | `urn:testrunner:<run id>/<NN>` |
+| `testScript` | `TestScript.url`, else the file URI |
+| `result` | `pass`; `pending` if the TestScript was skipped (e.g. a missing capability); `fail` for fail and error (FHIR has no result "error", the actions have it) |
+| `score` | percentage of the tests that passed |
+| `participant` | the server (`type = server`, its base URL), if anything was sent |
+| `setup` | the Load and Setup phases |
+| `test` | one per test, named like the test |
+| `teardown` | the teardown, operations only |
+| action `result` | `pass`, `skip`, `fail`, `error`; `warning` for an action that passed with a warning (`warningOnly`, validation disabled) |
+| action `message` | the action's description and, if it did not pass, why |
+| action `detail` | the folder of the request in `communication/`, relative to the run folder |
+
+What happened outside of the actions – an unmet capability, a fixture that could not be created, a skipped test,
+content the version ignored – becomes an action of its own, so a TestReport carries the same reasons as `junit.xml`.
+A TestScript whose FHIR version could not be determined gets no TestReport.

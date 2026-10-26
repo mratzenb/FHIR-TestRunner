@@ -80,7 +80,8 @@ testrunner:
 
   reporting:
     output-dir: testrunner-results         # every run gets output-dir/run_<timestamp>/
-    formats: [junit, summary]              # junit | summary | json | any format of an added ReportWriter
+    formats: [junit, summary]              # junit | summary | json | testreport (FHIR TestReports, logging.md)
+                                           # | any format of an added ReportWriter; the app sets all four
     communication-log: true                # one folder per request/response, see logging.md
     log-file: true                         # testrunner.log in the run folder
     log-file-level: DEBUG                  # TRACE | DEBUG | INFO | WARN | ERROR
@@ -141,7 +142,7 @@ part by declaring its own bean, and adds to the lists by declaring more:
 | `HttpTransport` | add a proxy, mutual TLS, OAuth token refresh, a recorder | `JdkHttpTransport` |
 | `ProfileValidator` | use another validator, e.g. in-process | `ValidatorCliProfileValidator` or `ValidatorServerProfileValidator` by `validation.mode` (if on classpath and enabled); Spring stops the servers when the context closes |
 | `FhirVersionSupport` (any number) | override a version's mapping | modules found by `ServiceLoader` |
-| `ReportWriter` (any number) | add a format, e.g. HTML; select it in `reporting.formats` | junit, summary, json |
+| `ReportWriter` (any number) | add a format, e.g. HTML; select it in `reporting.formats` | junit, summary, json, testreport |
 | `RunListener` (any number) | react to run/TestScript events (notifications, metrics) | `RunLogFileListener` |
 | `Clock` | fixed time in tests | system clock |
 | `TestRunner` | wire everything yourself | — |

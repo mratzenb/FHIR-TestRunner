@@ -29,4 +29,4 @@ testrunner:
     validator-jar: validator_cli.jar
   reporting:
     output-dir: testrunner-results
-    formats: [junit, summary, json]
+    formats: [junit, summary, json, testreport]

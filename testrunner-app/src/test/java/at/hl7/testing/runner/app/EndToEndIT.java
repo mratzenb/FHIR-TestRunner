@@ -64,7 +64,7 @@ class EndToEndIT {
                 "--testrunner.run-on-startup=false",
                 "--testrunner.validation.validator-jar=" + validatorJar,
                 "--testrunner.reporting.output-dir=" + dir.resolve("results"),
-                "--testrunner.reporting.formats=junit,summary,json"));
+                "--testrunner.reporting.formats=junit,summary,json,testreport"));
         for (String property : properties) {
             args.add("--" + property);
         }
@@ -137,6 +137,39 @@ class EndToEndIT {
         List<String> requestIds = run.testScripts().stream().flatMap(r -> r.phases().stream())
                 .flatMap(p -> p.actions().stream()).map(a -> a.requestId()).filter(id -> id != null).distinct().toList();
         assertThat(requestIds).hasSize(6);
+    }
+
+    @Test
+    void writesAFhirTestReportPerTestScriptInItsVersion() throws Exception {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+        r5Server = InMemoryFhirServer.start("5.0.0");
+
+        RunResult run = run("testrunner.fhir-server.base-url=" + r4Server.baseUrl(),
+                "testrunner.suites[0].name=r4",
+                "testrunner.suites[0].base-dir=" + SampleData.r4(),
+                "testrunner.suites[0].include=TestScript-testscript-patient-update-at-core.json",
+                "testrunner.suites[1].name=r5",
+                "testrunner.suites[1].base-dir=" + SampleData.r5(),
+                "testrunner.suites[1].include=TestScript-testscript-patient-create-at-core.json",
+                "testrunner.suites[1].fhir-server.base-url=" + r5Server.baseUrl());
+
+        Path folder = run.reportFiles().get("testreport");
+        assertThat(folder).isEqualTo(run.runDirectory().resolve("testreports"));
+        org.hl7.fhir.r4.model.TestReport r4 = ca.uhn.fhir.context.FhirContext.forR4Cached().newJsonParser()
+                .parseResource(org.hl7.fhir.r4.model.TestReport.class,
+                        Files.readString(folder.resolve("TestReport-01_TestScript-testscript-patient-update-at-core.json")));
+        assertThat(r4.getResult().toCode()).isEqualTo("pass");
+        assertThat(r4.getTestScript().getReference())
+                .isEqualTo("https://fhir.hl7.at/core/r4/TestScript/testscript-patient-update-at-core");
+        assertThat(r4.getParticipantFirstRep().getUri()).isEqualTo(r4Server.baseUrl());
+        String detail = r4.getTestFirstRep().getActionFirstRep().getOperation().getDetail();
+        assertThat(run.runDirectory().resolve(detail).resolve("request.http")).exists();
+
+        org.hl7.fhir.r5.model.TestReport r5 = ca.uhn.fhir.context.FhirContext.forR5Cached().newJsonParser()
+                .parseResource(org.hl7.fhir.r5.model.TestReport.class,
+                        Files.readString(folder.resolve("TestReport-02_TestScript-testscript-patient-create-at-core.json")));
+        assertThat(r5.getTestScript()).isEqualTo("https://fhir.hl7.at/core/r5/TestScript/testscript-patient-create-at-core");
+        assertThat(r5.getScore().intValue()).isEqualTo(100);
     }
 
     @Test

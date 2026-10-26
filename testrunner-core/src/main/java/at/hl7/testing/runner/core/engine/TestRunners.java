@@ -6,6 +6,7 @@ import at.hl7.testing.runner.core.report.JUnitXmlReportWriter;
 import at.hl7.testing.runner.core.report.JsonReportWriter;
 import at.hl7.testing.runner.core.report.ReportWriter;
 import at.hl7.testing.runner.core.report.SummaryReportWriter;
+import at.hl7.testing.runner.core.report.TestReportWriter;
 import at.hl7.testing.runner.core.spi.FhirVersionRegistry;
 import at.hl7.testing.runner.core.spi.ProfileValidator;
 
@@ -18,9 +19,14 @@ public final class TestRunners {
     private TestRunners() {
     }
 
-    /** The built-in report writers. */
-    public static List<ReportWriter> defaultReportWriters() {
-        return List.of(new JUnitXmlReportWriter(), new SummaryReportWriter(), new JsonReportWriter());
+    /**
+     * The built-in report writers.
+     *
+     * @param versions the FHIR versions, for the TestReports in the version of each TestScript
+     */
+    public static List<ReportWriter> defaultReportWriters(FhirVersionRegistry versions) {
+        return List.of(new JUnitXmlReportWriter(), new SummaryReportWriter(), new JsonReportWriter(),
+                new TestReportWriter(versions));
     }
 
     /**
@@ -28,7 +34,8 @@ public final class TestRunners {
      * writers.
      */
     public static TestRunner create(HttpConfig http, ProfileValidator validator) {
-        return new TestRunner(FhirVersionRegistry.fromServiceLoader(), new JdkHttpTransport(http), validator,
-                defaultReportWriters(), List.of(), Clock.systemDefaultZone());
+        FhirVersionRegistry versions = FhirVersionRegistry.fromServiceLoader();
+        return new TestRunner(versions, new JdkHttpTransport(http), validator, defaultReportWriters(versions),
+                List.of(), Clock.systemDefaultZone());
     }
 }

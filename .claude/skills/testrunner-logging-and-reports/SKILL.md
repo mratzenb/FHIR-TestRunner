@@ -1,6 +1,6 @@
 ---
 name: testrunner-logging-and-reports
-description: Logging and reporting in the FHIR TestScript Runner (TestRunnerOnJava) – the run folder layout, run-wide request ids, the MDC testScript key, the per-run log file, the communication log of every HTTP exchange, and the JUnit/summary/JSON report writers. Use when working on log output, FhirHttpClient/CommunicationLog, RunLogFileListener, a ReportWriter or a new report format, or when tracing a failed assertion to the exchanged bytes.
+description: Logging and reporting in the FHIR TestScript Runner (TestRunnerOnJava) – the run folder layout, run-wide request ids, the MDC testScript key, the per-run log file, the communication log of every HTTP exchange, and the JUnit/summary/JSON/FHIR TestReport report writers. Use when working on log output, FhirHttpClient/CommunicationLog, RunLogFileListener, a ReportWriter or a new report format, or when tracing a failed assertion to the exchanged bytes.
 ---
 
 # Logging and reports (ADR-0007, `docs/logging.md`)
@@ -10,6 +10,7 @@ description: Logging and reporting in the FHIR TestScript Runner (TestRunnerOnJa
 ```
 testrunner.log                 run log (RunLogFileListener), level reporting.log-file-level (DEBUG)
 junit.xml  summary.txt  result.json   one file per selected format
+testreports/TestReport-<NN>_<TestScript base name>.json   format testreport: a FHIR TestReport per TestScript
 communication/<NN>_<TestScript base name>/<REQ-id>_<METHOD>_<path>/   (characters outside [A-Za-z0-9._-] ⇒ _)
     request.http               request line, headers, body – as sent
     response.http              status line, headers, body – as received
@@ -55,12 +56,20 @@ redacting `CommunicationLog` would be the extension point.
   (kind `operation`/`assert`, description, outcome, message, requestId, warning flag).
 * Writers: `JUnitXmlReportWriter` `junit` (a testsuite per TestScript, property `fhirVersion`, warnings in
   `system-out`), `SummaryReportWriter` `summary` (counts and reasons), `JsonReportWriter` `json` (every action with
-  its request id). Defaults: `TestRunners.defaultReportWriters()`.
+  its request id), `TestReportWriter` `testreport` (a FHIR TestReport per TestScript in `testreports/`, in the
+  TestScript's version; returns the folder). Defaults: `TestRunners.defaultReportWriters(FhirVersionRegistry)`.
+* **TestReport**: the core maps a `TestScriptResult` to `spi.TestReportContent` (result pass/pending/fail, score = %
+  tests passed, action `warning` for passed-with-warning, `detail` = communication folder of the request, phase
+  messages outside actions become actions); `FhirVersionSupport.testReport(content)` encodes it (default throws
+  `UnsupportedOperationException` ⇒ logged, no file). `fhir.hapi.TestReportEncoder` does it for every version by
+  element name (`FhirTerser`): `testScript` is Reference (R4) or canonical (R5). Teardown: operations only.
+  `TestScriptResult.fhirServer` (null if nothing sent) → `participant`.
 * **New format**: implement `ReportWriter` (`format()` name, `write(RunResult, Path runDirectory)` returns the
   file); register it (Spring: a `@Bean`; library: pass it to the `TestRunner` constructor); select it in
   `reporting.formats`. Unknown formats are a configuration problem.
 * Listeners: implement `RunListener` (`runStarted`, `testScriptFinished` – may be called concurrently –,
   `runFinished`).
 
-Tests: `CommunicationLogTest`, `TestScriptExecutionTest.communicationLogHasOneFolderPerRequest`,
-`EndToEndIT.communicationLogsAndReportsAreWrittenPerRun`.
+Tests: `CommunicationLogTest`, `TestScriptExecutionTest.communicationLogHasOneFolderPerRequest`, `TestReportWriterTest`
+(content mapping), `R4SupportTest`/`R5SupportTest.writesAValid…TestReport…` (HAPI parses it back),
+`EndToEndIT.communicationLogsAndReportsAreWrittenPerRun`, `EndToEndIT.writesAFhirTestReportPerTestScriptInItsVersion`.

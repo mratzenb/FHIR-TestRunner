@@ -28,4 +28,14 @@ public interface FhirVersionSupport {
 
     /** FHIRPath evaluation for resources of this version. */
     FhirPathEvaluator fhirPath();
+
+    /**
+     * Writes a {@code TestReport} resource of this version.
+     *
+     * @return the {@code TestReport} as JSON
+     * @throws UnsupportedOperationException if the module cannot write TestReports
+     */
+    default Body testReport(TestReportContent content) {
+        throw new UnsupportedOperationException("The FHIR " + version() + " module cannot write TestReports");
+    }
 }

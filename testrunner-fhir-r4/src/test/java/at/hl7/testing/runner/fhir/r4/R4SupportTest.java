@@ -8,6 +8,7 @@ import at.hl7.testing.runner.core.model.FhirVersion;
 import at.hl7.testing.runner.core.model.Operation;
 import at.hl7.testing.runner.core.model.OperationType;
 import at.hl7.testing.runner.core.model.TestScript;
+import at.hl7.testing.runner.core.spi.TestReportContent;
 import at.hl7.testing.runner.core.spi.TestScriptFormatException;
 import at.hl7.testing.runner.testsupport.SampleData;
 import org.junit.jupiter.api.Test;
@@ -119,6 +120,37 @@ class R4SupportTest {
                 .extracting(a -> ((Assertion) a).check())
                 .containsExactly(new Check.MinimumId("patient-create"), new Check.MinimumId("patient-create-xml"),
                         new Check.MinimumId("patient-create-xml"), new Check.NavigationLinks(false));
+    }
+
+    static TestReportContent report(String testScript) {
+        return new TestReportContent("run-01", "run/01", "TS", testScript, "fail", new java.math.BigDecimal("50"),
+                "tester", java.time.Instant.parse("2026-10-26T10:00:00Z"), "http://localhost:8080/fhir",
+                List.of(new TestReportContent.Action(false, "pass", "create Patient (POST)", "communication/01_ts/REQ-0001_POST_Patient")),
+                List.of(new TestReportContent.Test("t1", List.of(
+                                new TestReportContent.Action(true, "warning", "responseCode '201': Assert failed", "REQ-0001"))),
+                        new TestReportContent.Test("t2", List.of(
+                                new TestReportContent.Action(true, "fail", "minimumId 'm': differences", "REQ-0002")))),
+                List.of(new TestReportContent.Action(true, "error", "Autodelete failed", null)));
+    }
+
+    @Test
+    void writesAValidR4TestReportWithTheTestScriptAsReference() {
+        Body json = support.testReport(report("http://example.org/TestScript/ts"));
+
+        org.hl7.fhir.r4.model.TestReport report = ca.uhn.fhir.context.FhirContext.forR4Cached().newJsonParser()
+                .parseResource(org.hl7.fhir.r4.model.TestReport.class, json.text());
+        assertThat(report.getIdPart()).isEqualTo("run-01");
+        assertThat(report.getStatus()).isEqualTo(org.hl7.fhir.r4.model.TestReport.TestReportStatus.COMPLETED);
+        assertThat(report.getTestScript().getReference()).isEqualTo("http://example.org/TestScript/ts");
+        assertThat(report.getResult()).isEqualTo(org.hl7.fhir.r4.model.TestReport.TestReportResult.FAIL);
+        assertThat(report.getScore().intValue()).isEqualTo(50);
+        assertThat(report.getParticipantFirstRep().getUri()).isEqualTo("http://localhost:8080/fhir");
+        assertThat(report.getSetup().getActionFirstRep().getOperation().getDetail())
+                .isEqualTo("communication/01_ts/REQ-0001_POST_Patient");
+        assertThat(report.getTest()).extracting(t -> t.getActionFirstRep().getAssert().getResult().toCode())
+                .containsExactly("warning", "fail");
+        // the teardown has operations only
+        assertThat(report.getTeardown().getActionFirstRep().getOperation().getResult().toCode()).isEqualTo("error");
     }
 
     @Test

@@ -4,6 +4,7 @@ import at.hl7.testing.runner.core.model.Assertion;
 import at.hl7.testing.runner.core.model.Body;
 import at.hl7.testing.runner.core.model.FhirVersion;
 import at.hl7.testing.runner.core.model.TestScript;
+import at.hl7.testing.runner.core.spi.TestReportContent;
 import at.hl7.testing.runner.testsupport.SampleData;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -11,6 +12,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -56,6 +58,26 @@ class R5SupportTest {
             assertThat(c.links()).hasSize(3).first().isEqualTo("http://hl7.org/fhir/http.html#delete");
         });
         assertThat(ts.destinations()).isEmpty();
+    }
+
+    @Test
+    void writesAValidR5TestReportWithTheTestScriptAsCanonical() {
+        TestReportContent content = new TestReportContent("run-02", "run/02", "TS", "http://example.org/TestScript/ts",
+                "pending", null, "tester", java.time.Instant.parse("2026-10-26T10:00:00Z"), null,
+                List.of(new TestReportContent.Action(false, "skip", "The server does not support ...", null)),
+                List.of(new TestReportContent.Test("t", List.of(
+                        new TestReportContent.Action(false, "skip", "Skipped: the server lacks a capability", null)))),
+                List.of());
+
+        org.hl7.fhir.r5.model.TestReport report = ca.uhn.fhir.context.FhirContext.forR5Cached().newJsonParser()
+                .parseResource(org.hl7.fhir.r5.model.TestReport.class, support.testReport(content).text());
+
+        assertThat(report.getTestScript()).isEqualTo("http://example.org/TestScript/ts");
+        assertThat(report.getResult()).isEqualTo(org.hl7.fhir.r5.model.TestReport.TestReportResult.PENDING);
+        assertThat(report.hasScore()).isFalse();
+        assertThat(report.hasParticipant()).as("nothing was sent").isFalse();
+        assertThat(report.hasTeardown()).isFalse();
+        assertThat(report.getTestFirstRep().getActionFirstRep().getOperation().getResult().toCode()).isEqualTo("skip");
     }
 
     @Test

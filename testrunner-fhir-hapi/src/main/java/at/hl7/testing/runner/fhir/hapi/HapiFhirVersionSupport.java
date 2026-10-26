@@ -5,6 +5,7 @@ import at.hl7.testing.runner.core.model.FhirVersion;
 import at.hl7.testing.runner.core.spi.FhirPathEvaluator;
 import at.hl7.testing.runner.core.spi.FhirVersionSupport;
 import at.hl7.testing.runner.core.spi.ReadCheck;
+import at.hl7.testing.runner.core.spi.TestReportContent;
 import at.hl7.testing.runner.core.spi.TestScriptFormatException;
 import at.hl7.testing.runner.core.spi.TestScriptRead;
 import ca.uhn.fhir.context.FhirContext;
@@ -17,7 +18,8 @@ import java.util.List;
 
 /**
  * {@link FhirVersionSupport} on top of HAPI FHIR. A version module only supplies its {@link FhirContext} and its
- * {@link TestScriptDialect}; parsing, the mapping to the model and FHIRPath are the same for all versions.
+ * {@link TestScriptDialect}; parsing, the mapping to the model, FHIRPath and writing TestReports are the same for all
+ * versions.
  *
  * <p>The context must be one of its own ({@code FhirContext.forR4()}, not {@code forR4Cached()}): it is given a
  * {@link ModelOnlyValidationSupport}, which must not leak into contexts shared with other code.
@@ -29,6 +31,7 @@ public abstract class HapiFhirVersionSupport implements FhirVersionSupport {
     private final TestScriptDialect dialect;
     private final TestScriptMapper mapper;
     private final HapiFhirPathEvaluator fhirPath;
+    private final TestReportEncoder testReports;
 
     protected HapiFhirVersionSupport(FhirVersion version, FhirContext context, TestScriptDialect dialect) {
         this.version = version;
@@ -36,6 +39,7 @@ public abstract class HapiFhirVersionSupport implements FhirVersionSupport {
         this.dialect = dialect;
         this.mapper = new TestScriptMapper(version, dialect);
         this.fhirPath = new HapiFhirPathEvaluator(context);
+        this.testReports = new TestReportEncoder(context);
     }
 
     @Override
@@ -61,6 +65,11 @@ public abstract class HapiFhirVersionSupport implements FhirVersionSupport {
     @Override
     public FhirPathEvaluator fhirPath() {
         return fhirPath;
+    }
+
+    @Override
+    public Body testReport(TestReportContent content) {
+        return testReports.encode(content);
     }
 
     /** The HAPI context of this version, e.g. for subclasses that need more than the defaults. */

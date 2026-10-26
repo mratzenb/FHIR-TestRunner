@@ -16,12 +16,13 @@ import java.util.List;
  * @param url         {@code TestScript.url}, or the file if the TestScript could not be read
  * @param source      the file the TestScript was read from
  * @param fhirVersion the FHIR version, {@code null} if it could not be determined
+ * @param fhirServer  base URL of the server the TestScript ran against, {@code null} if it was not run
  * @param started     when the execution started
  * @param duration    how long it took
  * @param phases      the phase results, in order
  */
 public record TestScriptResult(int index, String suite, String name, String url, Path source,
-                               FhirVersion fhirVersion, Instant started, Duration duration,
+                               FhirVersion fhirVersion, String fhirServer, Instant started, Duration duration,
                                List<PhaseResult> phases) {
 
     public TestScriptResult {

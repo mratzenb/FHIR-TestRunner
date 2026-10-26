@@ -106,7 +106,7 @@ public class TestRunnerAutoConfiguration {
                                  ObjectProvider<ReportWriter> reportWriters, ObjectProvider<RunListener> listeners,
                                  Clock clock) {
         List<ReportWriter> writers = new ArrayList<>(reportWriters.orderedStream().toList());
-        for (ReportWriter builtIn : TestRunners.defaultReportWriters()) {
+        for (ReportWriter builtIn : TestRunners.defaultReportWriters(versions)) {
             if (writers.stream().noneMatch(w -> w.format().equals(builtIn.format()))) {
                 writers.add(builtIn);
             }
