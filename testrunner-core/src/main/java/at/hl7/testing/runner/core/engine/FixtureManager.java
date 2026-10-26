@@ -22,6 +22,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 
 /**
  * Registers the fixtures of a TestScript, creates those with {@code autocreate} on the server and deletes those
@@ -45,12 +46,24 @@ final class FixtureManager {
         this.base = base;
     }
 
-    /** Makes every fixture available to {@code sourceId}, {@code targetId} and variables. */
-    void register(List<FixtureDefinition> fixtures, Map<String, Body> resources) {
+    /**
+     * Makes every fixture available to {@code sourceId}, {@code targetId} and variables.
+     *
+     * @param values replaces {@code ${variable}} placeholders in the text values of the fixture resources, once, when
+     *               the setup starts; a fixture that references a response therefore cannot use variables on it
+     * @throws TestScriptException if a placeholder cannot be resolved
+     */
+    void register(List<FixtureDefinition> fixtures, Map<String, Body> resources, UnaryOperator<String> values) {
         for (FixtureDefinition fixture : fixtures) {
-            Body body = resources.get(fixture.id());
-            if (body == null) {
+            Body resource = resources.get(fixture.id());
+            if (resource == null) {
                 continue; // a fixture without resource only reserves its id
+            }
+            Body body;
+            try {
+                body = resource.text().contains("${") ? ResourceContent.replaceText(resource, values) : resource;
+            } catch (TestScriptException e) {
+                throw new TestScriptException("Fixture '" + fixture.id() + "': " + e.getMessage(), e);
             }
             String type = body.format() == ContentFormat.OTHER ? null : safe(() -> ResourceContent.resourceType(body));
             state.putFixture(new Source.Fixture(fixture.id(), body, type, null, null));

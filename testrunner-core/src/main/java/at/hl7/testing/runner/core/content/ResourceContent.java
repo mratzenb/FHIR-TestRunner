@@ -4,6 +4,7 @@ import at.hl7.testing.runner.core.model.Body;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import org.w3c.dom.Document;
@@ -145,6 +146,28 @@ public final class ResourceContent {
     }
 
     /**
+     * Returns the body with every text value passed through {@code mapping}: the string values of JSON, the attribute
+     * values and text of XML, the whole text otherwise. Names and the structure are left alone, so a value cannot
+     * break the document. The body is returned unchanged (same text) if no value changes.
+     */
+    public static Body replaceText(Body body, UnaryOperator<String> mapping) {
+        switch (body.format()) {
+            case JSON -> {
+                JsonNode root = json(body).deepCopy();
+                return replaceJsonText(root, mapping) ? Body.json(write(root)) : body;
+            }
+            case XML -> {
+                Document document = Xml.parse(body.text());
+                return replaceXmlText(document.getDocumentElement(), mapping) ? Body.xml(Xml.write(document)) : body;
+            }
+            default -> {
+                String mapped = mapping.apply(body.text());
+                return mapped.equals(body.text()) ? body : new Body(mapped, body.format());
+            }
+        }
+    }
+
+    /**
      * Extracts type, id and version from a {@code Location} or {@code Content-Location} header such as
      * {@code http://server/fhir/Patient/123/_history/2}.
      *
@@ -205,6 +228,64 @@ public final class ResourceContent {
         } else if (node.isArray()) {
             for (JsonNode item : node) {
                 changed |= replaceJsonReferences(item, mapping);
+            }
+        }
+        return changed;
+    }
+
+    private static boolean replaceJsonText(JsonNode node, UnaryOperator<String> mapping) {
+        boolean changed = false;
+        if (node instanceof ObjectNode object) {
+            for (var field : object.properties()) {
+                if (field.getValue().isTextual()) {
+                    String value = field.getValue().asText();
+                    String mapped = mapping.apply(value);
+                    if (!mapped.equals(value)) {
+                        field.setValue(TextNode.valueOf(mapped));
+                        changed = true;
+                    }
+                } else {
+                    changed |= replaceJsonText(field.getValue(), mapping);
+                }
+            }
+        } else if (node instanceof ArrayNode array) {
+            for (int i = 0; i < array.size(); i++) {
+                if (array.get(i).isTextual()) {
+                    String value = array.get(i).asText();
+                    String mapped = mapping.apply(value);
+                    if (!mapped.equals(value)) {
+                        array.set(i, TextNode.valueOf(mapped));
+                        changed = true;
+                    }
+                } else {
+                    changed |= replaceJsonText(array.get(i), mapping);
+                }
+            }
+        }
+        return changed;
+    }
+
+    private static boolean replaceXmlText(Node node, UnaryOperator<String> mapping) {
+        boolean changed = false;
+        if (node.getAttributes() != null) {
+            for (int i = 0; i < node.getAttributes().getLength(); i++) {
+                Node attribute = node.getAttributes().item(i);
+                String mapped = mapping.apply(attribute.getNodeValue());
+                if (!mapped.equals(attribute.getNodeValue())) {
+                    attribute.setNodeValue(mapped);
+                    changed = true;
+                }
+            }
+        }
+        for (Node child = node.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNodeType() == Node.TEXT_NODE || child.getNodeType() == Node.CDATA_SECTION_NODE) {
+                String mapped = mapping.apply(child.getNodeValue());
+                if (!mapped.equals(child.getNodeValue())) {
+                    child.setNodeValue(mapped);
+                    changed = true;
+                }
+            } else {
+                changed |= replaceXmlText(child, mapping);
             }
         }
         return changed;

@@ -204,6 +204,20 @@ Fixtures with `autocreate` are created in dependency order (references between f
 server-assigned ids); a cycle is an `error`. Fixtures with `autodelete` are deleted after the teardown, in reverse
 order. Variables are evaluated each time a `${name}` placeholder is used, so they always reflect the latest response.
 
+Placeholders also work in the text values of fixture resources (JSON string values, XML attribute values and text –
+never names, so a value cannot break the document); they are resolved once, when the setup starts. Next to the
+TestScript's variables, the runner provides values of its own, fixed per TestScript execution:
+
+| Placeholder | Value |
+|---|---|
+| `${testrunner.runId}` | the run id, e.g. `run_2026-10-26_10-00-00-000` |
+| `${testrunner.testScriptId}` | unique per TestScript execution, a valid FHIR id: `run-2026-10-26-10-00-00-000-03` |
+| `${testrunner.uuid}` | a random UUID |
+| `${testrunner.timestamp}`, `${testrunner.date}` | start of the TestScript (UTC), `2026-10-26T10:00:00.123Z`, `2026-10-26` |
+
+Fixtures that get an identifier of their own this way can be found again by the TestScript (search by identifier)
+without seeing the data of other TestScripts – in parallel runs and when the same server is tested again.
+
 ### Required capabilities and destinations
 
 `metadata.capability` with `required = true` names a CapabilityStatement (`capabilities`) the server must support.

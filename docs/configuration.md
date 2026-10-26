@@ -52,6 +52,8 @@ testrunner:
       include: ["*.json", "*.xml"]         # glob patterns relative to test-scripts-dir; default all JSON/XML
       fhir-server:                         # optional: own server for this suite (e.g. an R5 server)
         base-url: http://localhost:8081/fhir
+      parallel: true                       # false: with parallelism > 1, run this suite's TestScripts one after
+                                           # the other before all others, see ADR-0008
 
   http:
     connect-timeout: 10s

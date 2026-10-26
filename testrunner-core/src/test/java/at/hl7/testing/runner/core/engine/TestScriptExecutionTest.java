@@ -567,6 +567,78 @@ class TestScriptExecutionTest {
         assertThat(result.outcome()).isEqualTo(Outcome.PASS);
     }
 
+    @Nested
+    class FixtureValues {
+
+        @Test
+        void fixturesGetAnIdentifierOfTheirOwnPerExecution() {
+            String patient = """
+                    {"resourceType":"Patient","identifier":[{"system":"urn:test","value":"${testrunner.testScriptId}"}],
+                     "name":[{"family":"${family}"}]}""";
+            for (String name : List.of("a", "b")) {
+                harness.resource("p-" + name, patient)
+                        .add(name, script().fixture("p-" + name, true, false)
+                                .variable(new VariableDefinition("family", "Bucher", null, null, null, null, null))
+                                .test(test("t", op("search", "Patient", null, null,
+                                        "?identifier=${testrunner.testScriptId}", null),
+                                        check(new Check.Expression("Bundle.total"), Operator.EQUALS, "1")))
+                                .build());
+            }
+
+            var run = harness.parallelism(2).run();
+
+            assertThat(run.testScripts()).allMatch(r -> r.outcome() == Outcome.PASS);
+            assertThat(server.resource("Patient/1").path("identifier").get(0).path("value").asText())
+                    .startsWith(run.runId().replace('_', '-')).matches(".*-0[12]");
+            assertThat(server.resource("Patient/1").path("name").get(0).path("family").asText()).isEqualTo("Bucher");
+            assertThat(server.resource("Patient/1").path("identifier").get(0).path("value").asText())
+                    .isNotEqualTo(server.resource("Patient/2").path("identifier").get(0).path("value").asText());
+        }
+
+        @Test
+        void placeholdersInXmlFixturesAreReplacedInValues() {
+            harness.exampleInstance("file-of-xml.xml", """
+                            <Patient xmlns="http://hl7.org/fhir"><id value="x"/><name><family value="${testrunner.uuid}"/></name></Patient>""")
+                    .add("ts", script().fixture("xml", false, false)
+                            .test(test("t", op("create", "Patient", "xml", null, null, null), responseCode("201")))
+                            .build());
+
+            harness.runOne();
+
+            assertThat(server.requests().getFirst().body()).matches("(?s).*<family value=\"[0-9a-f-]{36}\"/>.*");
+        }
+
+        @Test
+        void unknownValueOfTheRunnerIsAnErrorOfTheSetup() {
+            harness.resource("p", """
+                            {"resourceType":"Patient","id":"${testrunner.nope}"}""")
+                    .add("ts", script().fixture("p", false, false).test(test("t", op("capabilities"))).build());
+
+            TestScriptResult result = harness.runOne();
+
+            assertThat(phase(result, "Setup").outcome()).isEqualTo(Outcome.ERROR);
+            assertThat(phase(result, "Setup").messages().getFirst()).contains("Fixture 'p'", "${testrunner.nope}",
+                    "${testrunner.runId}", "${testrunner.uuid}");
+        }
+    }
+
+    @Test
+    void suiteWithParallelFalseRunsAloneBeforeTheOthers() {
+        for (String name : List.of("s1", "s2")) {
+            harness.addSerial(name, script().test(test("t", op("search", "Patient", null, null, "?s=" + name, null)))
+                    .build());
+        }
+        for (String name : List.of("p1", "p2", "p3")) {
+            harness.add(name, script().test(test("t", op("search", "Patient", null, null, "?p=" + name, null))).build());
+        }
+
+        var run = harness.parallelism(3).run();
+
+        assertThat(run.testScripts()).extracting(TestScriptResult::index).containsExactly(1, 2, 3, 4, 5);
+        assertThat(server.requests()).extracting(InMemoryFhirServer.Request::query).startsWith("s=s1", "s=s2")
+                .containsExactlyInAnyOrder("s=s1", "s=s2", "p=p1", "p=p2", "p=p3");
+    }
+
     @Test
     void unknownVariableIsAnError() {
         harness.add("ts", script().test(test("t", op("search", "Patient", null, null, "?id=${nope}", null))).build());

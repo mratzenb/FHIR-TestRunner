@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Executes one TestScript: setup, every test, teardown. One instance per execution; it owns all state of that
@@ -53,14 +54,17 @@ final class TestScriptExecution {
     private final CapabilityCheck capabilities;
     private final String fhirBase;
 
+    /**
+     * @param builtIn the values the runner provides for {@code ${testrunner.<name>}} placeholders, by name
+     */
     TestScriptExecution(LoadedTestScript loaded, FhirHttpClient http, String fhirBase, ProfileValidator validator,
-                        Path profilesDir, List<String> igs, CapabilityCheck capabilities) {
+                        Path profilesDir, List<String> igs, CapabilityCheck capabilities, Map<String, String> builtIn) {
         this.loaded = loaded;
         this.testScript = loaded.testScript();
         this.http = http;
         this.fhirBase = fhirBase;
         this.capabilities = capabilities;
-        this.variables = new VariableResolver(testScript.variables(), state, loaded.support().fhirPath());
+        this.variables = new VariableResolver(testScript.variables(), builtIn, state, loaded.support().fhirPath());
         this.requests = new RequestFactory(fhirBase, state);
         this.assertions = new AssertionEvaluator(state, loaded.support().fhirPath(), validator, testScript.profiles(),
                 testScript.fhirVersion(), profilesDir, igs);
@@ -124,7 +128,7 @@ final class TestScriptExecution {
         log.info("--- Setup");
         PhaseRecorder phase = setupRecorder();
         try {
-            fixtures.register(testScript.fixtures(), loaded.fixtureResources());
+            fixtures.register(testScript.fixtures(), loaded.fixtureResources(), variables::resolve);
             fixtures.autocreate(testScript.fixtures());
         } catch (TestScriptException | FhirHttpClient.ExchangeFailedException e) {
             phase.problem(Outcome.ERROR, "Fixture initialization failed: " + e.getMessage());

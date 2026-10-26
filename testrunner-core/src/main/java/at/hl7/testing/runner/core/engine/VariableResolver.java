@@ -13,21 +13,31 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Replaces {@code ${name}} placeholders with the current value of the TestScript variable {@code name}.
+ * Replaces {@code ${name}} placeholders with the current value of the TestScript variable {@code name}, or with a
+ * value the runner provides ({@link #BUILT_IN}).
  *
  * <p>Variables are evaluated when they are used, so a variable on a response reflects the response received last
- * under that id.
+ * under that id. The built-in values are fixed for one TestScript execution.
  */
 final class VariableResolver {
 
     private static final Logger log = LoggerFactory.getLogger(VariableResolver.class);
     private static final Pattern PLACEHOLDER = Pattern.compile("\\$\\{([A-Za-z_][A-Za-z0-9_.-]*)}");
 
+    /** Prefix of the values the runner provides; a TestScript variable cannot have such a name. */
+    static final String BUILT_IN = "testrunner.";
+
     private final Map<String, VariableDefinition> variables = new LinkedHashMap<>();
+    private final Map<String, String> builtIn;
     private final ExecutionState state;
     private final FhirPathEvaluator fhirPath;
 
-    VariableResolver(List<VariableDefinition> definitions, ExecutionState state, FhirPathEvaluator fhirPath) {
+    /**
+     * @param builtIn the values the runner provides, by name without {@link #BUILT_IN}, e.g. {@code runId}
+     */
+    VariableResolver(List<VariableDefinition> definitions, Map<String, String> builtIn, ExecutionState state,
+                     FhirPathEvaluator fhirPath) {
+        this.builtIn = Map.copyOf(builtIn);
         this.state = state;
         this.fhirPath = fhirPath;
         definitions.forEach(variable -> variables.put(variable.name(), variable));
@@ -52,6 +62,14 @@ final class VariableResolver {
     }
 
     private String value(String name) {
+        if (name.startsWith(BUILT_IN)) {
+            String value = builtIn.get(name.substring(BUILT_IN.length()));
+            if (value == null) {
+                throw new TestScriptException("'${" + name + "}' is no value of the runner; known: "
+                        + builtIn.keySet().stream().sorted().map(n -> "${" + BUILT_IN + n + "}").toList());
+            }
+            return value;
+        }
         VariableDefinition variable = variables.get(name);
         if (variable == null) {
             throw new TestScriptException("Variable '" + name + "' is used but not defined by the TestScript");

@@ -27,6 +27,7 @@ testrunner:
                                              # pinned fhir-version (problems()), see testrunner-validation
       include: ["*.json", "*.xml"]           # globs relative to test-scripts-dir
       fhir-server: {base-url: }              # optional own server per suite
+      parallel: true                         # false: TestScripts one after the other, before the parallel ones
   http: {connect-timeout: 10s, request-timeout: 60s, follow-redirects: true}
   execution: {parallelism: 1}               # must be ≥ 1
   validation:

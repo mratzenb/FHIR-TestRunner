@@ -8,6 +8,9 @@ testrunner:
   suites:
     - name: samples
       base-dir: testdata/samples   # R4 and R5 mixed: the version is detected per TestScript
+      # several samples create and update the same AT Core example patients: run them one after the other
+      # (before the other suites), the AT Core suites run in parallel
+      parallel: false
     - name: at-core-r4
       base-dir: testdata/r4
       # fhir-version: R4             # required with igs
@@ -28,6 +31,6 @@ testrunner:
     timeout: 3m
   reporting:
     output-dir: target/testrunner-results
-    formats: [junit, summary, json]
+    formats: [junit, summary, json, testreport]
     communication-log: true
     log-file-level: DEBUG

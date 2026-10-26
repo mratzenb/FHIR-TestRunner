@@ -100,6 +100,12 @@ and, if a sample uses it, `EndToEndIT`.
   request id and status. `autodelete` after teardown, reverse order.
 * Variables are evaluated **at each use** (latest response under that id), from `expression` (FHIRPath),
   `path`, or `headerField`, on `sourceId`; `defaultValue` if empty. Undefined variable ⇒ `TestScriptException`.
+* Built-in values (`VariableResolver.BUILT_IN` = `testrunner.`, built by `TestRunner.builtInValues`, fixed per
+  execution): `${testrunner.runId}`, `${testrunner.testScriptId}` (`run-…-NN`, a valid FHIR id), `${testrunner.uuid}`,
+  `${testrunner.timestamp}`, `${testrunner.date}`. Unknown `testrunner.x` ⇒ error listing the known ones.
+* Placeholders in **fixture resources**: `FixtureManager.register(…, variables::resolve)` resolves them once at setup
+  start via `ResourceContent.replaceText` (JSON string values, XML attribute values/text; never names). A failing
+  placeholder ⇒ Setup `error` naming the fixture.
 
 ## Required capabilities (`CapabilityCheck`) and destinations
 
@@ -120,8 +126,10 @@ and, if a sample uses it, `EndToEndIT`.
 
 `execution.parallelism` (default 1) = TestScripts at once on a fixed pool of platform threads `testscript-N`; the
 actions of one TestScript always run in order on one thread. Shared: HTTP transport, request counter, validator,
-report list. Results are reported in discovery order. TestScripts touching the same server data can interfere –
-that is why the default is 1.
+report list, `CapabilityCheck`. Results are reported in discovery order. TestScripts touching the same server data can
+interfere – that is why the default is 1. Remedies: `${testrunner.testScriptId}`/`uuid` in fixtures (data of their
+own), or `suites[n].parallel: false` (`SuiteConfig.parallel`): with parallelism > 1, `TestRunner.runAll` runs those
+TestScripts one after the other first, then the rest in the pool.
 
 ## Where to look
 

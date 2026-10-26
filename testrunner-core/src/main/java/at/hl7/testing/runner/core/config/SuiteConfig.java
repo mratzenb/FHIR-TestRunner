@@ -24,10 +24,13 @@ import java.util.Optional;
  * @param include             glob patterns (relative to {@code testScriptsDir}) of the TestScripts to run, default all
  *                            {@code .json} and {@code .xml} files
  * @param fhirServer          FHIR server of this suite; {@code null} to use the server of the run
+ * @param parallel            whether the TestScripts of this suite may run in parallel with others (default true,
+ *                            effective with {@code execution.parallelism > 1}); false runs them one after the other,
+ *                            while nothing else runs, for TestScripts that share data on the server
  */
 public record SuiteConfig(String name, String fhirVersion, Path baseDir, Path testScriptsDir,
                           Path exampleInstancesDir, Path profilesDir, List<String> igs, List<String> include,
-                          FhirServerConfig fhirServer) {
+                          FhirServerConfig fhirServer, Boolean parallel) {
 
     public static final String AUTO = "AUTO";
 
@@ -37,7 +40,8 @@ public record SuiteConfig(String name, String fhirVersion, Path baseDir, Path te
         exampleInstancesDir = exampleInstancesDir == null ? Path.of("Example_Instances") : exampleInstancesDir;
         profilesDir = profilesDir == null ? Path.of("Profiles") : profilesDir;
         igs = igs == null ? List.of() : List.copyOf(igs);
-        include =include == null || include.isEmpty() ? List.of("*.json", "*.xml") : List.copyOf(include);
+        include = include == null || include.isEmpty() ? List.of("*.json", "*.xml") : List.copyOf(include);
+        parallel = parallel == null || parallel;
         if ((name == null || name.isBlank()) && baseDir != null && baseDir.getFileName() != null) {
             name = baseDir.getFileName().toString();
         }
@@ -45,7 +49,7 @@ public record SuiteConfig(String name, String fhirVersion, Path baseDir, Path te
 
     /** A suite with the default folder layout below {@code baseDir}. */
     public static SuiteConfig of(Path baseDir, String fhirVersion) {
-        return new SuiteConfig(null, fhirVersion, baseDir, null, null, null, null, null, null);
+        return new SuiteConfig(null, fhirVersion, baseDir, null, null, null, null, null, null, null);
     }
 
     /** The configured version, or empty for {@code AUTO}. */
