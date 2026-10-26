@@ -1,4 +1,4 @@
-# ADR-0011: Optional validator server mode
+# ADR-0011: Validator server mode (default since 2026-10)
 
 Builds on [ADR-0006](0006-validator-cli.md).
 
@@ -10,7 +10,8 @@ them once. The server mode is newer and less used than the CLI, so it must be po
 survive its failures.
 
 ## Decision
-* `testrunner.validation.mode`: `process` (default, ADR-0006) or `server`. Same jar, same `-version`, `-tx`,
+* `testrunner.validation.mode`: `server` (default since 2026-10, see [Update](#update-2026-10-server-mode-becomes-the-default))
+  or `process` (ADR-0006, the original default). Same jar, same `-version`, `-tx`,
   `-locale`, `-ig`, extra arguments (built by one class, `ValidatorArguments`), same OperationOutcome parsing.
 * `ValidatorServerProfileValidator` keeps one `ValidatorServer` per **FHIR version, profiles folder and IGs**
   (the suite's `igs`) – the settings a server is started with. Servers start lazily on first use, bind to `127.0.0.1` on a free port, are
@@ -24,15 +25,15 @@ survive its failures.
   | Server process dies while running | Server marked failed |
   | A failed server | Not restarted. With `server.fallback-to-process=true` (default) its validations run as one process each, one warning per server; with `false` they are `error`s whose message names both switches |
   | One validation fails on a running server (HTTP 500, e.g. unknown profile) | `error` for that assertion, no fallback (the process mode would fail the same way) |
-  | Validation exceeds `validation.timeout` | `error` for that assertion |
+  | Validation exceeds `validation.timeout` | The server is ended and marked failed (it works one request at a time, so the queued validations would time out too); falls back like a crashed server |
 
   Never a silent pass: every path ends in an OperationOutcome that was actually returned, or in an error.
 * `testrunner.validation.jvm-arguments` (both modes) sets e.g. `-Xmx` for the validator JVM.
 * The check of a TestScript itself (base specification, no profile) passes the suite's profiles folder and IGs
   although it needs none of them, so that it lands on the same server as the `validateProfileId` assertions of that suite instead
   of starting a second one.
-* The default stays `process`. The development configurations in `config/` opt in to `server`, so the mode gets
-  used before it becomes the default.
+* Originally the default stayed `process` and the development configurations opted in to `server`, so the mode
+  got used before it became the default.
 
 ## Alternatives
 * *Server as default* – 2–6× faster on the AT Core suite (more on larger suites), but newer and with a larger blast radius
@@ -61,12 +62,23 @@ survive its failures.
 * A server uses ≈ 1 GB per FHIR version × profiles folder × IGs (in practice per suite) while the application runs.
 * The validator server handles requests one at a time; parallel TestScripts queue on it, which is still far faster
   than parallel processes (see the table: parallelism no longer shortens validation, ADR-0008).
-* **Known limitation – a hanging server is not detected as failed.** A validation that exceeds
-  `validation.timeout` is an `error`, but the server process is still alive, so it is not marked failed and there is
-  no fallback; because the server works sequentially, the validations queued behind a hanging one time out too. With
-  the default timeout of 5 minutes this is slow to surface. Mitigations today: a shorter `validation.timeout` in
-  server mode (validations take well under a second once the server is up), or `mode=process`. A possible
-  improvement: treat a timeout in server mode as a server failure (end the process, fall back).
+* ~~Known limitation – a hanging server is not detected as failed.~~ Resolved with the update below: a validation
+  that exceeds `validation.timeout` ends the server and its validations fall back. With the default timeout of
+  5 minutes a hang still costs those 5 minutes once; a shorter `validation.timeout` (e.g. `1m`) surfaces it sooner,
+  since validations take well under a second once the server is up.
+
+## Update 2026-10: server mode becomes the default
+The condition for flipping the default was that the mode "has proven itself". Evidence at the time of the switch:
+
+* The development configurations have used it since its introduction, for R4, R5 and mixed suites with parallelism.
+* `RealValidatorIT` with validator 7.0.2 (2026-10-26): AT Core R4 create and update pass, the negative control fails
+  with the socialSecurityNumber error, in both modes; server mode without fallback, so a server problem would have
+  failed the test. Run times in this IT: 46 s (process) vs. 8 s (server) for the same 3 TestScripts.
+* The one known gap, a hanging server, now ends the server and falls back (tested with the fake validator,
+  `ValidatorServerProfileValidatorTest.hangingServerIsEndedAndItsValidationsFallBack`).
+* Fallback to process mode stays on by default, so a server problem costs speed, not results.
+
+`ValidationConfig.mode` defaults to `SERVER`; `ValidationConfig.enabled(jar)` and the Spring property default follow.
 
 ## Reverting
 `--testrunner.validation.mode=process` (or `TESTRUNNER_VALIDATION_MODE=process`) – no rebuild. Nothing else depends

@@ -8,8 +8,8 @@ import java.util.List;
  * Settings of the profile validation ({@code assert.validateProfileId}) with the HL7 FHIR Validator CLI.
  *
  * @param enabled             default true; when false {@code validateProfileId} assertions are reported as warnings
- * @param mode                {@link ValidatorMode#PROCESS} (default): a process per validation;
- *                            {@link ValidatorMode#SERVER}: a long-running validator server, see {@link ServerModeConfig}
+ * @param mode                {@link ValidatorMode#SERVER} (default): long-running validator servers, see
+ *                            {@link ServerModeConfig}; {@link ValidatorMode#PROCESS}: a process per validation
  * @param validatorJar        location of {@code validator_cli.jar}
  * @param javaExecutable      java used to start the validator; default the java running the runner
  * @param jvmArguments        arguments for the validator's JVM, e.g. {@code -Xmx4g}; both modes
@@ -28,7 +28,7 @@ public record ValidationConfig(Boolean enabled, ValidatorMode mode, Path validat
 
     public ValidationConfig {
         enabled = enabled == null || enabled;
-        mode = mode == null ? ValidatorMode.PROCESS : mode;
+        mode = mode == null ? ValidatorMode.SERVER : mode;
         jvmArguments = jvmArguments == null ? List.of() : List.copyOf(jvmArguments);
         terminologyServer = terminologyServer == null || terminologyServer.isBlank() ? "n/a" : terminologyServer;
         locale = locale == null || locale.isBlank() ? "en" : locale;

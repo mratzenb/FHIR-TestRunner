@@ -79,8 +79,9 @@ final class ValidatorServer {
         try {
             response = http.send(httpRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         } catch (HttpTimeoutException e) {
-            throw new ValidatorUnavailableException("The validator server " + this + " did not answer within "
-                    + config.timeout());
+            // the server works one request at a time: a hanging validation would let every later one time out too
+            throw hanging("The validator server " + this + " did not answer within " + config.timeout()
+                    + " (testrunner.validation.timeout); it is ended and not used again");
         } catch (IOException e) {
             throw failedOrUnavailable("The request to the validator server " + this + " failed: " + e, e);
         } catch (InterruptedException e) {
@@ -225,6 +226,12 @@ final class ValidatorServer {
             Thread.currentThread().interrupt();
         }
         return new ValidatorUnavailableException(message, cause);
+    }
+
+    /** Ends a server that does not answer and marks it failed, so its validations can fall back. */
+    private ServerFailedException hanging(String message) {
+        destroy();
+        return markFailed(message + "\n" + outputTail());
     }
 
     private synchronized ServerFailedException markFailed(String message) {

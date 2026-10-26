@@ -31,7 +31,8 @@ import java.util.stream.Collectors;
  * /validateResource[?profile=..]} answers the same OperationOutcomes, {@code POST /stop} stops it. It writes one line
  * per server start and per validation to the file named by the system property or environment variable
  * {@code FAKE_VALIDATOR_LOG}, if set, so tests can count starts and calls. Further markers:
- * {@value #CRASH_MARKER} ends the server process (simulates a crash), {@value #UNRESOLVABLE_PROFILE} as profile is
+ * {@value #CRASH_MARKER} ends the server process (simulates a crash), {@value #HANG_MARKER} makes the server never
+ * answer (simulates a hanging validation), {@value #UNRESOLVABLE_PROFILE} as profile is
  * answered with HTTP 500 like an unknown profile. {@code FAKE_VALIDATOR_SERVER_FAILS} (system property or environment)
  * makes the server exit at start-up, {@code FAKE_VALIDATOR_STARTUP_MILLIS} delays its start.
  */
@@ -40,6 +41,7 @@ public final class FakeValidatorJar {
     public static final String INVALID_MARKER = "FAKE-VALIDATOR-INVALID";
     public static final String SILENT_MARKER = "FAKE-VALIDATOR-SILENT";
     public static final String CRASH_MARKER = "FAKE-VALIDATOR-CRASH";
+    public static final String HANG_MARKER = "FAKE-VALIDATOR-HANG";
     public static final String UNRESOLVABLE_PROFILE = "http://example.org/StructureDefinition/unresolvable";
 
     /** One class of each jar (or classes folder) the fake needs: this module's test classes and jetty-server. */

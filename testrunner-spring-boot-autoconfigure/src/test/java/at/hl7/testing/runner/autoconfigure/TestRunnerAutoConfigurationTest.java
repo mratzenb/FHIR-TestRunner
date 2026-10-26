@@ -79,18 +79,24 @@ class TestRunnerAutoConfigurationTest {
     }
 
     @Test
-    void wiresTheRunnerWithTheValidatorCliWhenValidationIsEnabled() {
+    void wiresTheRunnerWithTheValidatorServersWhenValidationIsEnabled() {
         contexts.run(context -> {
             assertThat(context).hasSingleBean(TestRunner.class).hasSingleBean(RunLogFileListener.class);
             assertThat(context.getBean(ProfileValidator.class).getClass().getSimpleName())
-                    .isEqualTo("ValidatorCliProfileValidator");
+                    .isEqualTo("ValidatorServerProfileValidator");
         });
     }
 
     @Test
-    void serverModeIsSelectedByProperty() {
-        contexts.withPropertyValues("testrunner.validation.mode=server",
-                        "testrunner.validation.server.startup-timeout=2m",
+    void processModeIsSelectedByProperty() {
+        contexts.withPropertyValues("testrunner.validation.mode=process")
+                .run(context -> assertThat(context.getBean(ProfileValidator.class).getClass().getSimpleName())
+                        .isEqualTo("ValidatorCliProfileValidator"));
+    }
+
+    @Test
+    void serverSettingsAreBound() {
+        contexts.withPropertyValues("testrunner.validation.server.startup-timeout=2m",
                         "testrunner.validation.server.fallback-to-process=false",
                         "testrunner.validation.jvm-arguments=-Xmx2g")
                 .run(context -> {
@@ -114,10 +120,10 @@ class TestRunnerAutoConfigurationTest {
     }
 
     @Test
-    void processModeIsTheDefault() {
+    void serverModeWithFallbackIsTheDefault() {
         contexts.run(context -> {
             RunConfiguration config = context.getBean(RunConfiguration.class);
-            assertThat(config.validation().mode()).isEqualTo(ValidatorMode.PROCESS);
+            assertThat(config.validation().mode()).isEqualTo(ValidatorMode.SERVER);
             assertThat(config.validation().server().fallbackToProcess()).isTrue();
         });
     }

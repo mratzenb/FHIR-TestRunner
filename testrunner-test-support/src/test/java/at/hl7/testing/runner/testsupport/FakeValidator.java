@@ -19,6 +19,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 
 import static at.hl7.testing.runner.testsupport.FakeValidatorJar.CRASH_MARKER;
+import static at.hl7.testing.runner.testsupport.FakeValidatorJar.HANG_MARKER;
 import static at.hl7.testing.runner.testsupport.FakeValidatorJar.INVALID_MARKER;
 import static at.hl7.testing.runner.testsupport.FakeValidatorJar.SILENT_MARKER;
 import static at.hl7.testing.runner.testsupport.FakeValidatorJar.UNRESOLVABLE_PROFILE;
@@ -104,6 +105,14 @@ final class FakeValidator {
         if (content.contains(CRASH_MARKER)) {
             System.out.println("simulated crash");
             Runtime.getRuntime().halt(9);
+        }
+        if (content.contains(HANG_MARKER)) {
+            System.out.println("simulated hang");
+            try {
+                Thread.sleep(Long.MAX_VALUE);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
         boolean unresolvable = UNRESOLVABLE_PROFILE.equals(profile);
         String body = unresolvable

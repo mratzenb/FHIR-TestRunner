@@ -17,7 +17,7 @@ design most.
 | No global variables | All state is owned by a run (`RunContext`) or a TestScript execution (`ExecutionState`) ([ADR-0004](adr/0004-no-global-state.md)) |
 | Optional parallel execution of TestScripts | `testrunner.execution.parallelism`, a thread pool over TestScripts ([ADR-0008](adr/0008-parallel-execution.md)) |
 | Logging and communication logging | SLF4J with MDC per TestScript, run log file, one folder per HTTP exchange ([ADR-0007](adr/0007-logging.md)) |
-| IG/profile validation like the PoC; jar path configurable | `ProfileValidator` port, HL7 Validator CLI adapter, `testrunner.validation.validator-jar` ([ADR-0006](adr/0006-validator-cli.md)); optional server mode with fallback ([ADR-0011](adr/0011-validator-server-mode.md)) |
+| IG/profile validation like the PoC; jar path configurable | `ProfileValidator` port, HL7 Validator CLI adapter, `testrunner.validation.validator-jar` ([ADR-0006](adr/0006-validator-cli.md)); server mode (default) with fallback to a process per validation ([ADR-0011](adr/0011-validator-server-mode.md)) |
 | R4 and R5 now, R6 later; mapping understandable, extensible, no duplication | Version-neutral model, one generic HAPI-based mapper, a tiny module per version ([ADR-0005](adr/0005-fhir-version-mapping.md)) |
 | Tests without a FHIR server, using the PoC TestScripts | In-memory FHIR server and fake validator jar in `testrunner-test-support`; PoC data in `testdata/` ([ADR-0009](adr/0009-testing.md)) |
 | A JAR taking a configuration object and a modifiable Spring configuration | `testrunner-app-*-exec.jar`; `TestRunner.run(RunConfiguration)`; every auto-configured bean is `@ConditionalOnMissingBean` |
@@ -244,9 +244,9 @@ configured server.
   determined first (per file), then a version-specific parser reads the file.
 * **Validation result from `-output`.** The PoC parsed the validator's console output, where an empty output
   looked like success. The adapter reads the OperationOutcome file and treats a missing file as an error.
-* **The validator can stay running.** The PoC started the validator for every assertion. With
-  `validation.mode=server` the packages are loaded once per FHIR version; a failing server falls back to the
-  per-validation process ([ADR-0011](adr/0011-validator-server-mode.md)).
+* **The validator stays running.** The PoC started the validator for every assertion. In the default
+  `validation.mode=server` the packages are loaded once per FHIR version; a failing or hanging server falls back to
+  the per-validation process ([ADR-0011](adr/0011-validator-server-mode.md)).
 * **Assertions are typed.** An assert must carry exactly one check (FHIR invariants tst-5/tst-6); this is enforced
   when reading, not discovered during execution.
 * **One run folder** (`testrunner-results/run_<timestamp>/`) holds all artefacts of a run, instead of four
@@ -269,9 +269,9 @@ configured server.
 * **Several servers, client tests.** TestScripts addressing more than one `destination` need a test engine that
   manages several servers; the runner rejects them. It plays every `origin` itself, so TestScripts that expect another
   client to send a request (testing a client rather than a server) cannot be run.
-* **Validator start-up.** In the default process mode each validation starts the validator anew (5–15 s).
-  `testrunner.validation.mode=server` keeps validator servers running (2–6× faster on the AT Core suite,
-  [ADR-0011](adr/0011-validator-server-mode.md)); it is opt-in until it has proven itself. An in-process
-  `org.hl7.fhir.validation` validator would remove the start-up too; it is a drop-in `ProfileValidator`.
+* **Validator start-up.** The default server mode starts one validator per FHIR version and IGs (5–7 s, then
+  0.1–0.5 s per validation, [ADR-0011](adr/0011-validator-server-mode.md)); process mode pays 5–15 s per validation.
+  An in-process `org.hl7.fhir.validation` validator would remove the start-up too; it is a drop-in
+  `ProfileValidator`, but ties the runner to the validator's Java and dependency versions (ADR-0006).
 * **TestScript-level dependencies.** Parallel TestScripts that share server data can interfere; scheduling hints
   (e.g. "serial" groups) would be the next step, see [ADR-0008](adr/0008-parallel-execution.md).

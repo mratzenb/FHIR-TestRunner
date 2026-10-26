@@ -12,11 +12,11 @@ Requirements: Java 25, Maven 3.9+. For profile validation the HL7 Validator CLI 
 mvn verify                                   # build, unit tests, integration tests (no FHIR server needed)
 VALIDATOR_JAR=/path/to/validator_cli.jar mvn verify   # additionally with the real validator, both modes
 
-# run the AT Core R4 TestScripts against a local server (the dev configs keep the validator running as a server)
+# run the AT Core R4 TestScripts against a local server (the validator keeps running as a server)
 export VALIDATOR_JAR=/path/to/validator_cli.jar
 java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml
 
-# with one validator process per validation instead (the default outside the dev configs)
+# with one validator process per validation instead
 java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml --testrunner.validation.mode=process
 
 # without profile validation

@@ -23,7 +23,7 @@ testrunner:
     parallelism: 4
   validation:
     validator-jar: ${VALIDATOR_JAR:validator_cli.jar}
-    mode: server               # one validator server per FHIR version, profiles folder and IGs (3 here)
+    mode: server               # the default; one validator server per FHIR version, profiles folder and IGs (3 here)
     jvm-arguments: [-Xmx2g]
     server:
       startup-timeout: 5m
