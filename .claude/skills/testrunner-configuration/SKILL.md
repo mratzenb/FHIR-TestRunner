@@ -28,7 +28,8 @@ testrunner:
       include: ["*.json", "*.xml"]           # globs relative to test-scripts-dir
       fhir-server: {base-url: }              # optional own server per suite
       parallel: true                         # false: TestScripts one after the other, before the parallel ones
-      package-id:                            # instead of base-dir: name#version of a FHIR package (PackageSuites)
+      package-id:                            # instead of base-dir: name#version of a FHIR package (PackageSuites);
+                                             # a pinned fhir-version is checked by problems() as for folders
   http: {connect-timeout: 10s, request-timeout: 60s, follow-redirects: true}
   execution: {parallelism: 1}               # must be ≥ 1
   validation:

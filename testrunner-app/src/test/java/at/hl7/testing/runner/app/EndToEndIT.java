@@ -295,6 +295,37 @@ class EndToEndIT {
     }
 
     @Test
+    void requiredCapabilityStatementInThePackageRootIsChecked() throws Exception {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+        // the IG Publisher puts conformance resources such as CapabilityStatements into package/, not example/
+        Path packageDir = Files.createDirectories(dir.resolve("cache/example.caps#dev/package/example"));
+        packageDir = packageDir.getParent();
+        Files.writeString(packageDir.resolve("package.json"), """
+                {"name":"example.caps","version":"dev","fhirVersions":["4.0.1"],"directories":{"example":"example"}}""");
+        Files.writeString(packageDir.resolve("CapabilityStatement-needs-patch.json"), """
+                {"resourceType":"CapabilityStatement","id":"needs-patch","status":"active","kind":"requirements",
+                 "fhirVersion":"4.0.1","format":["json"],"rest":[{"mode":"server",
+                 "resource":[{"type":"Patient","interaction":[{"code":"patch"}]}]}]}""");
+        Files.copy(SampleData.r4().resolve("Example_Instances/Patient-HL7ATCorePatientCreateTestExample.json"),
+                packageDir.resolve("example/Patient-HL7ATCorePatientCreateTestExample.json"));
+        Path testScript = packageDir.resolve("TestScript-testscript-patient-create-at-core.json");
+        Files.writeString(testScript, Files.readString(SampleData.r4().resolve(
+                "Test_Scripts/TestScript-testscript-patient-create-at-core.json")).replace("\"fixture\" :", """
+                "metadata" : {"capability" : [{"required" : true, "validated" : false,
+                  "capabilities" : "http://example.org/CapabilityStatement/needs-patch"}]},
+                "fixture" :"""));
+
+        RunResult run = run("testrunner.fhir-server.base-url=" + r4Server.baseUrl(),
+                "testrunner.validation.enabled=false",
+                "testrunner.packages.cache-dir=" + dir.resolve("cache"),
+                "testrunner.suites[0].package-id=example.caps#dev");
+
+        TestScriptResult result = run.testScripts().getFirst();
+        assertThat(result.outcome()).as("checked, and the in-memory server has no patch").isEqualTo(Outcome.SKIP);
+        assertThat(phase(result, "Setup").messages().getFirst()).contains("no match for {code=patch}");
+    }
+
+    @Test
     void missingPackageStopsTheRunBeforeAnythingIsSent() {
         r4Server = InMemoryFhirServer.start("4.0.1");
 

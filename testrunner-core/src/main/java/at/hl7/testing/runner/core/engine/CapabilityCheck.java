@@ -26,7 +26,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * server's CapabilityStatement must contain; if it does not, the TestScript cannot run on that server and every test
  * is skipped. The comparison is {@link FhirElement#notContainedIn} restricted to what describes the RESTful
  * interface ({@link #COMPARED}): a server is not expected to share the name, status or date of the CapabilityStatement
- * of a TestScript author.
+ * of a TestScript author. Values are compared by what they promise ({@link #AT_LEAST}): a server that offers more
+ * than required – {@code updateCreate: true} where {@code false} is required, {@code versioned-update} where
+ * {@code versioned} is – meets the requirement.
  *
  * <p>The required CapabilityStatement comes from the suite's Example Instances (loaded with the TestScript); if it is
  * not there, the requirement cannot be checked, which is a warning, not a reason to skip. The server's
@@ -44,6 +46,41 @@ final class CapabilityCheck {
             "rest.resource.conditionalCreate", "rest.resource.conditionalRead", "rest.resource.conditionalUpdate",
             "rest.resource.conditionalDelete", "rest.resource.searchParam.name", "rest.resource.searchParam.type",
             "rest.resource.operation.name", "rest.interaction.code", "rest.searchParam.name", "rest.operation.name");
+
+    /** The elements whose codes are ordered from less to more support, as defined by their FHIR value sets. */
+    private static final Map<String, List<String>> ORDERED = Map.of(
+            "rest.resource.versioning", List.of("no-version", "versioned", "versioned-update"),
+            "rest.resource.conditionalDelete", List.of("not-supported", "single", "multiple"));
+    /** Booleans where {@code true} is more support than {@code false}. */
+    private static final Set<String> FLAGS = Set.of("rest.resource.readHistory", "rest.resource.updateCreate",
+            "rest.resource.conditionalCreate", "rest.resource.conditionalUpdate");
+    /** {@code format}: the short codes stand for the FHIR mime types. */
+    private static final Map<String, String> FORMATS = Map.of("json", "application/fhir+json",
+            "xml", "application/fhir+xml", "ttl", "application/x-turtle");
+
+    /**
+     * Whether a server value meets a required one: more support is fine for ordered codes and flags;
+     * {@code conditionalRead} {@code full-support} covers the others; formats compare as mime types.
+     */
+    static final FhirElement.ValueMatch AT_LEAST = (path, required, offered) -> {
+        if (offered == null) {
+            return false;
+        }
+        if (FLAGS.contains(path)) {
+            return !Boolean.parseBoolean(required) || Boolean.parseBoolean(offered);
+        }
+        List<String> order = ORDERED.get(path);
+        if (order != null && order.contains(required) && order.contains(offered)) {
+            return order.indexOf(offered) >= order.indexOf(required);
+        }
+        if (path.equals("rest.resource.conditionalRead")) {
+            return required.equals("not-supported") || offered.equals("full-support") || offered.equals(required);
+        }
+        if (path.equals("format")) {
+            return mimeType(offered).equals(mimeType(required));
+        }
+        return required.equals(offered);
+    };
 
     /** The CapabilityStatement of each server, by base URL; shared by the TestScripts of a run. */
     private final Map<String, ServerStatement> serverStatements = new ConcurrentHashMap<>();
@@ -101,7 +138,8 @@ final class CapabilityCheck {
             }
             List<String> missing;
             try {
-                missing = FhirElement.of(required).only(COMPARED).notContainedIn(server.statement(), "CapabilityStatement");
+                missing = FhirElement.of(required).only(COMPARED)
+                        .notContainedIn(server.statement(), "CapabilityStatement", AT_LEAST);
             } catch (IllegalArgumentException e) {
                 warnings.add("Required capability " + name + " was not checked: " + requirement.capabilities()
                         + " cannot be read: " + e.getMessage());
@@ -132,6 +170,13 @@ final class CapabilityCheck {
             log.warn("The CapabilityStatement of the server cannot be read [{}]: {}", exchange.requestId(), e.getMessage());
             return new ServerStatement(exchange.requestId(), null);
         }
+    }
+
+    /** {@code json} or {@code application/fhir+json; fhirVersion=4.0} as {@code application/fhir+json}. */
+    private static String mimeType(String format) {
+        String type = format.split(";", 2)[0].trim().toLowerCase(java.util.Locale.ROOT);
+        return FORMATS.getOrDefault(type, type.equals("application/json") ? FORMATS.get("json")
+                : type.equals("application/xml") ? FORMATS.get("xml") : type);
     }
 
     private static String name(CapabilityRequirement requirement) {

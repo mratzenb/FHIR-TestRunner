@@ -1,9 +1,7 @@
 package at.hl7.testing.runner.core.content;
 
 import at.hl7.testing.runner.core.model.Body;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
@@ -24,7 +22,6 @@ import java.util.function.UnaryOperator;
  */
 public final class ResourceContent {
 
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private ResourceContent() {
     }
@@ -64,7 +61,7 @@ public final class ResourceContent {
                 if (!(json(body) instanceof ObjectNode resource)) {
                     throw new IllegalArgumentException("The body is no FHIR resource, it has no id to set");
                 }
-                ObjectNode copy = JSON.createObjectNode();
+                ObjectNode copy = Json.MAPPER.createObjectNode();
                 resource.properties().forEach(field -> {
                     if (field.getKey().equals("id")) {
                         return;
@@ -292,19 +289,11 @@ public final class ResourceContent {
     }
 
     static JsonNode json(Body body) {
-        try {
-            return JSON.readTree(body.text());
-        } catch (JsonProcessingException e) {
-            throw new IllegalArgumentException("Invalid JSON: " + e.getOriginalMessage(), e);
-        }
+        return Json.read(body.text());
     }
 
     private static String write(JsonNode node) {
-        try {
-            return JSON.writerWithDefaultPrettyPrinter().writeValueAsString(node);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException(e);
-        }
+        return Json.write(node);
     }
 
     private static String textOrNull(JsonNode node) {

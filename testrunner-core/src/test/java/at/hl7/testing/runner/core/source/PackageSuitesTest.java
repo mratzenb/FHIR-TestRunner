@@ -36,35 +36,57 @@ class PackageSuitesTest {
         return new SuiteConfig(null, null, null, null, null, null, List.of("extra.ig#1.0.0"), null, null, null, packageId);
     }
 
-    /** A {@code .tgz} as npm packs it: ustar, every file below {@code package/}. */
+    /**
+     * A {@code .tgz} as npm packs it: ustar, every file below {@code package/}. A name longer than 99 characters is
+     * written like npm's tar does: a pax header ({@code x}) with the {@code path}, then the entry with a cut name.
+     */
     static byte[] tgz(Map<String, String> files) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (GZIPOutputStream gzip = new GZIPOutputStream(bytes)) {
             for (var file : files.entrySet()) {
-                byte[] content = file.getValue().getBytes(StandardCharsets.UTF_8);
-                byte[] header = new byte[512];
-                put(header, 0, file.getKey());
-                put(header, 100, "0000644");
-                put(header, 124, "%011o".formatted(content.length));
-                put(header, 136, "%011o".formatted(0));
-                header[156] = '0';
-                put(header, 257, "ustar");
-                put(header, 263, "00");
-                for (int i = 148; i < 156; i++) {
-                    header[i] = ' ';
+                String name = file.getKey();
+                if (name.length() > 99) {
+                    entry(gzip, "PaxHeader/" + name.substring(0, 80), 'x',
+                            paxRecord("path", name).getBytes(StandardCharsets.UTF_8));
+                    name = name.substring(0, 99);
                 }
-                int sum = 0;
-                for (byte b : header) {
-                    sum += b & 0xff;
-                }
-                put(header, 148, "%06o\0 ".formatted(sum));
-                gzip.write(header);
-                gzip.write(content);
-                gzip.write(new byte[(512 - content.length % 512) % 512]);
+                entry(gzip, name, '0', file.getValue().getBytes(StandardCharsets.UTF_8));
             }
             gzip.write(new byte[1024]);
         }
         return bytes.toByteArray();
+    }
+
+    /** {@code "<length> <key>=<value>\n"}, the length counting the whole record including its own digits. */
+    private static String paxRecord(String key, String value) {
+        String rest = " " + key + "=" + value + "\n";
+        int length = rest.length() + 1;
+        while (String.valueOf(length).length() + rest.length() != length) {
+            length = String.valueOf(length).length() + rest.length();
+        }
+        return length + rest;
+    }
+
+    private static void entry(GZIPOutputStream gzip, String name, char type, byte[] content) throws IOException {
+        byte[] header = new byte[512];
+        put(header, 0, name);
+        put(header, 100, "0000644");
+        put(header, 124, "%011o".formatted(content.length));
+        put(header, 136, "%011o".formatted(0));
+        header[156] = (byte) type;
+        put(header, 257, "ustar");
+        put(header, 263, "00");
+        for (int i = 148; i < 156; i++) {
+            header[i] = ' ';
+        }
+        int sum = 0;
+        for (byte b : header) {
+            sum += b & 0xff;
+        }
+        put(header, 148, "%06o\0 ".formatted(sum));
+        gzip.write(header);
+        gzip.write(content);
+        gzip.write(new byte[(512 - content.length % 512) % 512]);
     }
 
     private static void put(byte[] header, int offset, String text) {
@@ -128,6 +150,42 @@ class PackageSuitesTest {
         assertThatThrownBy(() -> new PackageSuites(config, url -> new ByteArrayInputStream(escaping))
                 .resolve(List.of(suite("example.ig#2.0.0")))).hasMessageContaining("outside the package");
         assertThat(cache.getParent().resolve("outside.json")).doesNotExist();
+    }
+
+    @Test
+    void longNamesOfPaxArchivesAreKept() throws Exception {
+        String longName = "package/example/" + "Patient-" + "x".repeat(100) + ".json";
+        byte[] archive = tgz(new LinkedHashMap<>(Map.of("package/package.json", MANIFEST, longName, "{}")));
+
+        new PackageSuites(new PackagesConfig(cache, URI.create("https://registry.example")),
+                url -> new ByteArrayInputStream(archive)).resolve(List.of(suite("example.ig#1.0.0")));
+
+        assertThat(cache.resolve("example.ig#1.0.0").resolve(longName)).exists();
+        assertThat(PackageSuites.Tar.paxPath("20 mtime=1700000000\n30 path=package/a/long/name\n"))
+                .isEqualTo("package/a/long/name");
+    }
+
+    @Test
+    void aPackagePutIntoTheCacheMeanwhileIsUsedAndOldDownloadFoldersDoNotMatter() throws Exception {
+        byte[] archive = tgz(new LinkedHashMap<>(Map.of("package/package.json", MANIFEST)));
+        Files.createDirectories(cache.resolve("example.ig#1.0.0.download-leftover/package"));
+
+        SuiteConfig resolved = new PackageSuites(new PackagesConfig(cache, URI.create("https://registry.example")),
+                url -> {
+                    // another run (or the validator) finishes the same package while this one downloads
+                    Path other = Files.createDirectories(cache.resolve("example.ig#1.0.0/package"));
+                    Files.writeString(other.resolve("package.json"), MANIFEST);
+                    Files.writeString(other.resolve("from-the-other-run.txt"), "x");
+                    return new ByteArrayInputStream(archive);
+                }).resolve(List.of(suite("example.ig#1.0.0"))).getFirst();
+
+        assertThat(resolved.baseDir()).isEqualTo(cache.resolve("example.ig#1.0.0/package"));
+        assertThat(cache.resolve("example.ig#1.0.0/package/from-the-other-run.txt")).exists();
+        try (var left = Files.list(cache)) {
+            assertThat(left.map(p -> p.getFileName().toString()))
+                    .as("this run's download folder is gone, another run's is not touched")
+                    .containsExactlyInAnyOrder("example.ig#1.0.0", "example.ig#1.0.0.download-leftover");
+        }
     }
 
     @Test

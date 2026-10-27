@@ -65,7 +65,12 @@ public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> su
                 if (suite.baseDir() != null) {
                     problems.add(prefix + " has both base-dir and package-id; a suite comes from one of them");
                 }
-                continue; // the package is checked when it is resolved, before the run
+                try {
+                    suite.pinnedFhirVersion();
+                } catch (IllegalArgumentException e) {
+                    problems.add(prefix + ".fhir-version: " + e.getMessage() + " or AUTO");
+                }
+                continue; // the package itself is checked when it is resolved, before the run
             }
             if (suite.baseDir() == null) {
                 problems.add(prefix + ".base-dir (or package-id) is not set");

@@ -82,6 +82,19 @@ class FhirElementTest {
     }
 
     @Test
+    void decimalsKeepTheirPrecisionAcrossJsonAndXml() {
+        FhirElement fromJson = json("""
+                {"resourceType":"Observation","valueQuantity":{"value":100.0},"component":[{"valueDecimal":1.50}]}""");
+        FhirElement fromXml = FhirElement.of(Body.xml("""
+                <Observation xmlns="http://hl7.org/fhir"><valueQuantity><value value="100.0"/></valueQuantity>
+                  <component><valueDecimal value="1.50"/></component></Observation>"""));
+
+        assertThat(fromJson.notContainedIn(fromXml, "Observation")).isEmpty();
+        assertThat(json("{\"value\":1.5}").notContainedIn(json("{\"value\":1.50}"), "x"))
+                .as("1.5 and 1.50 differ in FHIR").containsExactly("x.value: expected '1.5', found '1.50'");
+    }
+
+    @Test
     void containedResourcesAndBundleEntriesKeepTheirTypeInBothEncodings() {
         FhirElement fromJson = json("""
                 {"resourceType":"Bundle","entry":[{"resource":{"resourceType":"Patient","id":"p1"}}]}""");

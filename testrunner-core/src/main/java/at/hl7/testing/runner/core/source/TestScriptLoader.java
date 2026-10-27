@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -54,10 +55,14 @@ public final class TestScriptLoader {
                 }
             }
         }
+        // a CapabilityStatement is an example, or a conformance resource next to the TestScripts (as in a package)
+        ExampleInstanceResolver statements = new ExampleInstanceResolver(List.of(
+                source.suite().resolvedExampleInstancesDir(), source.suite().resolvedTestScriptsDir()));
         Map<String, Body> capabilities = new LinkedHashMap<>();
         for (CapabilityRequirement capability : testScript.capabilities()) {
             if (capability.capabilities() != null) {
-                resolver.find(capability.capabilities()).ifPresent(body -> capabilities.put(capability.capabilities(), body));
+                statements.find(capability.capabilities())
+                        .ifPresent(body -> capabilities.put(capability.capabilities(), body));
             }
         }
         return new LoadedTestScript(source, content, testScript, support, resources, capabilities, read.warnings());
