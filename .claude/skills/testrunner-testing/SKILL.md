@@ -13,7 +13,7 @@ No FHIR server, no network, no real validator needed: `mvn verify` runs all test
 | Level | Class | Covers |
 |---|---|---|
 | Unit, engine (`testrunner-core`) | `core/engine/TestScriptExecutionTest` (nested classes per area) | phase rules, operations, assertions, fixtures, capabilities, variables, communication log – through the real `TestRunner` with `Harness` |
-| Unit, core (`testrunner-core`) | `RunConfigurationTest`, `PathEvaluatorTest`, `ResourceContentTest`, `FhirElementTest`, `UrlEncodingTest`, `CommunicationLogTest`, `ExampleInstanceResolverTest`, `PackageSuitesTest` (cache, download of a hand-built `.tgz`, path traversal), `TestReportWriterTest` | config defaults/problems, content helpers (`FhirElement`: JSON/XML alike, `minimumId` containment rules), log format |
+| Unit, core (`testrunner-core`) | `RunConfigurationTest`, `PathEvaluatorTest`, `ResourceContentTest`, `FhirElementTest`, `UrlEncodingTest`, `CommunicationLogTest`, `ExampleInstanceResolverTest`, `PackageSuitesTest` (cache, download of a hand-built `.tgz` incl. pax long names, concurrent download, path traversal), `TestReportWriterTest` | config defaults/problems, content helpers (`FhirElement`: JSON/XML alike, exact decimals, `minimumId` containment rules), log format |
 | Version modules (`testrunner-fhir-r4`, `-r5`) | `R4SupportTest`, `R5SupportTest` | every sample TestScript of the version maps exactly; detection cases |
 | Validator (`testrunner-validation-cli`) | `ValidatorCliProfileValidatorTest`, `ValidatorServerProfileValidatorTest` | process handling, arguments, server lifecycle, fallback, parallel use |
 | Spring (`testrunner-spring-boot-autoconfigure`) | `TestRunnerAutoConfigurationTest` (`ApplicationContextRunner`) | binding, defaults, replacing/adding beans |

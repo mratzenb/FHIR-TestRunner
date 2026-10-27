@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,6 +69,20 @@ class ResourceContentTest {
         assertThat(ResourceContent.json(replacedJson).path("active").asBoolean()).isTrue();
         assertThat(replacedXml.text()).contains("<family value=\"A-&lt;b&gt;&amp;&lt;/b&gt;\"/>", "<div>&lt;b&gt;&amp;&lt;/b&gt;</div>");
         assertThat(ResourceContent.replaceText(JSON, t -> t)).isSameAs(JSON);
+    }
+
+    @Test
+    void rewritingKeepsDecimalsAsWritten() {
+        Body json = Body.json("""
+                {"resourceType":"Observation","id":"${x}","valueQuantity":{"value":1.50},
+                 "component":[{"valueDecimal":12345678901234567890.123},{"valueInteger":7}]}""");
+
+        String rewritten = ResourceContent.replaceText(json, t -> t.replace("${x}", "o1")).text();
+        String withId = ResourceContent.withId(json, "o2").text();
+
+        for (String text : List.of(rewritten, withId)) {
+            assertThat(text).contains("1.50", "12345678901234567890.123", "7").doesNotContain("E19");
+        }
     }
 
     @ParameterizedTest

@@ -197,7 +197,9 @@ Outcome precedence for a TestScript and the run: `error > fail > skip > pass`. E
 Two assertions compare whole resources: `minimumId` passes if the checked response or fixture contains every element
 and value of the named fixture (the resource id excepted, the server assigns its own), by the rules of the FHIR
 testing specification – element and repetition order do not matter, more is allowed, but a repeated value needs a
-counterpart of its own; every difference is listed. `navigationLinks = true` passes if the Bundle has a `first`,
+counterpart of its own; every difference is listed. Values compare as written in either encoding, so a JSON `100.0`
+matches an XML `value="100.0"`, but not `100` (FHIR decimals keep their precision). The narrative (`text.div`) is
+compared as text only within one encoding; a JSON fixture with narrative does not match an XML response. `navigationLinks = true` passes if the Bundle has a `first`,
 `last` and `next` link (the specification's definition), `false` if it lacks one of them.
 
 Fixtures with `autocreate` are created in dependency order (references between fixtures are rewritten to the
@@ -225,12 +227,16 @@ Before the setup, `CapabilityCheck` compares it with the server's own (`GET [bas
 and run, in the communication log of the first TestScript that needs it): every element of the required statement
 that describes the RESTful interface – FHIR version, formats, resource types, interactions, search parameters,
 operations, conditional and versioning flags (`CapabilityCheck.COMPARED`) – must have a counterpart in the server's,
-compared like `assert.minimumId` (order free, more is allowed, see `content.FhirElement`). Name, status, date and
-narrative are not compared: a server does not share them with the author of a TestScript. If the server lacks
+compared like `assert.minimumId` (order free, more is allowed, see `content.FhirElement`), except that a value is met
+by more support (`CapabilityCheck.AT_LEAST`): `updateCreate: true` meets a required `false`, `versioned-update` meets
+`versioned`, `multiple` meets `single`, `full-support` meets any conditional read, and `json` and
+`application/fhir+json` are the same format. Name, status, date and narrative are not compared: a server does not
+share them with the author of a TestScript. If the server lacks
 something, the TestScript is `skip`ped with every difference listed, nothing is created on the server. The required
-CapabilityStatement is looked up in the suite's Example Instances like a fixture resource (by the last segments of
-its canonical URL, e.g. `CapabilityStatement-example.json`); if it is not there, the requirement is reported as a
-warning and the TestScript runs. Capabilities with `required = false` (only `validated`) are not checked.
+CapabilityStatement is looked up like a fixture resource (by the last segments of its canonical URL, e.g.
+`CapabilityStatement-example.json`), in the suite's Example Instances and then next to its TestScripts – where a FHIR
+package keeps its conformance resources; if it is in neither, the requirement is reported as a warning and the
+TestScript runs. Capabilities with `required = false` (only `validated`) are not checked.
 
 The runner sends every request itself (it plays every `origin`) to the one server configured for the suite. A
 TestScript that addresses more than one server – several `TestScript.destination`s or several

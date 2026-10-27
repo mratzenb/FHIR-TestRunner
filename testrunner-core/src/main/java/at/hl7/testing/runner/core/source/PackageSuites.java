@@ -122,30 +122,42 @@ public final class PackageSuites {
         }
     }
 
-    /** Downloads {@code <registry>/<name>/<version>} and unpacks it into {@code <cache>/<name>#<version>/}. */
+    /**
+     * Downloads {@code <registry>/<name>/<version>} and unpacks it into {@code <cache>/<name>#<version>/}. The archive
+     * is unpacked into a folder of its own and then moved into place, so other runs and the validator, which share the
+     * cache, never see a half-unpacked package; if one of them puts the package there first, theirs is used.
+     */
     private void download(String packageId) {
         String[] parts = packageId.split("#", 2);
         URI url = URI.create(config.registry().toString().replaceAll("/+$", "") + "/" + parts[0] + "/" + parts[1]);
         Path target = config.cacheDir().resolve(packageId);
-        Path temporary = config.cacheDir().resolve(packageId + ".download");
+        Path temporary = null;
         log.info("Package {} is not in the cache {}, downloading {}", packageId, config.cacheDir(), url);
         try {
-            deleteRecursively(temporary);
-            Files.createDirectories(temporary);
+            Files.createDirectories(config.cacheDir());
+            temporary = Files.createTempDirectory(config.cacheDir(), packageId + ".download-");
             try (InputStream archive = downloader.download(url)) {
                 Tar.extract(new GZIPInputStream(new BufferedInputStream(archive)), temporary);
             }
             if (!Files.isRegularFile(temporary.resolve("package/package.json"))) {
                 throw new PackageException("The archive " + url + " is no FHIR package (no package/package.json)");
             }
-            Files.createDirectories(target.getParent());
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
+            try {
+                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException e) {
+                if (!Files.isRegularFile(target.resolve("package/package.json"))) {
+                    throw e;
+                }
+                log.info("Package {} was put into the cache by someone else meanwhile, using that one", packageId);
+            }
         } catch (IOException e) {
             throw new PackageException("Package " + packageId + " could not be downloaded from " + url + ": "
                     + e.getMessage(), e);
         } finally {
             try {
-                deleteRecursively(temporary);
+                if (temporary != null) {
+                    deleteRecursively(temporary);
+                }
             } catch (IOException e) {
                 log.debug("Cannot delete {}: {}", temporary, e.toString());
             }
@@ -192,7 +204,10 @@ public final class PackageSuites {
         }
     }
 
-    /** Reads the regular files of a tar stream (ustar, as npm packs packages); enough for FHIR packages. */
+    /**
+     * Reads the regular files of a tar stream: ustar as npm packs packages, with the long names of GNU tar
+     * ({@code L} entries) and of pax ({@code path} in an {@code x} entry); enough for FHIR packages.
+     */
     static final class Tar {
 
         private Tar() {
@@ -206,11 +221,14 @@ public final class PackageSuites {
                 if (isZero(header)) {
                     return;
                 }
-                String name = longName != null ? longName : text(header, 0, 100);
-                longName = null;
+                String name = text(header, 0, 100);
                 String prefix = text(header, 345, 155);
                 if (!prefix.isEmpty()) {
                     name = prefix + "/" + name;
+                }
+                if (longName != null) { // the full path from a preceding long name entry
+                    name = longName;
+                    longName = null;
                 }
                 long size = Long.parseLong(text(header, 124, 12).trim().isEmpty() ? "0" : text(header, 124, 12).trim(), 8);
                 char type = (char) header[156];
@@ -218,6 +236,15 @@ public final class PackageSuites {
                     byte[] content = tar.readNBytes((int) size);
                     skip(tar, padding(size));
                     longName = new String(content, StandardCharsets.UTF_8).replace("\0", "");
+                    continue;
+                }
+                if (type == 'x') { // pax header of the next entry: "<length> <key>=<value>\n" records
+                    byte[] content = tar.readNBytes((int) size);
+                    skip(tar, padding(size));
+                    String path = paxPath(new String(content, StandardCharsets.UTF_8));
+                    if (path != null) {
+                        longName = path;
+                    }
                     continue;
                 }
                 Path file = root.resolve(name).normalize();
@@ -237,6 +264,30 @@ public final class PackageSuites {
                     skip(tar, size + padding(size)); // links, pax headers etc. are not needed
                 }
             }
+        }
+
+        /** The {@code path} record of a pax header, or {@code null}. */
+        static String paxPath(String records) {
+            int at = 0;
+            while (at < records.length()) {
+                int space = records.indexOf(' ', at);
+                if (space < 0) {
+                    return null;
+                }
+                int length;
+                try {
+                    length = Integer.parseInt(records.substring(at, space));
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+                // the length counts bytes; the records of FHIR packages are ASCII, so bytes and chars agree
+                String record = records.substring(space + 1, Math.min(records.length(), at + length)).strip();
+                if (record.startsWith("path=")) {
+                    return record.substring("path=".length());
+                }
+                at += Math.max(length, 1);
+            }
+            return null;
         }
 
         private static long padding(long size) {

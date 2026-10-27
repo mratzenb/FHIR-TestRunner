@@ -97,18 +97,19 @@ public final class TestRunner {
      */
     public RunResult run(RunConfiguration configuration) {
         List<String> problems = new ArrayList<>(configuration.problems());
-        if (problems.isEmpty()) {
-            try {
-                configuration = configuration.withSuites(packages.apply(configuration).resolve(configuration.suites()));
-            } catch (PackageSuites.PackageException e) {
-                problems.add(e.getMessage());
-            }
-        }
         problems.addAll(configuration.unsupportedVersions(versions.versions()));
         problems.addAll(configuration.unknownFormats(reportWriters.stream().map(ReportWriter::format)
                 .collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new))));
         if (validator == ProfileValidator.DISABLED) {
             problems.removeIf(p -> p.startsWith("testrunner.validation.validator-jar"));
+        }
+        if (problems.isEmpty()) {
+            try {
+                configuration = configuration.withSuites(packages.apply(configuration).resolve(configuration.suites()));
+                problems.addAll(configuration.unsupportedVersions(versions.versions())); // versions of the packages
+            } catch (PackageSuites.PackageException e) {
+                problems.add(e.getMessage());
+            }
         }
         if (!problems.isEmpty()) {
             throw new ConfigurationException(problems);

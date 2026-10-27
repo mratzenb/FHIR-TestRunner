@@ -30,10 +30,15 @@ public final class ExampleInstanceResolver {
 
     private static final List<String> EXTENSIONS = List.of(".json", ".xml");
 
-    private final Path folder;
+    private final List<Path> folders;
 
     public ExampleInstanceResolver(Path folder) {
-        this.folder = folder;
+        this(List.of(folder));
+    }
+
+    /** Looks in several folders, in this order, e.g. the Example Instances, then the conformance resources. */
+    public ExampleInstanceResolver(List<Path> folders) {
+        this.folders = List.copyOf(folders);
     }
 
     /**
@@ -52,12 +57,14 @@ public final class ExampleInstanceResolver {
         return files(reference).stream().filter(Files::isRegularFile).findFirst().map(ExampleInstanceResolver::read);
     }
 
-    /** The files a reference may be stored in, most specific first. */
+    /** The files a reference may be stored in, most specific first, folder by folder. */
     private List<Path> files(String reference) {
         List<Path> files = new ArrayList<>();
-        for (String stem : candidates(reference)) {
-            for (String extension : EXTENSIONS) {
-                files.add(folder.resolve(stem + extension));
+        for (Path folder : folders) {
+            for (String stem : candidates(reference)) {
+                for (String extension : EXTENSIONS) {
+                    files.add(folder.resolve(stem + extension));
+                }
             }
         }
         return files;

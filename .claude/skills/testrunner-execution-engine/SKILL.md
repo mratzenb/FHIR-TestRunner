@@ -116,10 +116,13 @@ and, if a sample uses it, `EndToEndIT`.
   fixture: `CapabilityStatement-<id>.json|xml`; a `|version` is ignored) into `LoadedTestScript.capabilities()`.
 * The server's statement: `GET [base]/metadata`, once per base URL per run (one `CapabilityCheck` per run, cache is
   a `ConcurrentHashMap`), sent with the client of the first TestScript needing it.
-* Comparison: `content.FhirElement` (JSON and XML in one shape, `_x` primitive extensions merged) →
-  `only(CapabilityCheck.COMPARED)` (RESTful interface: fhirVersion, formats, resource types, interactions, search
-  params, operations, conditional/versioning flags) → `notContainedIn(server)`, the `minimumId` rules (order free,
-  extra allowed, duplicates need own counterpart; bipartite matching). Every difference is a message.
+* Comparison: `content.FhirElement` (JSON and XML in one shape, `_x` primitive extensions merged, decimals exact
+  via `content.Json`) → `only(CapabilityCheck.COMPARED)` (RESTful interface: fhirVersion, formats, resource types,
+  interactions, search params, operations, conditional/versioning flags) → `notContainedIn(server, path,
+  CapabilityCheck.AT_LEAST)`: the `minimumId` rules (order free, extra allowed, duplicates need own counterpart;
+  bipartite matching), but a value is met by more support (ordered codes, flags, `full-support`, format mime types).
+  `minimumId` itself uses `FhirElement.EQUAL`. Every difference is a message.
+* The required CapabilityStatement is looked up in Example Instances, then next to the TestScripts (package root).
 * Destinations: `TestScript.destination` → `model.Destination`; `operation.destination` → `Operation.destination()`.
   The runner plays every origin and sends everything to the one configured server; > 1 server addressed ⇒ Load
   error (`TestScriptChecks`). One undeclared `destination: 1` is fine (common in IG TestScripts).

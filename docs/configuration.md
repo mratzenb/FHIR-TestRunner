@@ -121,7 +121,9 @@ the validator finds it too. A `#dev` package is never downloaded. From the packa
 | `name` | the package id, unless configured |
 
 A package that cannot be found, downloaded or read stops the run before anything is sent (exit code 2), like any
-other configuration problem.
+other configuration problem. The cache can be shared by several runs and the validator at once: a download is
+unpacked into a folder of its own and moved into place, and a package another process put there meanwhile is used.
+Archives with long file names (GNU or pax headers, as npm writes them) are read completely.
 
 Relaxed binding applies: `base-dir`, `baseDir` and `BASEDIR` are the same; durations accept `90s`, `2m`, `PT1M`.
 

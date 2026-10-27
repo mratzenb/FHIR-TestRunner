@@ -1,9 +1,7 @@
 package at.hl7.testing.runner.core.content;
 
 import at.hl7.testing.runner.core.model.Body;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
@@ -26,7 +24,8 @@ import java.util.stream.Collectors;
  *       as XML nests them;</li>
  *   <li>a resource has a {@code resourceType} child in both, also when it is contained or a Bundle entry (XML
  *       wraps those in an element named after the type);</li>
- *   <li>JSON numbers and booleans become text, like the {@code value} attributes of XML.</li>
+ *   <li>JSON numbers and booleans become text as written, like the {@code value} attributes of XML
+ *       ({@code 100.0} stays {@code 100.0}: a FHIR decimal keeps its precision).</li>
  * </ul>
  * The narrative ({@code div}) is kept as text in each encoding and is not comparable across them.
  *
@@ -35,8 +34,6 @@ import java.util.stream.Collectors;
  */
 public record FhirElement(String value, Map<String, List<FhirElement>> children) {
 
-    private static final ObjectMapper JSON = new ObjectMapper()
-            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
     private static final String XHTML = "http://www.w3.org/1999/xhtml";
 
     public FhirElement {
@@ -50,13 +47,7 @@ public record FhirElement(String value, Map<String, List<FhirElement>> children)
      */
     public static FhirElement of(Body body) {
         return switch (body.format()) {
-            case JSON -> {
-                try {
-                    yield fromJson(JSON.readTree(body.text()));
-                } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-                    throw new IllegalArgumentException("Invalid JSON: " + e.getOriginalMessage(), e);
-                }
-            }
+            case JSON -> fromJson(Json.read(body.text()));
             case XML -> resource(Xml.parse(body.text()).getDocumentElement());
             case OTHER -> throw new IllegalArgumentException("The content is neither JSON nor XML");
         };
@@ -108,8 +99,39 @@ public record FhirElement(String value, Map<String, List<FhirElement>> children)
      * @return a description of every difference, empty if this element is contained in {@code actual}
      */
     public List<String> notContainedIn(FhirElement actual, String path) {
+        return notContainedIn(actual, path, "", EQUAL);
+    }
+
+    /**
+     * Decides whether an actual primitive value satisfies an expected one.
+     *
+     * @see #notContainedIn(FhirElement, String, ValueMatch)
+     */
+    @FunctionalInterface
+    public interface ValueMatch {
+
+        /**
+         * @param path     the path of the element from the root, without the root, e.g. {@code rest.resource.versioning}
+         * @param expected the expected value
+         * @param actual   the actual value, {@code null} if the element has none
+         */
+        boolean satisfies(String path, String expected, String actual);
+    }
+
+    /** Values must be equal, as for {@code minimumId}. */
+    public static final ValueMatch EQUAL = (path, expected, actual) -> expected.equals(actual);
+
+    /**
+     * Like {@link #notContainedIn(FhirElement, String)}, with values compared by {@code values}, e.g. so that a server
+     * offering more than required satisfies the requirement.
+     */
+    public List<String> notContainedIn(FhirElement actual, String path, ValueMatch values) {
+        return notContainedIn(actual, path, "", values);
+    }
+
+    private List<String> notContainedIn(FhirElement actual, String path, String elementPath, ValueMatch values) {
         List<String> differences = new ArrayList<>();
-        if (value != null && !value.equals(actual.value)) {
+        if (value != null && !values.satisfies(elementPath, value, actual.value)) {
             differences.add(path + ": expected '" + value + "', found "
                     + (actual.value == null ? "no value" : "'" + actual.value + "'"));
         }
@@ -120,11 +142,12 @@ public record FhirElement(String value, Map<String, List<FhirElement>> children)
                 differences.add(childPath + ": missing, expected " + render(expectedValues));
                 return;
             }
-            int[] counterpart = match(expectedValues, actualValues);
+            String childElementPath = elementPath.isEmpty() ? name : elementPath + "." + name;
+            int[] counterpart = match(expectedValues, actualValues, childElementPath, values);
             for (int i = 0; i < expectedValues.size(); i++) {
                 if (counterpart[i] < 0) {
                     differences.addAll(unmatched(expectedValues, i, actualValues,
-                            expectedValues.size() == 1 ? childPath : childPath + "[" + i + "]"));
+                            expectedValues.size() == 1 ? childPath : childPath + "[" + i + "]", childElementPath, values));
                 }
             }
         });
@@ -137,13 +160,13 @@ public record FhirElement(String value, Map<String, List<FhirElement>> children)
      * element as a whole. A candidate without differences is the counterpart of another element (a duplicate).
      */
     private static List<String> unmatched(List<FhirElement> expectedValues, int index, List<FhirElement> actualValues,
-                                          String path) {
+                                          String path, String elementPath, ValueMatch values) {
         FhirElement expected = expectedValues.get(index);
         List<String> closest = null;
         for (FhirElement candidate : actualValues) {
             boolean single = expectedValues.size() == 1 && actualValues.size() == 1;
             if (single || (!expected.children.isEmpty() && expected.sameKeys(candidate))) {
-                List<String> differences = expected.notContainedIn(candidate, path);
+                List<String> differences = expected.notContainedIn(candidate, path, elementPath, values);
                 if (closest == null || differences.size() < closest.size()) {
                     closest = differences;
                 }
@@ -166,11 +189,12 @@ public record FhirElement(String value, Map<String, List<FhirElement>> children)
      *
      * @return for each expected element the index of its counterpart in {@code actual}, -1 if it has none
      */
-    private static int[] match(List<FhirElement> expected, List<FhirElement> actual) {
+    private static int[] match(List<FhirElement> expected, List<FhirElement> actual, String elementPath,
+                               ValueMatch values) {
         boolean[][] contained = new boolean[expected.size()][actual.size()];
         for (int i = 0; i < expected.size(); i++) {
             for (int j = 0; j < actual.size(); j++) {
-                contained[i][j] = expected.get(i).notContainedIn(actual.get(j), "").isEmpty();
+                contained[i][j] = expected.get(i).contains(actual.get(j), elementPath, values);
             }
         }
         int[] owner = new int[actual.size()];
@@ -186,6 +210,26 @@ public record FhirElement(String value, Map<String, List<FhirElement>> children)
             }
         }
         return counterpart;
+    }
+
+    /** Whether this element is contained in {@code actual}; stops at the first difference. */
+    private boolean contains(FhirElement actual, String elementPath, ValueMatch values) {
+        if (value != null && !values.satisfies(elementPath, value, actual.value)) {
+            return false;
+        }
+        for (var child : children.entrySet()) {
+            List<FhirElement> actualValues = actual.all(child.getKey());
+            if (actualValues.size() < child.getValue().size()) {
+                return false;
+            }
+            String childPath = elementPath.isEmpty() ? child.getKey() : elementPath + "." + child.getKey();
+            for (int counterpart : match(child.getValue(), actualValues, childPath, values)) {
+                if (counterpart < 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private static boolean assign(int i, boolean[][] contained, int[] owner, boolean[] visited) {
@@ -221,7 +265,7 @@ public record FhirElement(String value, Map<String, List<FhirElement>> children)
 
     private static FhirElement fromJson(JsonNode node) {
         if (!node.isObject()) {
-            return new FhirElement(node.isNull() ? null : node.asText(), Map.of());
+            return new FhirElement(node.isNull() ? null : Json.text(node), Map.of());
         }
         Map<String, List<FhirElement>> children = new LinkedHashMap<>();
         node.properties().forEach(field -> {

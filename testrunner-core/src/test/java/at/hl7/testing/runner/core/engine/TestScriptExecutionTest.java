@@ -459,6 +459,49 @@ class TestScriptExecutionTest {
         }
 
         @Test
+        void aServerOfferingMoreThanRequiredMeetsTheRequirement() {
+            server.on("GET", "/metadata", InMemoryFhirServer.Answer.json(200, """
+                    {"resourceType":"CapabilityStatement","status":"active","kind":"instance","fhirVersion":"4.0.1",
+                     "format":["application/fhir+json","application/fhir+xml"],"rest":[{"mode":"server","resource":[
+                       {"type":"Patient","versioning":"versioned-update","updateCreate":true,
+                        "conditionalDelete":"multiple","conditionalRead":"full-support",
+                        "interaction":[{"code":"read"},{"code":"update"}]}]}]}"""));
+            harness.exampleInstance("CapabilityStatement-needs.json", """
+                            {"resourceType":"CapabilityStatement","url":"http://example.org/CapabilityStatement/needs",
+                             "status":"active","kind":"requirements","fhirVersion":"4.0.1","format":["json"],
+                             "rest":[{"mode":"server","resource":[{"type":"Patient","versioning":"versioned",
+                               "updateCreate":false,"conditionalDelete":"not-supported","conditionalRead":"modified-since",
+                               "interaction":[{"code":"read"}]}]}]}""")
+                    .add("ts", script().requires("http://example.org/CapabilityStatement/needs")
+                            .test(test("t", op("capabilities"), responseCode("200"))).build());
+
+            TestScriptResult result = harness.runOne();
+
+            assertThat(result.outcome()).isEqualTo(Outcome.PASS);
+            assertThat(server.requestLines()).containsExactly("GET /metadata", "GET /metadata");
+        }
+
+        @Test
+        void aServerOfferingLessIsReportedPerValue() {
+            var differences = at.hl7.testing.runner.core.content.FhirElement.of(
+                            at.hl7.testing.runner.core.model.Body.json("""
+                                    {"rest":[{"resource":[{"type":"Patient","versioning":"versioned-update",
+                                      "updateCreate":true,"conditionalDelete":"single"}]}],"format":["xml"]}"""))
+                    .notContainedIn(at.hl7.testing.runner.core.content.FhirElement.of(
+                            at.hl7.testing.runner.core.model.Body.json("""
+                                    {"rest":[{"resource":[{"type":"Patient","versioning":"versioned",
+                                      "updateCreate":false,"conditionalDelete":"not-supported"}]}],
+                                     "format":["application/fhir+json"]}""")), "CapabilityStatement",
+                            CapabilityCheck.AT_LEAST);
+
+            assertThat(differences).containsExactlyInAnyOrder(
+                    "CapabilityStatement.rest.resource.versioning: expected 'versioned-update', found 'versioned'",
+                    "CapabilityStatement.rest.resource.updateCreate: expected 'true', found 'false'",
+                    "CapabilityStatement.rest.resource.conditionalDelete: expected 'single', found 'not-supported'",
+                    "CapabilityStatement.format: expected 'xml', found 'application/fhir+json'");
+        }
+
+        @Test
         void theServerIsAskedOncePerRun() {
             harness.exampleInstance("CapabilityStatement-needs.json", NEEDS_READ_AND_DELETE);
             for (String name : List.of("a", "b", "c")) {
@@ -637,6 +680,37 @@ class TestScriptExecutionTest {
         assertThat(run.testScripts()).extracting(TestScriptResult::index).containsExactly(1, 2, 3, 4, 5);
         assertThat(server.requests()).extracting(InMemoryFhirServer.Request::query).startsWith("s=s1", "s=s2")
                 .containsExactlyInAnyOrder("s=s1", "s=s2", "p=p1", "p=p2", "p=p3");
+    }
+
+    @Test
+    void packageSuiteRunsWithoutValidatorModuleAndDefaultValidationSettings() throws Exception {
+        // library use without testrunner-validation-cli: validation "enabled" by default, but no jar and no validator
+        Path packageDir = java.nio.file.Files.createDirectories(dir.resolve("cache/example.ig#dev/package/example"))
+                .getParent();
+        java.nio.file.Files.writeString(packageDir.resolve("package.json"), """
+                {"name":"example.ig","fhirVersions":["4.0.1"],"directories":{"example":"example"}}""");
+        java.nio.file.Files.writeString(packageDir.resolve("TestScript-ts.json"), "ts");
+        var configuration = new at.hl7.testing.runner.core.config.RunConfiguration(
+                at.hl7.testing.runner.core.config.FhirServerConfig.of(server.baseUrl()),
+                List.of(new at.hl7.testing.runner.core.config.SuiteConfig(null, null, null, null, null, null, null,
+                        null, null, null, "example.ig#dev")),
+                null, null, null,
+                new at.hl7.testing.runner.core.config.ReportingConfig(dir.resolve("results"), null, false, false, null),
+                new at.hl7.testing.runner.core.config.PackagesConfig(dir.resolve("cache"), null));
+        var scripts = java.util.Map.of("ts", script().test(test("t", op("capabilities"), responseCode("200"))).build());
+        var versions = new at.hl7.testing.runner.core.spi.FhirVersionRegistry(List.of(StubVersionSupport.of(scripts)));
+
+        try (var transport = new at.hl7.testing.runner.core.http.JdkHttpTransport(
+                at.hl7.testing.runner.core.config.HttpConfig.defaults())) {
+            var run = new TestRunner(versions, transport, at.hl7.testing.runner.core.spi.ProfileValidator.DISABLED,
+                    TestRunners.defaultReportWriters(versions), List.of(), java.time.Clock.systemDefaultZone())
+                    .run(configuration);
+
+            assertThat(run.testScripts()).singleElement().satisfies(r -> {
+                assertThat(r.suite()).isEqualTo("example.ig#dev");
+                assertThat(r.outcome()).isEqualTo(Outcome.PASS);
+            });
+        }
     }
 
     @Test

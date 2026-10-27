@@ -72,6 +72,10 @@ class RunConfigurationTest {
                 .problems()).isEmpty();
         assertThat(new RunConfiguration(null, List.of(both), null, null, ValidationConfig.disabled(), null, null).problems())
                 .singleElement().asString().contains("both base-dir and package-id");
+        SuiteConfig unknownVersion = new SuiteConfig(null, "R7", null, null, null, null, null, null, null, null,
+                "hl7.at.fhir.core.r4#dev");
+        assertThat(new RunConfiguration(null, List.of(unknownVersion), null, null, ValidationConfig.disabled(), null, null)
+                .problems()).singleElement().asString().contains("testrunner.suites[0].fhir-version", "R7");
         assertThat(new RunConfiguration(null, null, null, null, null, null, null).packages().cacheDir())
                 .isEqualTo(Path.of(System.getProperty("user.home"), ".fhir", "packages"));
     }
