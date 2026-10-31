@@ -17,6 +17,7 @@ class RunConfigurationTest {
     void defaultsApplyToAbsentValues() {
         RunConfiguration config = new RunConfiguration(null, null, null, null, null, null, null);
         assertThat(config.execution().parallelism()).isEqualTo(1);
+        assertThat(config.execution().rewriteReferences()).isEqualTo(ReferenceRewriting.AUTOCREATE);
         assertThat(config.validation().terminologyServer()).isEqualTo("n/a");
         assertThat(config.reporting().formats()).containsExactly("junit", "summary");
         assertThat(config.http().followRedirects()).isTrue();
@@ -28,7 +29,7 @@ class RunConfigurationTest {
     void reportsEveryProblem(@TempDir Path dir) {
         RunConfiguration config = new RunConfiguration(null,
                 List.of(new SuiteConfig(null, "R7", dir.resolve("missing"), null, null, null, null, null, null, null, null)),
-                null, new ExecutionConfig(0), null,
+                null, ExecutionConfig.parallel(0), null,
                 new ReportingConfig(null, List.of("pdf"), null, null, "LOUD", null), null);
 
         assertThat(config.problems()).hasSize(5).anyMatch(p -> p.contains("does not exist"))

@@ -50,6 +50,9 @@ configured, or the server lacks a required capability. `testrunner.exit-on-skip`
 | The negative control **passes** | validation does not run, or the profile no longer enforces the rule | see [validation.md](../validation.md#the-negative-control) |
 | `error` in phase `Load` naming an action, e.g. "Test 'read', action 2: targetId 'x' is neither …" | a typo in an id, variable or profile, or a response used before the operation keeping it | the message names the phase and action; see [How a run works › Checks before sending](run-lifecycle.md#6-checks-before-sending) |
 | `error`: "Variable 'x' … has no value" | the source lacks the element or header | see [Variables and placeholders](variables.md#errors) |
+| Create fails with `400`/`422`: a reference "cannot be resolved" | a fixture references another fixture by its example id; the server knows it under another id | create the referenced fixture first and set `rewrite-references: all`, or give it `autocreate`; see [Fixtures](fixtures.md#references-to-fixtures-on-the-server) |
+| Warning "sends fixture 'x', which references … – but fixture 'y' is only created by …" | the actions create the fixtures in the wrong order | move the create of `y` before the one of `x` |
+| A suite passes here but not on another test engine | it relies on runner-specific features: reference rewriting, placeholders in fixtures | run it with `--testrunner.execution.rewrite-references=none` |
 | Tests interfere in parallel runs | two TestScripts touch the same server data | use `${testrunner.testScriptId}` or `parallel: false`, see [ADR-0008](../adr/0008-parallel-execution.md) |
 | `error`: the TestScript sends requests to more than one server | several `destination`s | not supported, the runner plays one client against one server |
 | `error` for `requestMethod`, `requestURL`, `manualEval` | they need a test engine acting as server, or a human tester | remove them; `warningOnly` does not help, it only softens a `fail` |

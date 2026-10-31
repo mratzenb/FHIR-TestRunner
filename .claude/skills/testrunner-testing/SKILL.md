@@ -12,7 +12,7 @@ No FHIR server, no network, no real validator needed: `mvn verify` runs all test
 
 | Level | Class | Covers |
 |---|---|---|
-| Unit, engine (`testrunner-core`) | `core/engine/TestScriptExecutionTest` (nested classes per area: `Fixtures`, `Operations`, `Assertions`, `Capabilities`, `Requests`, `Checks` – Load errors before anything is sent –, `Phases`, `FixtureValues`) | phase rules, operations, assertions, fixtures, capabilities, variables, kept requests, pre-run checks, OAuth2, communication log – through the real `TestRunner` with `Harness` |
+| Unit, engine (`testrunner-core`) | `core/engine/TestScriptExecutionTest` (nested classes per area: `Fixtures`, `Operations`, `Assertions`, `Capabilities`, `ReferenceRewriting`, `Requests`, `Checks` – Load errors before anything is sent –, `Phases`, `FixtureValues`) | phase rules, operations, assertions, fixtures, capabilities, variables, kept requests, pre-run checks, OAuth2, communication log – through the real `TestRunner` with `Harness` |
 | Unit, core (`testrunner-core`) | `RunConfigurationTest`, `AccessTokensTest` (OAuth2 token fetch/renewal with a `MutableClock`), `PathEvaluatorTest`, `ResourceContentTest`, `FhirElementTest`, `UrlEncodingTest`, `CommunicationLogTest`, `ExampleInstanceResolverTest`, `PackageSuitesTest` (cache, download of a hand-built `.tgz` incl. pax long names, concurrent download, path traversal), `TestReportWriterTest` | config defaults/problems, content helpers (`FhirElement`: JSON/XML alike, exact decimals, `minimumId` containment rules), log format |
 | Version modules (`testrunner-fhir-r4`, `-r5`) | `R4SupportTest`, `R5SupportTest` | every sample TestScript of the version maps exactly; detection cases |
 | Validator (`testrunner-validation-cli`) | `ValidatorCliProfileValidatorTest`, `ValidatorServerProfileValidatorTest` | process handling, arguments, server lifecycle, fallback, parallel use |
@@ -80,7 +80,7 @@ try (InMemoryFhirServer server = InMemoryFhirServer.start("4.0.1")) {
 `on(assertion, sourceId)`, `onRequest(assertion)` (`direction = request`), `withHeaders`, `withRequestId`,
 `toDestination`, `test(name, actions...)`. `Harness`: `resource(fixtureId, json)`, `exampleInstance(fileName, json)`
 (e.g. a required CapabilityStatement), `validator(ProfileValidator)`, `parallelism(n)`, `oauth2(OAuth2Config)`,
-`noServer()`. A TestScript must pass `TestScriptChecks` to reach the server: an assertion needs an operation before
+`rewriteReferences(ReferenceRewriting)`, `noServer()`. A TestScript must pass `TestScriptChecks` to reach the server: an assertion needs an operation before
 it, ids must name something – otherwise the result is a Load error (that is what `Checks` tests).
 
 ## Test data (`testdata/`, from the PoC)

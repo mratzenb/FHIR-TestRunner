@@ -40,16 +40,23 @@ final class ExecutionState {
     }
 
     /**
-     * Records that a fixture was created on the server, so that it can be auto-deleted and references to it rewritten.
+     * Records that a fixture was autocreated on the server, so that it can be auto-deleted and references to it
+     * rewritten.
      *
-     * @param reference {@code Type/id} of the fixture's resource as written, {@code null} if it has no id
+     * @param reference {@code Type/id} of the fixture's resource as written, {@code null} if references to it are not
+     *                  rewritten
      */
     void fixtureCreated(Source.Fixture fixture, String reference) {
         fixtures.put(fixture.id(), fixture);
         created.add(fixture);
         if (reference != null) {
-            serverReferences.put(reference, fixture.resourceType() + "/" + fixture.serverId());
+            serverAssigned(reference, fixture.resourceType() + "/" + fixture.serverId());
         }
+    }
+
+    /** Records that the resource written as {@code reference} ({@code Type/id}) is {@code serverReference} on the server. */
+    void serverAssigned(String reference, String serverReference) {
+        serverReferences.put(reference, serverReference);
     }
 
     /** Fixtures created on the server, in creation order. */
@@ -57,13 +64,13 @@ final class ExecutionState {
         return List.copyOf(created);
     }
 
-    /** {@code Type/id} on the server of the autocreated fixture written as {@code Type/id}, if there is one. */
+    /** {@code Type/id} on the server of the fixture written as {@code Type/id}, if it was created there. */
     Optional<String> serverReference(String reference) {
         return Optional.ofNullable(serverReferences.get(reference));
     }
 
-    /** Whether any fixture was created on the server, i.e. whether references may need rewriting. */
-    boolean hasCreatedFixtures() {
+    /** Whether a fixture was created on the server under an id of the server's, i.e. whether references may change. */
+    boolean hasServerReferences() {
         return !serverReferences.isEmpty();
     }
 

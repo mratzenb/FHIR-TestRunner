@@ -119,11 +119,20 @@ and, if a sample uses it, `EndToEndIT`.
 * **Fixtures are resolved at each use** (`docs/wiki/fixtures.md`): `ExecutionState` keeps them as
   written; `find`/`require` hand them out through `FixtureManager.resolve` (set via `state.resolveFixturesWith`):
   placeholders replaced by `ResourceContent.replaceText` (JSON string values, XML attribute values/text; never
-  names) with the values at that moment, and references to autocreated fixtures rewritten to the server ids
-  (`ExecutionState.serverReference`, keyed by `localReference`). A failing placeholder ⇒ `error` of the action using
+  names) with the values at that moment, and references to fixtures created on the server rewritten to the server
+  ids (`ExecutionState.serverReference`, keyed by `localReference`). A failing placeholder ⇒ `error` of the action using
   the fixture, naming it; a variable reading its own fixture ⇒ error (cycle guard `resolving`).
   `state.fixtureAsWritten` bypasses the view (autocreate). Autocreated fixtures are resolved once in `autocreate`
   (no response yet ⇒ a response variable fails there ⇒ Setup `error`); afterwards `find` returns them as sent.
+* **Reference rewriting is runner-specific, not spec** (ADR-0012): `execution.rewrite-references`
+  (`config.ReferenceRewriting`): `NONE` = sent as written, autocreate in declaration order (nothing recorded in
+  `serverReferences`); `AUTOCREATE` (default) = autocreate in dependency order (`dependencyOrder` → `creationOrder`,
+  Kahn), references to autocreated fixtures rewritten; `ALL` = also `FixtureManager.sentByOperation` after a
+  successful create/update (`createsResource`) with a fixture `sourceId`: server id from `Location`, else returned
+  resource, else update URL → `state.serverAssigned(Type/writtenId, Type/serverId)`. Actions are never reordered.
+* **Order warnings**: `TestScriptChecks.orderWarnings` (in `TestRunner.execute`, logged WARN, added to the Setup by
+  `TestScriptExecution.setupRecorder`): a create/update sending a non-autocreate fixture whose references name a
+  fixture first created by a later create/update ⇒ warning naming both actions; never an error (server may have it).
 
 ## Required capabilities (`CapabilityCheck`) and destinations
 

@@ -1,5 +1,6 @@
 package at.hl7.testing.runner.core.engine;
 
+import at.hl7.testing.runner.core.config.ReferenceRewriting;
 import at.hl7.testing.runner.core.content.ResourceContent;
 import at.hl7.testing.runner.core.http.Exchange;
 import at.hl7.testing.runner.core.http.FhirHttpClient;
@@ -9,6 +10,8 @@ import at.hl7.testing.runner.core.model.Body;
 import at.hl7.testing.runner.core.model.ContentFormat;
 import at.hl7.testing.runner.core.model.FixtureDefinition;
 import at.hl7.testing.runner.core.model.HttpMethod;
+import at.hl7.testing.runner.core.model.Operation;
+import at.hl7.testing.runner.core.model.OperationType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,6 +38,10 @@ import java.util.function.UnaryOperator;
  * <p>A fixture that is not autocreated is resolved each time it is used ({@link #resolve}): its {@code ${…}}
  * placeholders are replaced with the values at that moment, and its references to autocreated fixtures are rewritten
  * like those between autocreated fixtures. So a fixture sent in a test can use a variable on an earlier response.
+ *
+ * <p>Rewriting references is a convenience of this runner, the TestScript specification sends fixtures as written.
+ * {@link ReferenceRewriting} switches it off ({@code NONE}: declaration order, nothing rewritten) or extends it to
+ * fixtures a create or update operation sent ({@code ALL}, {@link #sentByOperation}).
  */
 final class FixtureManager {
 
@@ -44,17 +51,26 @@ final class FixtureManager {
     private final FhirHttpClient http;
     private final String base;
     private final UnaryOperator<String> values;
+    private final ReferenceRewriting rewriting;
     /** Fixtures being resolved, to detect a variable that reads the fixture it is used in. */
     private final Set<String> resolving = new LinkedHashSet<>();
 
     /**
-     * @param values replaces {@code ${variable}} placeholders in the text values of the fixture resources
+     * @param values    replaces {@code ${variable}} placeholders in the text values of the fixture resources
+     * @param rewriting which references are rewritten to the ids the server assigned
      */
-    FixtureManager(ExecutionState state, FhirHttpClient http, String base, UnaryOperator<String> values) {
+    FixtureManager(ExecutionState state, FhirHttpClient http, String base, UnaryOperator<String> values,
+                   ReferenceRewriting rewriting) {
         this.state = state;
         this.http = http;
         this.base = base;
         this.values = values;
+        this.rewriting = rewriting;
+    }
+
+    /** Whether an operation puts the resource it sends on the server under an id: {@code create} and {@code update}. */
+    static boolean createsResource(Operation operation) {
+        return operation.type() == OperationType.CREATE || operation.type() == OperationType.UPDATE;
     }
 
     /** Makes every fixture available to {@code sourceId}, {@code targetId} and variables, as written. */
@@ -83,7 +99,7 @@ final class FixtureManager {
             return fixture;
         }
         Body body = withValues(fixture.id(), fixture.body());
-        if (state.hasCreatedFixtures()) {
+        if (state.hasServerReferences()) {
             body = withServerReferences(fixture.id(), body);
         }
         return body == fixture.body() ? fixture : fixture.withBody(body);
@@ -125,8 +141,67 @@ final class FixtureManager {
     }
 
     /**
+     * With {@link ReferenceRewriting#ALL}: after a create or update sent a fixture, records the id the server gave it,
+     * so that references to it in fixtures sent later are rewritten. The id comes from the {@code Location} header,
+     * else from the resource returned, else (update) from the URL. Nothing happens for other operations, a response
+     * that is no success or a fixture whose resource has no id.
+     */
+    void sentByOperation(Operation operation, Exchange exchange) {
+        if (rewriting != ReferenceRewriting.ALL || !createsResource(operation) || operation.sourceId() == null
+                || !exchange.response().isSuccessful()) {
+            return;
+        }
+        Source.Fixture fixture = state.fixtureAsWritten(operation.sourceId()).orElse(null);
+        if (fixture == null || fixture.resourceType() == null) {
+            return; // the body was a kept response, or no resource
+        }
+        String writtenId = safe(() -> ResourceContent.id(fixture.body()));
+        if (writtenId != null && writtenId.contains("${")) {
+            writtenId = safe(() -> values.apply(ResourceContent.id(fixture.body())));
+        }
+        if (writtenId == null) {
+            return;
+        }
+        String onServer = serverReference(fixture.resourceType(), operation, exchange);
+        if (onServer == null) {
+            log.debug("Fixture '{}' was sent ({}), but the response names no id; references to it are not rewritten",
+                    fixture.id(), exchange.requestId());
+            return;
+        }
+        String written = fixture.resourceType() + "/" + writtenId;
+        if (!written.equals(onServer)) {
+            state.serverAssigned(written, onServer);
+            log.info("Fixture '{}' is {} on the server [{}]; references to {} are rewritten (rewrite-references: all)",
+                    fixture.id(), onServer, exchange.requestId(), written);
+        }
+    }
+
+    /** {@code Type/id} of the resource a create or update put on the server, or {@code null} if no id is named. */
+    private static String serverReference(String type, Operation operation, Exchange exchange) {
+        Map<String, String> location = exchange.response().headers().first("Location")
+                .map(ResourceContent::parseLocation).orElse(Map.of());
+        if (location.containsKey("id")) {
+            return location.getOrDefault("type", type) + "/" + location.get("id");
+        }
+        Body returned = exchange.response().asBody();
+        if (!returned.isEmpty() && returned.format() != ContentFormat.OTHER
+                && type.equals(safe(() -> ResourceContent.resourceType(returned)))) {
+            String id = safe(() -> ResourceContent.id(returned));
+            if (id != null) {
+                return type + "/" + id;
+            }
+        }
+        if (operation.type() == OperationType.UPDATE) {
+            Map<String, String> url = ResourceContent.parseLocation(exchange.request().uri().getPath());
+            return type.equals(url.get("type")) ? type + "/" + url.get("id") : null;
+        }
+        return null;
+    }
+
+    /**
      * Creates the fixtures with {@code autocreate} in dependency order. Their placeholders are resolved now, before
-     * any operation has run.
+     * any operation has run. With {@link ReferenceRewriting#NONE} they are created in declaration order and sent as
+     * written.
      *
      * @throws TestScriptException if a placeholder cannot be resolved, the references form a cycle or the server does
      *                             not create a fixture
@@ -147,6 +222,28 @@ final class FixtureManager {
         if (toCreate.isEmpty()) {
             return;
         }
+        List<String> order = rewriting == ReferenceRewriting.NONE ? List.copyOf(toCreate.keySet())
+                : dependencyOrder(toCreate);
+        for (String fixtureId : order) {
+            Source.Fixture fixture = toCreate.get(fixtureId);
+            Body body = ResourceContent.replaceReferences(fixture.body(),
+                    reference -> state.serverReference(localReference(reference)).orElse(reference));
+            String originalId = ResourceContent.id(fixture.body());
+            log.info("Creating fixture '{}' ({}/{})", fixtureId, fixture.resourceType(), originalId);
+            Exchange exchange = http.send(new FhirRequest(HttpMethod.POST, URI.create(base + "/" + fixture.resourceType()),
+                    HttpHeaders.of(Map.of("Content-Type", List.of(body.format().fhirMimeType()),
+                            "Accept", List.of(body.format().fhirMimeType()))),
+                    body.text()));
+            String serverId = createdId(exchange, fixtureId);
+            state.fixtureCreated(fixture.created(body, serverId, exchange.requestId()),
+                    originalId == null || rewriting == ReferenceRewriting.NONE ? null
+                            : fixture.resourceType() + "/" + originalId);
+            log.info("Fixture '{}' created as {}/{}", fixtureId, fixture.resourceType(), serverId);
+        }
+    }
+
+    /** The order in which the autocreated fixtures are created: those referenced by others first. */
+    private static List<String> dependencyOrder(Map<String, Source.Fixture> toCreate) {
         Map<String, String> fixtureIdByResourceRef = new HashMap<>();
         toCreate.values().forEach(f -> {
             String id = ResourceContent.id(f.body());
@@ -171,22 +268,7 @@ final class FixtureManager {
         });
         List<String> order = creationOrder(dependencies);
         log.debug("Fixture creation order: {}", order);
-
-        for (String fixtureId : order) {
-            Source.Fixture fixture = toCreate.get(fixtureId);
-            Body body = ResourceContent.replaceReferences(fixture.body(),
-                    reference -> state.serverReference(localReference(reference)).orElse(reference));
-            String originalId = ResourceContent.id(fixture.body());
-            log.info("Creating fixture '{}' ({}/{})", fixtureId, fixture.resourceType(), originalId);
-            Exchange exchange = http.send(new FhirRequest(HttpMethod.POST, URI.create(base + "/" + fixture.resourceType()),
-                    HttpHeaders.of(Map.of("Content-Type", List.of(body.format().fhirMimeType()),
-                            "Accept", List.of(body.format().fhirMimeType()))),
-                    body.text()));
-            String serverId = createdId(exchange, fixtureId);
-            state.fixtureCreated(fixture.created(body, serverId, exchange.requestId()),
-                    originalId == null ? null : fixture.resourceType() + "/" + originalId);
-            log.info("Fixture '{}' created as {}/{}", fixtureId, fixture.resourceType(), serverId);
-        }
+        return order;
     }
 
     /**

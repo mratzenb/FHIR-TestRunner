@@ -211,7 +211,11 @@ compared as text only within one encoding; a JSON fixture with narrative does no
 `last` and `next` link (the specification's definition), `false` if it lacks one of them.
 
 Fixtures with `autocreate` are created in dependency order (references between fixtures are rewritten to the
-server-assigned ids); a cycle is an `error`. Fixtures with `autodelete` are deleted after the teardown, in reverse
+server-assigned ids); a cycle is an `error`. **Rewriting references is a convenience of this runner**, the TestScript
+specification sends fixtures as written: `execution.rewrite-references` = `none` (as written, declaration order),
+`autocreate` (default, as described here) or `all` (also references to fixtures a `create`/`update` action sent,
+once the server named their id) – see [ADR-0012](adr/0012-reference-rewriting.md). Actions are never reordered; a
+fixture sent before a fixture it references is created gets a warning on the Setup. Fixtures with `autodelete` are deleted after the teardown, in reverse
 order. Variables are evaluated each time a `${name}` placeholder is used, so they always reflect the latest response.
 
 Placeholders also work in the text values of fixture resources (JSON string values, XML attribute values and text –

@@ -1,5 +1,6 @@
 package at.hl7.testing.runner.core.engine;
 
+import at.hl7.testing.runner.core.config.ReferenceRewriting;
 import at.hl7.testing.runner.core.http.Exchange;
 import at.hl7.testing.runner.core.http.FhirHttpClient;
 import at.hl7.testing.runner.core.http.FhirRequest;
@@ -47,6 +48,7 @@ final class TestScriptExecution {
     private final FhirHttpClient http;
     private final ExecutionState state = new ExecutionState();
     private final List<String> capabilityWarnings = new ArrayList<>();
+    private final List<String> orderWarnings;
     private final VariableResolver variables;
     private final RequestFactory requests;
     private final AssertionEvaluator assertions;
@@ -55,10 +57,13 @@ final class TestScriptExecution {
     private final String fhirBase;
 
     /**
-     * @param builtIn the values the runner provides for {@code ${testrunner.<name>}} placeholders, by name
+     * @param builtIn       the values the runner provides for {@code ${testrunner.<name>}} placeholders, by name
+     * @param rewriting     which references in fixture resources are rewritten to the ids the server assigned
+     * @param orderWarnings fixtures sent before a fixture they reference is created ({@link TestScriptChecks#orderWarnings})
      */
     TestScriptExecution(LoadedTestScript loaded, FhirHttpClient http, String fhirBase, ProfileValidator validator,
-                        Path profilesDir, List<String> igs, CapabilityCheck capabilities, Map<String, String> builtIn) {
+                        Path profilesDir, List<String> igs, CapabilityCheck capabilities, Map<String, String> builtIn,
+                        ReferenceRewriting rewriting, List<String> orderWarnings) {
         this.loaded = loaded;
         this.testScript = loaded.testScript();
         this.http = http;
@@ -68,7 +73,8 @@ final class TestScriptExecution {
         this.requests = new RequestFactory(fhirBase, state);
         this.assertions = new AssertionEvaluator(state, loaded.support().fhirPath(), validator, testScript.profiles(),
                 testScript.fhirVersion(), profilesDir, igs);
-        this.fixtures = new FixtureManager(state, http, fhirBase, variables::resolve);
+        this.fixtures = new FixtureManager(state, http, fhirBase, variables::resolve, rewriting);
+        this.orderWarnings = List.copyOf(orderWarnings);
         state.resolveFixturesWith(fixtures::resolve);
     }
 
@@ -146,6 +152,7 @@ final class TestScriptExecution {
         // content the FHIR version module had to ignore, e.g. an R5-only element in an R4 TestScript
         loaded.readWarnings().forEach(w -> phase.warning("Ignored while reading the TestScript: " + w));
         capabilityWarnings.forEach(phase::warning);
+        orderWarnings.forEach(phase::warning);
         return phase;
     }
 
@@ -197,6 +204,7 @@ final class TestScriptExecution {
             Exchange exchange = http.send(request);
             requestId = exchange.requestId();
             state.exchanged(exchange, operation.requestId(), operation.responseId());
+            fixtures.sentByOperation(operation, exchange);
             phase.action(new ActionResult(ActionResult.OPERATION, described, Outcome.PASS, null, requestId, false));
             return true;
         } catch (TestScriptException | FhirHttpClient.ExchangeFailedException e) {

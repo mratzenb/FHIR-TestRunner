@@ -69,6 +69,8 @@ testrunner:
 
   execution:
     parallelism: 1                         # TestScripts run at the same time, see ADR-0008
+    rewrite-references: autocreate         # none | autocreate (default) | all – rewrite references in fixtures to
+                                           # the ids the server assigned; runner-specific, see below and ADR-0012
 
   validation:
     enabled: true                          # false: validateProfileId becomes a warning, nothing is validated
@@ -105,6 +107,21 @@ testrunner:
   exit-on-skip: all                        # app only: when skipped TestScripts give exit code 3 instead of 0:
                                            # all (default, nothing was tested) | any (a skip, no failure) | never
 ```
+
+### Rewriting references in fixtures (runner-specific)
+
+`rewrite-references` is a convenience of this runner. The FHIR TestScript specification sends a fixture as written, so
+a TestScript that relies on it may fail on another test engine.
+
+| Value | References in fixture resources that are rewritten to the server's ids |
+|---|---|
+| `none` | none; autocreate fixtures are created in declaration order – the behaviour of the specification |
+| `autocreate` (default) | references to `autocreate` fixtures, which are created in dependency order |
+| `all` | also references to fixtures that a `create` or `update` action sent |
+
+Run a suite with `--testrunner.execution.rewrite-references=none` to check that its TestScripts are portable. Details
+and examples: [wiki › Fixtures](wiki/fixtures.md#references-to-fixtures-on-the-server),
+[ADR-0012](adr/0012-reference-rewriting.md).
 
 ### Servers protected by OAuth2
 
@@ -195,7 +212,7 @@ Relaxed binding applies: `base-dir`, `baseDir` and `BASEDIR` are the same; durat
 RunConfiguration configuration = new RunConfiguration(
         FhirServerConfig.of("http://localhost:8080/fhir"),
         List.of(SuiteConfig.of(Path.of("testdata/r4"), "R4")),
-        null, new ExecutionConfig(4),
+        null, ExecutionConfig.parallel(4),
         ValidationConfig.enabled(Path.of("validator_cli.jar")).withMode(ValidatorMode.SERVER),
         null, null);                       // reporting and packages: defaults
 ProfileValidator validator = ProfileValidators.create(configuration.validation());

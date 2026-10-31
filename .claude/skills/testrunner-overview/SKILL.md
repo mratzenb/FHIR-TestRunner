@@ -64,5 +64,5 @@ and `ProfileValidators.create(ValidationConfig)`.
 ## Documentation (source of truth if a skill and the docs disagree)
 
 `README.md`; `docs/architecture.md`, `fhir-versions.md`, `configuration.md`, `logging.md`, `validation.md`;
-`docs/adr/0001`–`0011` (index in `docs/adr/README.md`). When code changes a documented behaviour, update the
+`docs/adr/0001`–`0012` (index in `docs/adr/README.md`). When code changes a documented behaviour, update the
 doc, the ADR and the matching skill together.
