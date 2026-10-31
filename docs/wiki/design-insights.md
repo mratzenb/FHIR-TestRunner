@@ -188,6 +188,18 @@ Upgrading Spring Boot or HAPI is a one-line change.
 
 → [ADR-0010](../adr/0010-build.md)
 
+## 13. Conveniences beyond the specification are switchable
+
+**Problem.** Fixtures reference each other by example ids. The specification sends them as written, so a Patient
+points to an Organization the server knows under another id.
+
+**Choice.** The runner rewrites such references to the server's ids – but as a setting,
+`execution.rewrite-references` (`none` | `autocreate` | `all`), documented as runner-specific wherever it appears. With
+`none` an author can check that a TestScript also runs on other engines. Actions are never reordered; a wrong order
+only gets a warning.
+
+→ [ADR-0012](../adr/0012-reference-rewriting.md), [Fixtures](fixtures.md#references-to-fixtures-on-the-server)
+
 ## Known limits
 
 The open points are listed in [architecture.md](../architecture.md#open-points): request assertions, several

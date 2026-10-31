@@ -85,8 +85,8 @@ flowchart TD
 
 1. **Load.** The resources are read with the TestScript, from `contained` or from the files.
 2. **Register.** When the setup starts, every fixture is kept as written.
-3. **Autocreate.** Fixtures with `autocreate` are sent with `POST [base]/[type]`, in dependency order. The server's
-   id is kept. A rejected create makes the Setup `error` and names the request (`REQ-0003`) and the status.
+3. **Autocreate.** Fixtures with `autocreate` are sent with `POST [base]/[type]`, in dependency order (references
+   first). The server's id is kept. A rejected create makes the Setup `error` and names the request (`REQ-0003`) and the status.
 4. **Use.** Every other fixture is prepared each time it is used. See the next section.
 5. **Autodelete.** After the teardown, fixtures with `autodelete` are deleted, in reverse creation order. This also
    happens if the setup or a test failed.
@@ -97,30 +97,98 @@ A fixture that is not autocreated is prepared each time it is used:
 
 * **Placeholders** such as `${pid}` are replaced with their values at that moment. See
   [Variables and placeholders](variables.md#placeholders-in-fixture-resources).
-* **References to autocreated fixtures** are rewritten to the id the server assigned.
+* **References to fixtures created on the server** are rewritten to the id the server assigned – a convenience of
+  this runner, see [below](#references-to-fixtures-on-the-server).
 
 "Used" means: sent as the body of an operation (`sourceId`), read by an assertion or a variable, compared by
 `minimumId`, or named by `targetId`.
 
 An autocreated fixture is prepared once, when it is created. After that, every use sees what was sent.
 
-### References to autocreated fixtures
+### References to fixtures on the server
 
-A fixture written for an IG references other examples by their ids, e.g. `Patient/pat-1`. On the server, that
-Patient has another id. The runner rewrites such references for you:
+> **A convenience of this runner – not part of the FHIR specification.**
+> The TestScript specification sends a fixture exactly as written. Another test engine will not rewrite references.
+> A TestScript that relies on rewriting may fail there. `testrunner.execution.rewrite-references` controls it, see
+> [below](#how-far-the-rewriting-goes) and [ADR-0012](../adr/0012-reference-rewriting.md).
+
+A fixture written for an IG references other examples by their ids, e.g. `Organization/org-1`. On the server, that
+Organization gets another id. Sent as written, the Patient points to a resource the server does not have. The runner
+rewrites such references for you:
 
 | Fixture | Written | Sent |
 |---|---|---|
-| `patient` (autocreate) | `{"resourceType":"Patient","id":"pat-1",…}` | created as `Patient/1` |
-| `obs` (sent in a test) | `"subject": {"reference": "Patient/pat-1"}` | `"subject": {"reference": "Patient/1"}` |
+| `org` (created first) | `{"resourceType":"Organization","id":"org-1",…}` | created as `Organization/1` |
+| `patient` (sent later) | `"managingOrganization": {"reference": "Organization/org-1"}` | `"managingOrganization": {"reference": "Organization/1"}` |
 
 Rules:
 
-* Only references to **autocreated** fixtures change. The fixture is matched by resource type and id.
-* Relative and absolute references both work. `http://example.org/fhir/Patient/pat-1` becomes `Patient/1`.
-* A version is dropped: `Patient/pat-1/_history/2` becomes `Patient/1`.
+* A fixture is matched by its resource type and id as written. A fixture without `id` is never rewritten.
+* Relative and absolute references both work. `http://example.org/fhir/Organization/org-1` becomes `Organization/1`.
+* A version is dropped: `Organization/org-1/_history/2` becomes `Organization/1`.
 * `#contained` and `urn:uuid:` references stay as they are.
-* Between autocreated fixtures, the same rewrite decides the creation order. A cycle is a Setup `error`.
+* A reference is rewritten only **after** the referenced fixture was created. Actions are never reordered.
+
+#### How far the rewriting goes
+
+| `rewrite-references` | References that are rewritten | Autocreate order |
+|---|---|---|
+| `none` | none – every fixture is sent as written, like the specification | declaration order |
+| `autocreate` (default) | references to **autocreated** fixtures | dependency order |
+| `all` | also references to fixtures that a `create` or `update` **action** sent | dependency order |
+
+```yaml
+testrunner:
+  execution:
+    rewrite-references: all     # none | autocreate | all
+```
+
+With `all`, two setup actions are enough. The Organization is created first, then the Patient references it:
+
+```json
+"fixture": [
+  { "id": "org",     "autocreate": false, "autodelete": false, "resource": { "reference": "Organization/org-1" } },
+  { "id": "patient", "autocreate": false, "autodelete": false, "resource": { "reference": "Patient/pat-1" } }
+],
+"setup": { "action": [
+  { "operation": { "type": { "code": "create" }, "resource": "Organization", "sourceId": "org" } },
+  { "operation": { "type": { "code": "create" }, "resource": "Patient", "sourceId": "patient" } }
+]}
+```
+
+The log shows each rewrite:
+
+```
+Fixture 'org' is Organization/1 on the server [REQ-0001]; references to Organization/org-1 are rewritten (rewrite-references: all)
+```
+
+With `all`, the server's id comes from the `Location` header, else from the returned resource, else – for an
+`update` – from the URL. The default `autocreate` sends the Patient above with `Organization/org-1`.
+
+#### Portable alternatives
+
+Rewriting is the shortest way. If a TestScript must also run on other engines, use one of these instead:
+
+* **Choose the id yourself.** Create the Organization with `update` to `Organization/org-1`. Then the reference is
+  right as written. This is pure specification.
+* **A placeholder.** Keep the create response (`responseId`) and write `"reference": "Organization/${orgId}"` with a
+  variable on it, see [Variables and placeholders](variables.md#placeholders-in-fixture-resources). This is explicit,
+  but placeholders in fixture resources are an extension of this runner too.
+
+To check whether a suite depends on rewriting, run it once with `--testrunner.execution.rewrite-references=none`.
+
+### Fixtures in the wrong order
+
+Before anything is sent, the runner looks at the order of the create and update actions. A fixture that references a
+fixture that only a later action creates gets a warning on the Setup phase:
+
+```
+WARNING: Setup, action 1 sends fixture 'patient', which references Organization/org-1 – but fixture 'org' is only
+created by Setup, action 2; create it first, or give it autocreate
+```
+
+It is a warning, not an error. The server may have that resource already, e.g. from an earlier run. The TestScript
+still runs. The warning appears for every `rewrite-references` value, because the reference is wrong in all of them.
 
 ## Errors
 
@@ -131,6 +199,7 @@ Rules:
 | `autocreate` on content that is no FHIR resource | Setup `error` |
 | two autocreated fixtures with the same type and id | Setup `error` |
 | autocreated fixtures reference each other in a cycle | Setup `error`, tests `skip` |
+| a fixture is sent before a fixture it references is created | warning on the Setup, the TestScript runs |
 | the server rejects an autocreate | Setup `error` with request id and status |
 | a placeholder in an autocreated fixture fails | Setup `error`, tests `skip`, teardown runs |
 | a placeholder in another fixture fails | the operation or assertion using it is `error` |
@@ -143,11 +212,13 @@ Rules:
 | `core.model.FixtureDefinition` | one declared fixture |
 | `core.source.ExampleInstanceResolver` | finds the file behind `resource.reference` |
 | `core.source.TestScriptLoader` | reads the fixture resources with the TestScript: `#id` from `contained`, the rest from files |
-| `core.engine.FixtureManager` | `register`, `autocreate`, `resolve` (each use), `autodelete` |
+| `core.engine.FixtureManager` | `register`, `autocreate`, `resolve` (each use), `sentByOperation` (`all`), `autodelete` |
+| `core.config.ReferenceRewriting` | the setting `none` / `autocreate` / `all` |
+| `core.engine.TestScriptChecks.orderWarnings` | the warning about fixtures in the wrong order |
 | `core.engine.ExecutionState` | keeps the fixtures as written; `find` hands them out resolved |
 | `core.content.ResourceContent` | `replaceText`, `references`, `replaceReferences`, `contained` |
 
-Tests: `TestScriptExecutionTest`, nested classes `Fixtures` and `FixtureValues`;
+Tests: `TestScriptExecutionTest`, nested classes `Fixtures`, `FixtureValues` and `ReferenceRewriting`;
 `ResourceContentTest.containedResourcesAreBodiesOfTheirOwn`; `EndToEndIT.fixtureFromTestScriptContainedInR4AndR5`.
 
 The reference is [architecture.md › Execution semantics](../architecture.md#execution-semantics).

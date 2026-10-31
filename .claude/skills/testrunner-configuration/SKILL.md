@@ -36,7 +36,8 @@ testrunner:
       package-id:                            # instead of base-dir: name#version of a FHIR package (PackageSuites);
                                              # a pinned fhir-version is checked by problems() as for folders
   http: {connect-timeout: 10s, request-timeout: 60s, follow-redirects: true}
-  execution: {parallelism: 1}               # must be ≥ 1
+  execution: {parallelism: 1, rewrite-references: autocreate}   # parallelism ≥ 1; rewrite-references none |
+                                             # autocreate | all (ReferenceRewriting, runner-specific, ADR-0012)
   validation:
     enabled: true
     mode: server                             # server (default) | process
@@ -110,7 +111,7 @@ Spring closes it (stops validator servers). Registered in
 
 ```java
 RunConfiguration configuration = new RunConfiguration(FhirServerConfig.of("http://localhost:8080/fhir"),
-        List.of(SuiteConfig.of(Path.of("testdata/r4"), "R4")), null, new ExecutionConfig(4),
+        List.of(SuiteConfig.of(Path.of("testdata/r4"), "R4")), null, ExecutionConfig.parallel(4),
         ValidationConfig.enabled(Path.of("validator_cli.jar")).withMode(ValidatorMode.SERVER), null, null);
 ProfileValidator validator = ProfileValidators.create(configuration.validation());
 try {

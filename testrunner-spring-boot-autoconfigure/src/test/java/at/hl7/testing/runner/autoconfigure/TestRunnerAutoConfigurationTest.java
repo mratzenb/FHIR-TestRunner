@@ -1,6 +1,7 @@
 package at.hl7.testing.runner.autoconfigure;
 
 import at.hl7.testing.runner.core.config.OAuth2Config;
+import at.hl7.testing.runner.core.config.ReferenceRewriting;
 import at.hl7.testing.runner.core.config.RunConfiguration;
 import at.hl7.testing.runner.core.config.ValidatorMode;
 import at.hl7.testing.runner.core.engine.RunContext;
@@ -52,6 +53,7 @@ class TestRunnerAutoConfigurationTest {
                 "testrunner.packages.cache-dir=/tmp/fhir-packages",
                 "testrunner.packages.registry=https://registry.example",
                 "testrunner.execution.parallelism=4",
+                "testrunner.execution.rewrite-references=all",
                 "testrunner.http.request-timeout=2m",
                 "testrunner.validation.validator-jar=/opt/validator_cli.jar",
                 "testrunner.reporting.formats=junit,json",
@@ -79,6 +81,7 @@ class TestRunnerAutoConfigurationTest {
                             OAuth2Config.ClientAuthentication.POST));
                     assertThat(config.fhirServer().oauth2()).isNull();
                     assertThat(config.execution().parallelism()).isEqualTo(4);
+                    assertThat(config.execution().rewriteReferences()).isEqualTo(ReferenceRewriting.ALL);
                     assertThat(config.http().requestTimeout()).isEqualTo(Duration.ofMinutes(2));
                     assertThat(config.http().connectTimeout()).isEqualTo(Duration.ofSeconds(10));
                     assertThat(config.validation().validatorJar()).isEqualTo(Path.of("/opt/validator_cli.jar"));

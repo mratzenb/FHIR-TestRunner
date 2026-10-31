@@ -259,8 +259,11 @@ public final class TestRunner {
                 .collect(LinkedHashMap::new, (m, e) -> m.put(e.getKey(), List.of(e.getValue())), Map::putAll));
         FhirHttpClient http = new FhirHttpClient(transport, run.requestCounter(), communication, defaultHeaders,
                 server.oauth2() == null ? null : run.accessTokens(server.oauth2(), transport, clock));
+        List<String> orderWarnings = TestScriptChecks.orderWarnings(testScript, loaded.fixtureResources());
+        orderWarnings.forEach(w -> log.warn("{}", w));
         List<PhaseResult> phases = new TestScriptExecution(loaded, http, server.base(), validator,
-                suite.resolvedProfilesDir(), suite.igs(), capabilities, builtIn).run();
+                suite.resolvedProfilesDir(), suite.igs(), capabilities, builtIn,
+                run.configuration().execution().rewriteReferences(), orderWarnings).run();
         return result(index, loaded, server.base(), started, phases);
     }
 
@@ -334,6 +337,7 @@ public final class TestRunner {
         log.info("  FHIR versions:      {}", versions.versions());
         log.info("  Results:            {}", run.runDirectory().toAbsolutePath());
         log.info("  Parallelism:        {}", c.execution().parallelism());
+        log.info("  Rewrite references: {}", c.execution().rewriteReferences().name().toLowerCase(java.util.Locale.ROOT));
         log.info("  Profile validation: {}", validator.description());
         log.info("  Communication logs: {}", c.reporting().communicationLog() ? run.communicationDirectory() : "disabled");
         c.suites().forEach(s -> log.info("  Suite '{}': {}{} (FHIR {})", s.name(),

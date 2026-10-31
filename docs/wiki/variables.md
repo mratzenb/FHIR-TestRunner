@@ -203,7 +203,9 @@ response `created`, and the server gets `"reference": "Patient/1"`.
 
 A variable on an autocreated fixture reads the fixture as it was sent. That content does not contain the id the
 server assigned. To address the created resource, use `targetId` – it uses the server's id. References to an
-autocreated fixture are rewritten for you, see [Fixtures › References](fixtures.md#references-to-autocreated-fixtures).
+autocreated fixture are rewritten for you, see [Fixtures › References](fixtures.md#references-to-fixtures-on-the-server).
+With `rewrite-references: all`, so are references to fixtures created by actions – then the Observation example
+above needs no variable.
 
 ## Errors
 

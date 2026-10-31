@@ -1,5 +1,6 @@
 package at.hl7.testing.runner.core.engine;
 
+import at.hl7.testing.runner.core.config.ReferenceRewriting;
 import at.hl7.testing.runner.core.content.ResourceContent;
 import at.hl7.testing.runner.core.model.Action;
 import at.hl7.testing.runner.core.model.Assertion;
@@ -281,19 +282,7 @@ final class TestScriptChecks {
         }
 
         private List<Step> steps() {
-            List<Step> steps = new ArrayList<>();
-            add(steps, "Setup", testScript.setup());
-            for (TestDefinition test : testScript.tests()) {
-                add(steps, "Test '" + test.name() + "'", test.actions());
-            }
-            add(steps, "Teardown", testScript.teardown());
-            return steps;
-        }
-
-        private static void add(List<Step> steps, String phase, List<Action> actions) {
-            for (int i = 0; i < actions.size(); i++) {
-                steps.add(new Step(phase + ", action " + (i + 1), actions.get(i)));
-            }
+            return Step.all(testScript);
         }
 
         private static UnaryOperator<String> collectInto(List<String> names) {
@@ -322,8 +311,102 @@ final class TestScriptChecks {
             return id.contains("${");
         }
 
-        /** An action and where it is, e.g. {@code Test 'read', action 2}. */
-        private record Step(String where, Action action) {
+    }
+
+    /** An action and where it is, e.g. {@code Test 'read', action 2}. */
+    private record Step(String where, Action action) {
+
+        /** Every action in the order it runs: setup, tests, teardown. */
+        static List<Step> all(TestScript testScript) {
+            List<Step> steps = new ArrayList<>();
+            add(steps, "Setup", testScript.setup());
+            for (TestDefinition test : testScript.tests()) {
+                add(steps, "Test '" + test.name() + "'", test.actions());
+            }
+            add(steps, "Teardown", testScript.teardown());
+            return steps;
+        }
+
+        private static void add(List<Step> steps, String phase, List<Action> actions) {
+            for (int i = 0; i < actions.size(); i++) {
+                steps.add(new Step(phase + ", action " + (i + 1), actions.get(i)));
+            }
+        }
+    }
+
+    /**
+     * Warnings about the order in which fixtures reach the server: a fixture sent by a create or update references a
+     * fixture that only a later action creates. Such a reference names a resource the server does not have yet –
+     * unless it exists there already, which is why this is a warning and no error. With
+     * {@link ReferenceRewriting#ALL} the reference would be rewritten, but only once the referenced fixture was created.
+     *
+     * @param fixtureResources the resource of each fixture that has one, by fixture id
+     * @return a description of every such reference, naming both actions
+     */
+    static List<String> orderWarnings(TestScript testScript, Map<String, Body> fixtureResources) {
+        Map<String, String> fixtureByResource = new HashMap<>();
+        Set<String> autocreated = new HashSet<>();
+        for (FixtureDefinition fixture : testScript.fixtures()) {
+            if (fixture.autocreate()) {
+                autocreated.add(fixture.id());
+            }
+            Body body = fixtureResources.get(fixture.id());
+            String reference = body == null ? null : resourceReference(body);
+            if (reference != null) {
+                fixtureByResource.putIfAbsent(reference, fixture.id());
+            }
+        }
+        // where each fixture is created first by an operation
+        Map<String, Integer> createdAt = new HashMap<>();
+        List<Step> steps = Step.all(testScript);
+        for (int i = 0; i < steps.size(); i++) {
+            if (steps.get(i).action() instanceof Operation operation && FixtureManager.createsResource(operation)
+                    && operation.sourceId() != null && !autocreated.contains(operation.sourceId())) {
+                createdAt.putIfAbsent(operation.sourceId(), i);
+            }
+        }
+        List<String> warnings = new ArrayList<>();
+        Set<String> reported = new HashSet<>();
+        for (int i = 0; i < steps.size(); i++) {
+            if (!(steps.get(i).action() instanceof Operation operation) || !FixtureManager.createsResource(operation)
+                    || operation.sourceId() == null || autocreated.contains(operation.sourceId())) {
+                continue;
+            }
+            Body body = fixtureResources.get(operation.sourceId());
+            if (body == null) {
+                continue;
+            }
+            for (String reference : references(body)) {
+                String target = fixtureByResource.get(FixtureManager.localReference(reference));
+                Integer targetAt = target == null ? null : createdAt.get(target);
+                if (target == null || target.equals(operation.sourceId()) || targetAt == null || targetAt < i
+                        || !reported.add(operation.sourceId() + "->" + target)) {
+                    continue;
+                }
+                warnings.add(steps.get(i).where() + " sends fixture '" + operation.sourceId() + "', which references "
+                        + reference + " – but fixture '" + target + "' is only created by " + steps.get(targetAt).where()
+                        + "; create it first, or give it autocreate");
+            }
+        }
+        return warnings;
+    }
+
+    /** {@code Type/id} of a fixture resource, or {@code null} if it has no type and id. */
+    private static String resourceReference(Body body) {
+        try {
+            String type = ResourceContent.resourceType(body);
+            String id = ResourceContent.id(body);
+            return type == null || id == null ? null : type + "/" + id;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static Set<String> references(Body body) {
+        try {
+            return ResourceContent.references(body);
+        } catch (IllegalArgumentException e) {
+            return Set.of();
         }
     }
 
