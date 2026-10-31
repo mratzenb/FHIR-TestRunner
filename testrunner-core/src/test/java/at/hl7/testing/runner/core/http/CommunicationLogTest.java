@@ -41,6 +41,24 @@ class CommunicationLogTest {
     }
 
     @Test
+    void masksTheValuesOfRedactedHeadersButKeepsTheScheme(@TempDir Path dir) {
+        FhirRequest request = new FhirRequest(HttpMethod.GET, URI.create("http://s/fhir/Patient"),
+                HttpHeaders.of(Map.of("authorization", List.of("Bearer eyJhbGciOi.secret"),
+                        "X-Api-Key", List.of("k-123"), "Accept", List.of("application/fhir+json"))), null);
+        FhirResponse response = new FhirResponse(200, "OK", "HTTP/1.1",
+                HttpHeaders.of(Map.of("Set-Cookie", List.of("session=abc; Path=/"))), "{}");
+
+        String where = CommunicationLog.toFolder(dir, "01_ts", "http://s/fhir")
+                .redacting(List.of("Authorization", "x-api-key", "Set-Cookie")).record("REQ-0001", request, response);
+
+        assertThat(dir.resolve(where).resolve("request.http")).content()
+                .contains("authorization: Bearer ***", "X-Api-Key: ***", "Accept: application/fhir+json")
+                .doesNotContain("secret", "k-123");
+        assertThat(dir.resolve(where).resolve("response.http")).content()
+                .contains("Set-Cookie: ***").doesNotContain("abc");
+    }
+
+    @Test
     void withoutFolderNothingIsWritten() {
         assertThat(CommunicationLog.none().record("REQ-0001", REQUEST, new FhirResponse(200, "", "HTTP/1.1", null, ""))).isNull();
     }

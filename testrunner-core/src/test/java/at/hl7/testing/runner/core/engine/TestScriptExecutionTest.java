@@ -963,7 +963,8 @@ class TestScriptExecutionTest {
                 List.of(new at.hl7.testing.runner.core.config.SuiteConfig(null, null, null, null, null, null, null,
                         null, null, null, "example.ig#dev")),
                 null, null, null,
-                new at.hl7.testing.runner.core.config.ReportingConfig(dir.resolve("results"), null, false, false, null),
+                new at.hl7.testing.runner.core.config.ReportingConfig(dir.resolve("results"), null, false, false, null,
+                        null),
                 new at.hl7.testing.runner.core.config.PackagesConfig(dir.resolve("cache"), null));
         var scripts = java.util.Map.of("ts", script().test(test("t", op("capabilities"), responseCode("200"))).build());
         var versions = new at.hl7.testing.runner.core.spi.FhirVersionRegistry(List.of(StubVersionSupport.of(scripts)));
@@ -994,6 +995,19 @@ class TestScriptExecutionTest {
         assertThat(folder.resolve("REQ-0002_GET_Patient/response.http")).exists();
         assertThat(run.reportFiles()).containsOnlyKeys("junit", "summary", "json");
         assertThat(run.reportFiles().get("junit")).content().contains("<testsuite name=\"TS\"", "assertions=\"0\"");
+    }
+
+    @Test
+    void communicationLogMasksCredentialsByDefault() throws Exception {
+        harness.add("ts", script().test(test("t", withHeaders(op("capabilities"),
+                new RequestHeader("Authorization", "Basic dXNlcjpzZWNyZXQ="))))
+                .build());
+
+        var run = harness.run();
+
+        assertThat(run.runDirectory().resolve("communication/01_ts/REQ-0001_GET_metadata/request.http")).content()
+                .contains("Authorization: Basic ***").doesNotContain("dXNlcjpzZWNyZXQ=");
+        assertThat(server.requests().getFirst().header("Authorization")).isEqualTo("Basic dXNlcjpzZWNyZXQ=");
     }
 
     @Test

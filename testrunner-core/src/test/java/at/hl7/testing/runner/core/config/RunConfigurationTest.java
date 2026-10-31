@@ -20,6 +20,8 @@ class RunConfigurationTest {
         assertThat(config.validation().terminologyServer()).isEqualTo("n/a");
         assertThat(config.reporting().formats()).containsExactly("junit", "summary");
         assertThat(config.http().followRedirects()).isTrue();
+        assertThat(config.reporting().redactHeaders())
+                .containsExactly("Authorization", "Proxy-Authorization", "Cookie", "Set-Cookie");
     }
 
     @Test
@@ -27,7 +29,7 @@ class RunConfigurationTest {
         RunConfiguration config = new RunConfiguration(null,
                 List.of(new SuiteConfig(null, "R7", dir.resolve("missing"), null, null, null, null, null, null, null, null)),
                 null, new ExecutionConfig(0), null,
-                new ReportingConfig(null, List.of("pdf"), null, null, "LOUD"), null);
+                new ReportingConfig(null, List.of("pdf"), null, null, "LOUD", null), null);
 
         assertThat(config.problems()).hasSize(5).anyMatch(p -> p.contains("does not exist"))
                 .anyMatch(p -> p.contains("R7")).anyMatch(p -> p.contains("parallelism"))

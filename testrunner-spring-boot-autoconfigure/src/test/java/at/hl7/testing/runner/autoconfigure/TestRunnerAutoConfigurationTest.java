@@ -50,7 +50,8 @@ class TestRunnerAutoConfigurationTest {
                 "testrunner.http.request-timeout=2m",
                 "testrunner.validation.validator-jar=/opt/validator_cli.jar",
                 "testrunner.reporting.formats=junit,json",
-                "testrunner.reporting.output-dir=/tmp/results")
+                "testrunner.reporting.output-dir=/tmp/results",
+                "testrunner.reporting.redact-headers=Authorization,X-Api-Key")
                 .run(context -> {
                     RunConfiguration config = context.getBean(RunConfiguration.class);
                     assertThat(config.fhirServer().base()).isEqualTo("http://server/fhir");
@@ -75,6 +76,7 @@ class TestRunnerAutoConfigurationTest {
                     assertThat(config.validation().terminologyServer()).isEqualTo("n/a");
                     assertThat(config.reporting().formats()).containsExactly("junit", "json");
                     assertThat(config.reporting().outputDir()).isEqualTo(Path.of("/tmp/results"));
+                    assertThat(config.reporting().redactHeaders()).containsExactly("Authorization", "X-Api-Key");
                 });
     }
 

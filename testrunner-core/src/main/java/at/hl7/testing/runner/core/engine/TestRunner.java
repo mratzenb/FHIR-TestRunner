@@ -252,9 +252,9 @@ public final class TestRunner {
             return result(index, loaded, null, started, phases);
         }
 
-        CommunicationLog communication = run.configuration().reporting().communicationLog()
+        CommunicationLog communication = (run.configuration().reporting().communicationLog()
                 ? CommunicationLog.toFolder(run.communicationDirectory(), label, server.base())
-                : CommunicationLog.none();
+                : CommunicationLog.none()).redacting(run.configuration().reporting().redactHeaders());
         HttpHeaders defaultHeaders = HttpHeaders.of(server.headers().entrySet().stream()
                 .collect(LinkedHashMap::new, (m, e) -> m.put(e.getKey(), List.of(e.getValue())), Map::putAll));
         FhirHttpClient http = new FhirHttpClient(transport, run.requestCounter(), communication, defaultHeaders);

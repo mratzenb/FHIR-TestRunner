@@ -107,7 +107,8 @@ final class Harness {
         RunConfiguration configuration = new RunConfiguration(FhirServerConfig.of(fhirBase), suites, HttpConfig.defaults(),
                 new ExecutionConfig(parallelism),
                 ValidationConfig.disabled(),
-                new ReportingConfig(dir.resolve("results"), List.of("junit", "summary", "json"), true, false, null), null);
+                new ReportingConfig(dir.resolve("results"), List.of("junit", "summary", "json"), true, false, null, null),
+                null);
         try (JdkHttpTransport transport = new JdkHttpTransport(HttpConfig.defaults())) {
             FhirVersionRegistry versions = new FhirVersionRegistry(List.of(StubVersionSupport.of(scripts)));
             TestRunner runner = new TestRunner(versions, transport, validator, TestRunners.defaultReportWriters(versions),

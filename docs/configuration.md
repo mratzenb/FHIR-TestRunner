@@ -86,6 +86,8 @@ testrunner:
     formats: [junit, summary]              # junit | summary | json | testreport (FHIR TestReports, logging.md)
                                            # | any format of an added ReportWriter; the app sets all four
     communication-log: true                # one folder per request/response, see logging.md
+    redact-headers: [Authorization, Proxy-Authorization, Cookie, Set-Cookie]
+                                           # values masked in the communication log ([] = none)
     log-file: true                         # testrunner.log in the run folder
     log-file-level: DEBUG                  # TRACE | DEBUG | INFO | WARN | ERROR
 

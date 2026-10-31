@@ -48,6 +48,7 @@ testrunner:
     output-dir: testrunner-results           # run folder output-dir/run_<timestamp>/
     formats: [junit, summary]                # record default; the app's application.yml sets [junit, summary, json, testreport]
     communication-log: true
+    redact-headers: [Authorization, Proxy-Authorization, Cookie, Set-Cookie]   # masked in communication log; [] = none
     log-file: true
     log-file-level: DEBUG                    # TRACE|DEBUG|INFO|WARN|ERROR
   packages: {cache-dir: ~/.fhir/packages, registry: https://packages.fhir.org}   # PackagesConfig

@@ -42,11 +42,13 @@ folder prefix. From a failed assertion, `REQ-nnnn` leads to the exact bytes exch
 
 ## Communication log (`core.http.CommunicationLog`, one per TestScript execution)
 
-Writes every exchange **unfiltered** (all headers, repeated headers on separate lines, body as text). Write
-problems are logged as warnings and never fail a test. Also logged at DEBUG to `at.hl7.testing.runner.communication`
-(route anywhere via logging config). `reporting.communication-log=false` switches the files off; ids stay.
-It contains `Authorization` headers from `fhir-server.headers` and server data – treat the folder as sensitive; a
-redacting `CommunicationLog` would be the extension point.
+Writes every exchange as exchanged (all headers, repeated headers on separate lines, body as text), except the
+values of `reporting.redact-headers` (`ReportingConfig.DEFAULT_REDACT_HEADERS`: Authorization, Proxy-Authorization,
+Cookie, Set-Cookie; case-insensitive; `[]` = none): `CommunicationLog.redacting(names)` masks them as `***`, keeping an
+auth scheme (`Bearer ***`, `CommunicationLog.mask`), in files and wire logger alike; `TestRunner.execute` applies it.
+Bodies/URLs are not masked. Write problems are logged as warnings and never fail a test. Also logged at DEBUG to
+`at.hl7.testing.runner.communication` (route anywhere via logging config). `reporting.communication-log=false`
+switches the files off; ids stay.
 
 ## Reports (`core.report`)
 
@@ -70,6 +72,7 @@ redacting `CommunicationLog` would be the extension point.
 * Listeners: implement `RunListener` (`runStarted`, `testScriptFinished` – may be called concurrently –,
   `runFinished`).
 
-Tests: `CommunicationLogTest`, `TestScriptExecutionTest.communicationLogHasOneFolderPerRequest`, `TestReportWriterTest`
+Tests: `CommunicationLogTest`, `TestScriptExecutionTest.communicationLogHasOneFolderPerRequest`,
+`TestScriptExecutionTest.communicationLogMasksCredentialsByDefault`, `TestReportWriterTest`
 (content mapping), `R4SupportTest`/`R5SupportTest.writesAValid…TestReport…` (HAPI parses it back),
 `EndToEndIT.communicationLogsAndReportsAreWrittenPerRun`, `EndToEndIT.writesAFhirTestReportPerTestScriptInItsVersion`.
