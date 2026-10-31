@@ -26,7 +26,8 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
 A local HAPI server: `docker run -p 8080:8080 -e hapi.fhir.fhir_version=R4 hapiproject/hapi:latest`.
 
 Results go to `target/testrunner-results/run_<timestamp>/` (`junit.xml`, `summary.txt`, `result.json`, a FHIR
-`TestReport` per TestScript in `testreports/`, `testrunner.log`, `communication/`). Exit code: 0 passed, 1 failed/errors, 2 invalid configuration.
+`TestReport` per TestScript in `testreports/`, `testrunner.log`, `communication/`). Exit code: 0 passed, 1 failed/errors, 2 invalid configuration, 3 everything skipped (nothing tested;
+`testrunner.exit-on-skip`).
 
 ## Project layout
 

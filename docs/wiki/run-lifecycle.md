@@ -33,7 +33,7 @@ sequenceDiagram
     end
     TR->>Rep: write(RunResult)
     TR-->>App: RunResult
-    App->>App: exit code 0 / 1 / 2
+    App->>App: exit code 0 / 1 / 2 / 3
 ```
 
 ## 1. Start and configuration check
@@ -240,8 +240,11 @@ the log file is closed.
 
 | Code | Meaning |
 |---|---|
-| 0 | every TestScript passed or was skipped |
+| 0 | every TestScript passed or was skipped, and at least one passed |
 | 1 | at least one `fail` or `error` |
 | 2 | invalid configuration, nothing was run |
+| 3 | every TestScript was skipped, nothing was tested |
+
+`testrunner.exit-on-skip` changes when skips give `3`, see [Troubleshooting › Exit codes](troubleshooting.md#exit-codes).
 
 Next: [Design insights](design-insights.md).

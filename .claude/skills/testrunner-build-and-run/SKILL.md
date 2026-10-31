@@ -45,7 +45,8 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
   `docker run -p 8080:8080 -e hapi.fhir.fhir_version=R4 hapiproject/hapi:latest`.
 * `config/negative-control.yml` is **expected to FAIL** (proves validation runs).
 * Results: `target/testrunner-results/run_<timestamp>/` with the dev configs (`testrunner-results/` otherwise).
-* Exit codes: 0 pass/skip, 1 fail/error, 2 invalid configuration.
+* Exit codes: 0 pass, 1 fail/error, 2 invalid configuration, 3 skipped (default: only when every TestScript was;
+  `testrunner.exit-on-skip=all|any|never`, `RunCommand.exitCode`).
 * The app module builds a plain library jar and `*-exec.jar` (Spring Boot, classifier `exec`).
 
 ## POM conventions (ADR-0010)

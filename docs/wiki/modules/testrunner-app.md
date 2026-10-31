@@ -31,7 +31,7 @@ sequenceDiagram
     S->>R: run(args)
     R->>T: run(RunConfiguration)
     T-->>R: RunResult
-    R-->>S: exit code 0 / 1 / 2
+    R-->>S: exit code 0 / 1 / 2 / 3
     S-->>M: context closed (validator servers stopped)
     M-->>U: System.exit(code)
 ```
@@ -51,6 +51,25 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
 All properties: [configuration.md](../../configuration.md#reference).
 
 `testrunner.run-on-startup=false` turns off `RunCommand`. Useful to embed the app or to test the wiring.
+
+## Exit codes
+
+`RunCommand.exitCode` turns the `RunResult` into the exit code:
+
+| Code | When |
+|---|---|
+| 0 | passed |
+| 1 | at least one `fail` or `error` |
+| 2 | invalid configuration (`ConfigurationException`) |
+| 3 | skipped TestScripts, none failed – as `testrunner.exit-on-skip` says |
+
+A skipped TestScript tested nothing. A CI job that only sees exit code 0 would not notice that the server was missing.
+So by default (`exit-on-skip: all`) a run where every TestScript was skipped exits with `3`. Use `any` to fail on a
+single skip, `never` for the old behaviour:
+
+```sh
+java -jar testrunner-app-…-exec.jar --config=ci.yml --testrunner.exit-on-skip=any
+```
 
 ## Defaults of the jar
 
@@ -72,6 +91,7 @@ The build produces two artefacts ([ADR-0010](../../adr/0010-build.md)):
 | Test | Kind | Covers |
 |---|---|---|
 | `TestRunnerApplicationTest` | unit | translation of the short options |
+| `RunCommandTest` | unit | exit codes for every `exit-on-skip` value |
 | `EndToEndIT` | failsafe | the whole app on the sample TestScripts, with an in-memory FHIR server and the fake validator |
 | `RealValidatorIT` | failsafe, opt-in | AT Core R4 suite incl. the negative control with the **real** validator, both modes. Runs only with `VALIDATOR_JAR` set. |
 | `ArchitectureTest` | unit (ArchUnit) | the module boundaries |

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.boot.SpringApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 
@@ -267,6 +268,26 @@ class EndToEndIT {
                 .contains("does not support required capability 'Patient patch'", "no match for {code=patch}");
         assertThat(r4Server.requestLines()).containsExactly("GET /metadata");
         assertThat(run.reportFiles().get("junit")).content().contains("<skipped message=\"The server [REQ-0001]");
+    }
+
+    @Test
+    void runThatTestedNothingExitsWithThree() {
+        // every TestScript is skipped: the suite has no FHIR server
+        String[] args = {"--testrunner.fhir-server.base-url=", "--testrunner.validation.enabled=false",
+                "--testrunner.reporting.output-dir=" + dir.resolve("results"),
+                "--testrunner.suites[0].base-dir=" + SampleData.r4(),
+                "--testrunner.suites[0].include=TestScript-testscript-patient-create-at-core.json"};
+
+        assertThat(exitCode(args)).isEqualTo(RunCommand.EXIT_SKIPPED);
+        List<String> never = new ArrayList<>(List.of(args));
+        never.add("--testrunner.exit-on-skip=never");
+        assertThat(exitCode(never.toArray(String[]::new))).isEqualTo(RunCommand.EXIT_PASSED);
+    }
+
+    private static int exitCode(String... args) {
+        try (ConfigurableApplicationContext app = new SpringApplicationBuilder(TestRunnerApplication.class).run(args)) {
+            return SpringApplication.exit(app);
+        }
     }
 
     @Test

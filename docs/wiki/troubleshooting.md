@@ -19,15 +19,25 @@ flowchart LR
 
 | Code | Meaning | Look at |
 |---|---|---|
-| 0 | all passed or skipped | – |
+| 0 | all passed (some may be skipped, see below) | – |
 | 1 | at least one `fail` or `error` | `summary.txt` |
 | 2 | invalid configuration, nothing ran | the console: all problems are listed |
+| 3 | TestScripts were skipped, none failed | `summary.txt` names the reason per TestScript |
+
+By default, `3` means **every** TestScript was skipped – nothing was tested. Typical causes: no FHIR server
+configured, or the server lacks a required capability. `testrunner.exit-on-skip` changes this:
+
+| Value | Exit code 3 when … |
+|---|---|
+| `all` (default) | every TestScript was skipped |
+| `any` | at least one TestScript was skipped and none failed |
+| `never` | never; skipped counts as passed |
 
 ## Common symptoms
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Every TestScript is `skip` | no FHIR server configured | set `testrunner.fhir-server.base-url` |
+| Every TestScript is `skip`, exit code 3 | no FHIR server configured | set `testrunner.fhir-server.base-url` |
 | `error` in phase `Load`: version could not be determined | the file is no valid TestScript in R4 or R5 | the message lists the parser errors per version |
 | TestScript detected as the wrong version | ambiguous content | pin `fhir-version` on the suite |
 | Warning "Ignored while reading the TestScript" | an element that does not exist in the detected version, e.g. `stopTestOnFail` in R4 | fix the TestScript, or pin the version you meant |
