@@ -112,7 +112,8 @@ Only a few engine classes are public: `TestRunner`, `TestRunners`, `RunContext`,
 exceptions. The rest is package-private. They are details of how a TestScript is executed.
 
 The step-by-step flow is on [How a run works](../run-lifecycle.md). The exact rules are in
-[architecture.md](../../architecture.md#execution-semantics).
+[architecture.md](../../architecture.md#execution-semantics). How `${…}` placeholders are resolved is on
+[Variables and placeholders](../variables.md).
 
 ### Exceptions say who must act
 
