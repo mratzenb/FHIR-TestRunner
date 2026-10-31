@@ -14,6 +14,8 @@
 | **Operation** | A request to the server (`create`, `read`, `search`, …). |
 | **Assertion** | A check on a response or fixture. Carries exactly one `Check`. |
 | **Fixture** | A resource used by a TestScript, usually from `Example_Instances/`. `autocreate`/`autodelete` create and delete it on the server. |
+| **Variable** | A value declared in `TestScript.variable`, read from a fixture or response by FHIRPath, path or header. Used as `${name}`, evaluated at each use. See [Variables and placeholders](variables.md). |
+| **Built-in value** | A value the runner provides, `${testrunner.runId}`, `${testrunner.uuid}`, …; fixed per TestScript execution. |
 | **Example Instances** | Folder with the resources behind `fixture.resource.reference`. |
 | **Profiles folder** | Folder with StructureDefinitions, passed to the validator as `-ig`. |
 | **IG** | Implementation Guide. Its profiles are needed to validate. Configured per suite (`igs`) or taken from a package. |

@@ -24,6 +24,7 @@ flowchart LR
 | understand the whole thing in ten minutes | [The big picture](big-picture.md) |
 | know what a Maven module does | [Modules](modules/README.md) |
 | follow a run from start to end | [How a run works](run-lifecycle.md) |
+| know how `${variable}` placeholders are resolved | [Variables and placeholders](variables.md) |
 | understand why it is built this way | [Design insights](design-insights.md) |
 | add a feature or replace a part | [Extending the runner](extending.md) |
 | build, test and run it locally | [Build and test](build-and-test.md) |
