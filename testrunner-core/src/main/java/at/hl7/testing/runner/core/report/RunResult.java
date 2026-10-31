@@ -3,6 +3,7 @@ package at.hl7.testing.runner.core.report;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +44,7 @@ public record RunResult(String runId, Path runDirectory, Instant started, Durati
     public Map<Outcome, Long> countByOutcome() {
         Map<Outcome, Long> counts = testScripts.stream()
                 .collect(Collectors.groupingBy(TestScriptResult::outcome, Collectors.counting()));
-        return java.util.Arrays.stream(Outcome.values())
+        return Arrays.stream(Outcome.values())
                 .collect(Collectors.toMap(Function.identity(), o -> counts.getOrDefault(o, 0L)));
     }
 }
