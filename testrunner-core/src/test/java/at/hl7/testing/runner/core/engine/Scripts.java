@@ -47,6 +47,12 @@ final class Scripts {
                 o.responseId(), o.sourceId(), o.targetId(), o.url(), o.destination());
     }
 
+    static Operation withRequestId(Operation o, String requestId) {
+        return new Operation(o.type(), o.typeCode(), o.resource(), o.label(), o.description(), o.accept(),
+                o.contentType(), o.encodeRequestUrl(), o.method(), o.params(), o.requestHeaders(), requestId,
+                o.responseId(), o.sourceId(), o.targetId(), o.url(), o.destination());
+    }
+
     static Assertion check(Check check) {
         return new Assertion(check, null, null, null, null, null, null, null, null, null, false, false);
     }
@@ -65,6 +71,13 @@ final class Scripts {
         return new Assertion(a.check(), a.label(), a.description(), a.direction(), a.operator(), a.value(),
                 a.sourceId(), a.compareToSourceId(), a.compareToSourceExpression(), a.compareToSourcePath(),
                 a.warningOnly(), true);
+    }
+
+    /** {@code direction = request}: the assertion checks the request sent, not the response. */
+    static Assertion onRequest(Assertion a) {
+        return new Assertion(a.check(), a.label(), a.description(), "request", a.operator(), a.value(),
+                a.sourceId(), a.compareToSourceId(), a.compareToSourceExpression(), a.compareToSourcePath(),
+                a.warningOnly(), a.stopTestOnFail());
     }
 
     static Assertion on(Assertion a, String sourceId) {

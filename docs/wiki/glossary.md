@@ -12,7 +12,7 @@
 | **Phase** | Load, Setup, one Test, or Teardown. Each gets a result. |
 | **Action** | One step in a phase: an operation or an assertion. |
 | **Operation** | A request to the server (`create`, `read`, `search`, …). |
-| **Assertion** | A check on a response or fixture. Carries exactly one `Check`. |
+| **Assertion** | A check on a response, a request sent or a fixture. Carries exactly one `Check`. |
 | **Fixture** | A resource used by a TestScript, usually from `Example_Instances/`. `autocreate`/`autodelete` create and delete it on the server. See [Fixtures](fixtures.md). |
 | **Variable** | A value declared in `TestScript.variable`, read from a fixture or response by FHIRPath, path or header. Used as `${name}`, evaluated at each use. See [Variables and placeholders](variables.md). |
 | **Built-in value** | A value the runner provides, `${testrunner.runId}`, `${testrunner.uuid}`, …; fixed per TestScript execution. |

@@ -196,7 +196,7 @@ final class TestScriptExecution {
             FhirRequest request = requests.create(operation);
             Exchange exchange = http.send(request);
             requestId = exchange.requestId();
-            state.responseReceived(exchange, operation.responseId());
+            state.exchanged(exchange, operation.requestId(), operation.responseId());
             phase.action(new ActionResult(ActionResult.OPERATION, described, Outcome.PASS, null, requestId, false));
             return true;
         } catch (TestScriptException | FhirHttpClient.ExchangeFailedException e) {

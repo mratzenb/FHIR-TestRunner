@@ -63,7 +63,8 @@ and wrong", `TestScriptException` for "cannot be evaluated".
   capabilities GET, update PUT, patch PATCH, delete DELETE, create/transaction/batch/operation POST.
 * URL precedence: `url` as is → `[base]/[resource][params]` → derived from type: `[base]` for transaction/batch,
   `[base]/metadata` for capabilities, `[base]/[type]/[id](/_history(/[vid]))` from `targetId`, `[base]/[type]`.
-* Body from `sourceId` (fixture or kept response). `responseId` keeps the response for later `sourceId`/variables.
+* Body from `sourceId` (fixture, kept response or kept request). `responseId` keeps the response, `requestId` the
+  request as sent (placeholders resolved), for later `sourceId`/variables.
 * Every text value of an operation or assertion may contain `${variable}` (`withValues`), as in the PoC.
 
 **Adding an operation type** – only needed for a default method or URL; an unknown code already runs as `OTHER`
@@ -84,10 +85,13 @@ One `Check` per assertion (FHIR invariants tst-5/tst-6, enforced when mapping): 
 (source contains every element/value of the fixture, id ignored; `content.FhirElement.notContainedIn`, same rules as
 the capability check, all differences listed), `NavigationLinks` (Bundle has `first`, `last` and `next` links;
 `false` expects them incomplete; non-Bundle ⇒ fail). Both only allow operator `equals` (the default).
-**Not supported, reported as `error`**: `RequestMethod`, `RequestUrl`, `direction=request` (need a test engine acting
-as server), operator `manualEval`.
+**Not supported, reported as `error`**: `RequestMethod`, `RequestUrl` (would test a client; the runner is the
+client), operator `manualEval`.
 
-* Source: `sourceId` (fixture or response) else the last response; none ⇒ error.
+* Source: `sourceId` (fixture, response or **request** – `Source.Request`, kept by `operation.requestId` via
+  `ExecutionState.exchanged`) else the last response, or the last request with `direction = request`
+  (`AssertionEvaluator.onRequest`); none ⇒ error. A request has headers and body but no status: `response`/
+  `responseCode` on it ⇒ error; `targetId` naming a requestId ⇒ Load error (`TestScriptChecks`).
 * `operator(assertion, default, allowed...)` fixes default and allowed operators per check; `Operators.apply` does
   the comparison (`equals`, `notEquals`, `in`, `notIn`, `greaterThan`, `lessThan`, `empty`, `notEmpty`, `contains`,
   `notContains`, `eval`).

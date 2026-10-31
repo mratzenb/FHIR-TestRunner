@@ -43,7 +43,10 @@ final class Describe {
             case Check.RequestMethod c -> "requestMethod " + quote(c.method());
             case Check.RequestUrl c -> "requestURL " + quote(c.url());
         };
-        return assertion.sourceId() != null ? text + " on " + assertion.sourceId() : text;
+        if (assertion.sourceId() != null) {
+            return text + " on " + assertion.sourceId();
+        }
+        return AssertionEvaluator.onRequest(assertion) ? text + " on the request" : text;
     }
 
     private static String expected(Assertion assertion) {

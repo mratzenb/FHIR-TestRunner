@@ -143,8 +143,8 @@ Inside a phase, actions run in order:
 
 | Action | What happens |
 |---|---|
-| Operation | `${…}` placeholders resolved → `RequestFactory` builds the request → `FhirHttpClient` sends it → response stored in `ExecutionState` |
-| Assertion | placeholders resolved → `AssertionEvaluator` checks the last response, or the fixture/response named by `sourceId` |
+| Operation | `${…}` placeholders resolved → `RequestFactory` builds the request → `FhirHttpClient` sends it → request and response stored in `ExecutionState` |
+| Assertion | placeholders resolved → `AssertionEvaluator` checks the last response, the last request (`direction: request`), or the fixture, response or request named by `sourceId` |
 
 How outcomes affect the phase:
 
@@ -157,11 +157,45 @@ How outcomes affect the phase:
 
 The full table is in [architecture.md](../architecture.md#execution-semantics).
 
+### Reading the runner's own requests
+
+Every operation leaves two things behind: the response and the request as it was sent. An operation can keep both
+under ids of its own:
+
+* `responseId` keeps the response.
+* `requestId` keeps the request: URL, headers and body, with every placeholder replaced.
+
+Both work as `sourceId` of an assertion or a variable. An assertion with `direction: request` and no `sourceId`
+checks the last request instead of the last response.
+
+This helps when the runner generates a value. Here the fixture gets a random identifier, and the test searches for
+exactly that value:
+
+```json
+"variable": [{ "name": "sent", "expression": "Patient.identifier[0].value", "sourceId": "create-request" }],
+…
+{ "operation": { "type": { "code": "create" }, "resource": "Patient", "sourceId": "patient",
+                 "requestId": "create-request" } },
+{ "operation": { "type": { "code": "search" }, "resource": "Patient", "params": "?identifier=${sent}" } },
+{ "assert": { "direction": "request", "headerField": "Content-Type", "operator": "contains", "value": "json" } }
+```
+
+The fixture contains `"value": "${testrunner.uuid}"`. The variable reads the request, so it sees the UUID that was
+actually sent.
+
+Limits:
+
+* A request has no status. `response`, `responseCode` and `navigationLinks` need a response; on a request they are
+  an `error`.
+* `targetId` cannot name a request. Use the `responseId` of the same operation to address what it created.
+* `requestMethod` and `requestURL` stay unsupported. They check the requests of a client under test, and the runner
+  is that client itself.
+
 ### The helpers
 
 | Class | Job |
 |---|---|
-| `ExecutionState` | fixtures (as written), responses kept by `responseId`, the last response |
+| `ExecutionState` | fixtures (as written), responses kept by `responseId`, requests kept by `requestId`, the last response and request |
 | `VariableResolver` | replaces `${name}` with the variable's current value, evaluated each time it is used – see [Variables and placeholders](variables.md) |
 | `RequestFactory` | builds URL, headers and body of an operation |
 | `AssertionEvaluator` | evaluates one assertion (one `Check` type each) |

@@ -281,8 +281,9 @@ configured server.
 * **Packages: transitive dependencies, `#current`.** A package suite passes the package and its direct
   dependencies to the validator, which resolves the rest itself. The runner downloads only the package of the suite,
   and only by exact version: `#current` (CI builds) and versions without number are not resolved.
-* **Not supported assertions**: `requestMethod`/`requestURL` and `direction = request` (need a test engine acting
-  as server), `manualEval`; reported as `error`, not silently ignored.
+* **Not supported assertions**: `requestMethod`/`requestURL` (they check the requests of a client under test; the
+  runner is that client itself), `manualEval`; reported as `error`, not silently ignored. `direction = request` and
+  `operation.requestId` are supported: they read the runner's own request as sent.
 * **Several servers, client tests.** TestScripts addressing more than one `destination` need a test engine that
   manages several servers; the runner rejects them. It plays every `origin` itself, so TestScripts that expect another
   client to send a request (testing a client rather than a server) cannot be run.

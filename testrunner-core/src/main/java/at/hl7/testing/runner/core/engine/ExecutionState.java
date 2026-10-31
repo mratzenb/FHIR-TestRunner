@@ -10,7 +10,8 @@ import java.util.Optional;
 import java.util.function.UnaryOperator;
 
 /**
- * The mutable state of one TestScript execution: fixtures, kept responses and the last response.
+ * The mutable state of one TestScript execution: fixtures, kept responses and requests, the last response and
+ * request.
  *
  * <p>Owned by exactly one {@link TestScriptExecution} and therefore confined to one thread; it replaces the
  * module-level globals of the Python proof of concept, so TestScripts can run in parallel without sharing state.
@@ -22,10 +23,12 @@ final class ExecutionState {
 
     private final Map<String, Source.Fixture> fixtures = new HashMap<>();
     private final Map<String, Source.Response> responses = new HashMap<>();
+    private final Map<String, Source.Request> requests = new HashMap<>();
     private final List<Source.Fixture> created = new ArrayList<>();
     private final Map<String, String> serverReferences = new HashMap<>();
     private UnaryOperator<Source.Fixture> fixtureView = UnaryOperator.identity();
     private Source.Response lastResponse;
+    private Source.Request lastRequest;
 
     /** Sets how {@link #find} hands out a fixture; the identity until set. */
     void resolveFixturesWith(UnaryOperator<Source.Fixture> view) {
@@ -64,16 +67,27 @@ final class ExecutionState {
         return !serverReferences.isEmpty();
     }
 
-    void responseReceived(Exchange exchange, String responseId) {
-        Source.Response response = new Source.Response(exchange);
-        lastResponse = response;
+    /**
+     * Records an operation's exchange: its response and its request become the last ones, and are kept under the
+     * operation's ids if it has them.
+     */
+    void exchanged(Exchange exchange, String requestId, String responseId) {
+        lastResponse = new Source.Response(exchange);
+        lastRequest = new Source.Request(exchange);
         if (responseId != null) {
-            responses.put(responseId, response);
+            responses.put(responseId, lastResponse);
+        }
+        if (requestId != null) {
+            requests.put(requestId, lastRequest);
         }
     }
 
     Optional<Source.Response> lastResponse() {
         return Optional.ofNullable(lastResponse);
+    }
+
+    Optional<Source.Request> lastRequest() {
+        return Optional.ofNullable(lastRequest);
     }
 
     /** A fixture as written, without placeholders replaced; for creating it. */
@@ -82,8 +96,7 @@ final class ExecutionState {
     }
 
     /**
-     * A fixture as it is to be used now, or a kept response, by id; a fixture wins (ids are unique, checked before the
-     * run).
+     * A fixture as it is to be used now, or a kept response or request, by id (ids are unique, checked before the run).
      *
      * @throws TestScriptException if a placeholder in the fixture cannot be resolved
      */
@@ -92,12 +105,15 @@ final class ExecutionState {
             return Optional.empty();
         }
         Source.Fixture fixture = fixtures.get(id);
-        return fixture != null ? Optional.of(fixtureView.apply(fixture)) : Optional.ofNullable(responses.get(id));
+        if (fixture != null) {
+            return Optional.of(fixtureView.apply(fixture));
+        }
+        return Optional.<Source>ofNullable(responses.get(id)).or(() -> Optional.ofNullable(requests.get(id)));
     }
 
     /** Like {@link #find(String)}, but an unknown id is an error of the TestScript. */
     Source require(String id, String usedAs) {
         return find(id).orElseThrow(() -> new TestScriptException(
-                usedAs + " '" + id + "' is neither a fixture nor the responseId of an earlier operation"));
+                usedAs + " '" + id + "' is neither a fixture nor the responseId or requestId of an earlier operation"));
     }
 }
