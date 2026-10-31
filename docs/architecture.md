@@ -163,7 +163,8 @@ validator server mode, the validator servers.</figcaption>
 2. `TestScriptDiscovery` lists the TestScript files of every suite (glob `include`, stable order).
 3. Per file, possibly in parallel: `TestScriptLoader` determines the FHIR version (pinned per suite or detected),
    lets that version's `FhirVersionSupport` map the file to the neutral `TestScript` model, and loads the fixture
-   resources from `Example_Instances/`.
+   resources – from `TestScript.contained` for a reference `#id` (read from the file by `ResourceContent.contained`,
+   the same in every version), otherwise from `Example_Instances/`.
 4. Structural checks and, if enabled, validation of the TestScript itself against its FHIR version run before
    anything is sent. `TestScriptChecks` reports everything that would fail in every run, all at once: duplicate ids,
    malformed variables, more than one server, and every reference an action makes, walked in execution order – a

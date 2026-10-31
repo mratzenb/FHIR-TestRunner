@@ -28,6 +28,40 @@ A fixture without `resource` only reserves its id.
 
 ## Where the resource comes from
 
+There are two places:
+
+* **Inside the TestScript**, in `TestScript.contained`, when the reference starts with `#`.
+* **In a file** in the suite's `Example_Instances/` folder, for any other reference.
+
+### A resource contained in the TestScript
+
+A small fixture can live in the TestScript itself. Then the TestScript is complete in one file:
+
+```json
+{
+  "resourceType": "TestScript",
+  "contained": [
+    { "resourceType": "Patient", "id": "pat", "name": [{ "family": "Muster" }] }
+  ],
+  "fixture": [{
+    "id": "patient",
+    "autocreate": false,
+    "autodelete": false,
+    "resource": { "reference": "#pat" }
+  }],
+  …
+}
+```
+
+* `#pat` names the contained resource whose `id` is `pat`.
+* The resource is used in the format of the TestScript: JSON for a JSON TestScript, XML for an XML one.
+* It works in R4 and R5. `contained` looks the same in both.
+* If no contained resource has that id, the TestScript gets an `error` in the phase `Load`. The message lists the
+  ids that exist: `… has no resource with the id 'other' (contained: [pat])`.
+* After loading, a contained fixture is like any other. Placeholders, `autocreate` and `autodelete` work the same way.
+
+### A file in Example Instances
+
 `ExampleInstanceResolver` looks in the suite's `Example_Instances/` folder. The files are named
 `<ResourceType>-<id>.json` or `.xml`. These spellings of the reference all find `Patient-Example.json`:
 
@@ -49,7 +83,7 @@ flowchart TD
     use --> ad["after the teardown<br/>autodelete, reverse order"]
 ```
 
-1. **Load.** The resource files are read with the TestScript.
+1. **Load.** The resources are read with the TestScript, from `contained` or from the files.
 2. **Register.** When the setup starts, every fixture is kept as written.
 3. **Autocreate.** Fixtures with `autocreate` are sent with `POST [base]/[type]`, in dependency order. The server's
    id is kept. A rejected create makes the Setup `error` and names the request (`REQ-0003`) and the status.
@@ -93,6 +127,7 @@ Rules:
 | Problem | Outcome |
 |---|---|
 | no file for `resource.reference` | `error` in phase `Load`, nothing sent |
+| no contained resource for `#id` | `error` in phase `Load`, nothing sent |
 | `autocreate` on content that is no FHIR resource | Setup `error` |
 | two autocreated fixtures with the same type and id | Setup `error` |
 | autocreated fixtures reference each other in a cycle | Setup `error`, tests `skip` |
@@ -107,11 +142,12 @@ Rules:
 |---|---|
 | `core.model.FixtureDefinition` | one declared fixture |
 | `core.source.ExampleInstanceResolver` | finds the file behind `resource.reference` |
-| `core.source.TestScriptLoader` | reads the fixture files with the TestScript |
+| `core.source.TestScriptLoader` | reads the fixture resources with the TestScript: `#id` from `contained`, the rest from files |
 | `core.engine.FixtureManager` | `register`, `autocreate`, `resolve` (each use), `autodelete` |
 | `core.engine.ExecutionState` | keeps the fixtures as written; `find` hands them out resolved |
-| `core.content.ResourceContent` | `replaceText`, `references`, `replaceReferences` |
+| `core.content.ResourceContent` | `replaceText`, `references`, `replaceReferences`, `contained` |
 
-Tests: `TestScriptExecutionTest`, nested classes `Fixtures` and `FixtureValues`.
+Tests: `TestScriptExecutionTest`, nested classes `Fixtures` and `FixtureValues`;
+`ResourceContentTest.containedResourcesAreBodiesOfTheirOwn`; `EndToEndIT.fixtureFromTestScriptContainedInR4AndR5`.
 
 The reference is [architecture.md › Execution semantics](../architecture.md#execution-semantics).

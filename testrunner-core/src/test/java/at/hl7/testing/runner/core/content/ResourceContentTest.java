@@ -30,6 +30,27 @@ class ResourceContentTest {
     }
 
     @Test
+    void containedResourcesAreBodiesOfTheirOwn() {
+        Body json = Body.json("""
+                {"resourceType":"TestScript","contained":[{"resourceType":"Organization","id":"org","name":"A"},
+                 {"resourceType":"Patient","id":"pat","name":[{"family":"B"}]}]}""");
+        Body xml = Body.xml("""
+                <TestScript xmlns="http://hl7.org/fhir"><contained><Organization><id value="org"/></Organization></contained>
+                  <contained><Patient><id value="pat"/><name><family value="B"/></name></Patient></contained></TestScript>""");
+
+        for (Body body : new Body[] {json, xml}) {
+            assertThat(ResourceContent.containedIds(body)).containsExactly("org", "pat");
+            Body patient = ResourceContent.contained(body, "pat").orElseThrow();
+            assertThat(patient.format()).isEqualTo(body.format());
+            assertThat(ResourceContent.resourceType(patient)).isEqualTo("Patient");
+            assertThat(ResourceContent.id(patient)).isEqualTo("pat");
+            assertThat(ResourceContent.contained(body, "nope")).isEmpty();
+        }
+        assertThat(ResourceContent.contained(xml, "pat").orElseThrow().text())
+                .contains("<Patient xmlns=\"http://hl7.org/fhir\">").doesNotContain("TestScript");
+    }
+
+    @Test
     void jsonPatchIsNoResource() {
         assertThat(ResourceContent.resourceType(Body.json("[{\"op\":\"replace\",\"path\":\"/active\",\"value\":false}]"))).isNull();
     }
