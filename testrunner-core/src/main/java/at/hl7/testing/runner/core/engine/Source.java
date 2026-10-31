@@ -5,7 +5,7 @@ import at.hl7.testing.runner.core.http.HttpHeaders;
 import at.hl7.testing.runner.core.model.Body;
 
 /**
- * Something operations and assertions can refer to by id: a fixture or a kept response
+ * Something operations and assertions can refer to by id: a fixture, a kept response or a kept request
  * ({@code sourceId}, {@code targetId}, {@code compareToSourceId}).
  */
 public sealed interface Source {
@@ -13,7 +13,7 @@ public sealed interface Source {
     /** The content. */
     Body body();
 
-    /** The response headers; empty for a fixture. */
+    /** The headers of the response or request; empty for a fixture. */
     HttpHeaders headers();
 
     /** The request that produced it, or {@code null} for a fixture that was never sent. */
@@ -51,6 +51,26 @@ public sealed interface Source {
         @Override
         public HttpHeaders headers() {
             return exchange.response().headers();
+        }
+
+        @Override
+        public String requestId() {
+            return exchange.requestId();
+        }
+    }
+
+    /** A request as sent, kept under its {@code requestId}, or the last request ({@code direction = request}). */
+    record Request(Exchange exchange) implements Source {
+
+        @Override
+        public Body body() {
+            String body = exchange.request().body();
+            return Body.of(body == null ? "" : body, exchange.request().headers().first("Content-Type").orElse(null));
+        }
+
+        @Override
+        public HttpHeaders headers() {
+            return exchange.request().headers();
         }
 
         @Override

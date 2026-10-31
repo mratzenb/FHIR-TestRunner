@@ -64,14 +64,16 @@ final class AssertionEvaluator {
      * @return the source checked, so the caller can name its request in the log
      */
     Evaluation evaluate(Assertion assertion) {
-        if ("request".equals(assertion.direction())) {
-            throw new TestScriptException("Assertions on the request (direction request) need a test engine acting as"
-                    + " server and are not supported");
+        Source source;
+        if (assertion.sourceId() != null) {
+            source = state.require(assertion.sourceId(), "sourceId");
+        } else if (onRequest(assertion)) {
+            source = state.lastRequest().orElseThrow(() -> new TestScriptException(
+                    "There is no request to check: no operation has been executed yet"));
+        } else {
+            source = state.lastResponse().orElseThrow(() -> new TestScriptException(
+                    "There is no response to check: no operation has been executed yet"));
         }
-        Source source = assertion.sourceId() != null
-                ? state.require(assertion.sourceId(), "sourceId")
-                : state.lastResponse().orElseThrow(() -> new TestScriptException(
-                        "There is no response to check: no operation has been executed yet"));
         String warning = switch (assertion.check()) {
             case Check.ContentType c -> {
                 Operator op = operator(assertion, Operator.CONTAINS, Operator.CONTAINS, Operator.NOT_CONTAINS,
@@ -164,6 +166,11 @@ final class AssertionEvaluator {
             case Check.RequestUrl c -> throw unsupported("requestURL");
         };
         return new Evaluation(source, warning);
+    }
+
+    /** {@code direction = request}: without {@code sourceId}, the assertion checks the last request sent. */
+    static boolean onRequest(Assertion assertion) {
+        return "request".equals(assertion.direction());
     }
 
     /**
@@ -307,7 +314,7 @@ final class AssertionEvaluator {
         if (source instanceof Source.Response response) {
             return response;
         }
-        throw new TestScriptException(check + " can only be checked on a response, not on a fixture");
+        throw new TestScriptException(check + " can only be checked on a response, not on " + describe(source));
     }
 
     private static String resourceType(Body body) {
@@ -346,6 +353,7 @@ final class AssertionEvaluator {
         return switch (source) {
             case Source.Fixture f -> "fixture '" + f.id() + "'";
             case Source.Response r -> "the response of " + r.requestId();
+            case Source.Request r -> "the request " + r.requestId();
         };
     }
 

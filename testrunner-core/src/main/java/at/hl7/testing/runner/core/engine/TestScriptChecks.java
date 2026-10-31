@@ -77,8 +77,8 @@ final class TestScriptChecks {
      * {@code variable.sourceId}), the {@code ${…}} placeholders – also those in fixture resources – and
      * {@code validateProfileId}.
      *
-     * <p>Only what fails in every run is reported. A response kept by a later operation is never there in time; one
-     * kept by an earlier operation may be missing too (its test stopped), but that shows only while running.
+     * <p>Only what fails in every run is reported. A response or request kept by a later operation is never there in
+     * time; one kept by an earlier operation may be missing too (its test stopped), but that shows only while running.
      */
     private static final class References {
 
@@ -89,12 +89,13 @@ final class TestScriptChecks {
         private final Set<String> fixtureIds = new HashSet<>();
         private final Set<String> autocreated = new HashSet<>();
         private final Map<String, List<String>> fixturePlaceholders = new HashMap<>();
-        /** Where each responseId is kept, e.g. {@code Test 'read', action 2}. */
-        private final Map<String, String> responseIds = new HashMap<>();
+        /** Where each responseId and requestId is kept, e.g. {@code Test 'read', action 2}. */
+        private final Map<String, String> keptIds = new HashMap<>();
+        private final Set<String> requestIds = new HashSet<>();
         private final Set<String> profiles = new LinkedHashSet<>();
         private final Set<String> reported = new HashSet<>();
         private final List<String> problems = new ArrayList<>();
-        /** The responseIds kept before the action being checked. */
+        /** The responseIds and requestIds kept before the action being checked. */
         private final Set<String> kept = new HashSet<>();
         private boolean operationBefore;
 
@@ -116,8 +117,14 @@ final class TestScriptChecks {
         List<String> problems() {
             List<Step> steps = steps();
             for (Step step : steps) {
-                if (step.action() instanceof Operation operation && operation.responseId() != null) {
-                    responseIds.putIfAbsent(operation.responseId(), step.where());
+                if (step.action() instanceof Operation operation) {
+                    if (operation.responseId() != null) {
+                        keptIds.putIfAbsent(operation.responseId(), step.where());
+                    }
+                    if (operation.requestId() != null) {
+                        keptIds.putIfAbsent(operation.requestId(), step.where());
+                        requestIds.add(operation.requestId());
+                    }
                 }
             }
             // autocreated fixtures are resolved before the first action
@@ -144,7 +151,8 @@ final class TestScriptChecks {
                     assertion.withValues(collectInto(used));
                     if (assertion.sourceId() == null && !operationBefore) {
                         problems.add(where + ": the assertion has no sourceId and no operation runs before it, so"
-                                + " there is no response to check");
+                                + " there is no " + (AssertionEvaluator.onRequest(assertion) ? "request" : "response")
+                                + " to check");
                     }
                     source(where, "sourceId", assertion.sourceId(), used);
                     source(where, "compareToSourceId", assertion.compareToSourceId(), used);
@@ -165,6 +173,9 @@ final class TestScriptChecks {
                 if (operation.responseId() != null) {
                     kept.add(operation.responseId());
                 }
+                if (operation.requestId() != null) {
+                    kept.add(operation.requestId());
+                }
             }
         }
 
@@ -180,10 +191,13 @@ final class TestScriptChecks {
                 } else if (!autocreated.contains(id)) {
                     usedFixture(id, where, used);
                 }
-            } else if (responseIds.containsKey(id)) {
+            } else if (keptIds.containsKey(id)) {
                 if (!kept.contains(id)) {
-                    problems.add(where + ": " + kind + " '" + id + "' is not there yet, it is the responseId of "
-                            + responseIds.get(id));
+                    problems.add(where + ": " + kind + " '" + id + "' is not there yet, it is kept by "
+                            + keptIds.get(id));
+                } else if (kind.equals("targetId") && requestIds.contains(id)) {
+                    problems.add(where + ": targetId '" + id + "' is a requestId; use the responseId of that"
+                            + " operation to address what it created");
                 }
             } else {
                 problems.add(where + ": " + kind + " " + unknown(id));
@@ -222,11 +236,11 @@ final class TestScriptChecks {
                         usedFixture(source, where, fromFixture);
                         todo.addAll(fromFixture);
                     }
-                } else if (!responseIds.containsKey(source)) {
+                } else if (!keptIds.containsKey(source)) {
                     problems.add(prefix + "sourceId " + unknown(source));
                 } else if (!kept.contains(source)) {
-                    problems.add(prefix + "'" + source + "', which is not there yet, it is the responseId of "
-                            + responseIds.get(source));
+                    problems.add(prefix + "'" + source + "', which is not there yet, it is kept by "
+                            + keptIds.get(source));
                 }
             }
         }
@@ -263,7 +277,7 @@ final class TestScriptChecks {
 
         private String unknown(String id) {
             return fixtureIds.contains(id) ? "'" + id + "' is a fixture without resource"
-                    : "'" + id + "' is neither a fixture nor the responseId of an operation";
+                    : "'" + id + "' is neither a fixture nor the responseId or requestId of an operation";
         }
 
         private List<Step> steps() {

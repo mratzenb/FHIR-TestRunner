@@ -71,7 +71,7 @@ flowchart TD
     d -- no --> e2["error: not defined"]
     d -- yes --> s{"has expression,<br/>path or headerField?"}
     s -- no --> dv
-    s -- yes --> src["source: sourceId<br/>(fixture or kept response),<br/>else the last response"]
+    s -- yes --> src["source: sourceId<br/>(fixture, kept response or request),<br/>else the last response"]
     src --> ev["evaluate"]
     ev --> n{"values found"}
     n -- one --> v2["that value as text"]
@@ -95,10 +95,11 @@ A variable has at most one of `expression`, `path` and `headerField`. Without an
 
 The source:
 
-* With `sourceId`: that fixture, or the response kept under that `responseId`. It must exist at that moment.
+* With `sourceId`: that fixture, the response kept under that `responseId`, or the request kept under that
+  `requestId`. It must exist at that moment.
 * Without `sourceId`: the last response, i.e. the response of the latest operation so far. Before the first operation
   there is none – an error.
-* `headerField` needs a response. A fixture has no headers – an error.
+* `headerField` needs a response or a request. A fixture has no headers – an error.
 
 The result (`Values.single`):
 
@@ -232,7 +233,7 @@ messages (`TestScriptException`):
 |---|---|
 | `Variable 'x' is used but not defined by the TestScript` | a typo, or the variable is missing in `TestScript.variable` |
 | `'${testrunner.x}' is no value of the runner; known: […]` | an unknown built-in value |
-| `sourceId of variable 'x' 'r' is neither a fixture nor the responseId of an earlier operation` | a typo, or the operation that keeps `r` has not run yet |
+| `sourceId of variable 'x' 'r' is neither a fixture nor the responseId or requestId of an earlier operation` | the operation that keeps `r` was skipped, e.g. its test stopped early |
 | `Variable 'x' has no sourceId and no operation has been executed yet` | used before the first operation, e.g. in an autocreated fixture |
 | `Fixture 'p': a variable reads the fixture it is used in (p -> p)` | a fixture uses a variable whose `sourceId` is that fixture |
 | `Variable 'x' reads header H, but 'f' is a fixture, not a response` | `headerField` on a fixture |

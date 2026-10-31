@@ -160,6 +160,8 @@ final class RequestFactory {
                     version = response.headers().first("ETag").map(RequestFactory::versionOfETag).orElse(null);
                 }
             }
+            case Source.Request request -> throw new TestScriptException("targetId '" + operation.targetId()
+                    + "' is a request (requestId); use the responseId of that operation to address what it created");
         }
         if (operation.resource() != null) {
             type = operation.resource();

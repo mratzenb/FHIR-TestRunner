@@ -21,6 +21,7 @@ import java.util.List;
 
 import static at.hl7.testing.runner.core.engine.Scripts.check;
 import static at.hl7.testing.runner.core.engine.Scripts.on;
+import static at.hl7.testing.runner.core.engine.Scripts.onRequest;
 import static at.hl7.testing.runner.core.engine.Scripts.op;
 import static at.hl7.testing.runner.core.engine.Scripts.responseCode;
 import static at.hl7.testing.runner.core.engine.Scripts.script;
@@ -28,6 +29,8 @@ import static at.hl7.testing.runner.core.engine.Scripts.stopTestOnFail;
 import static at.hl7.testing.runner.core.engine.Scripts.test;
 import static at.hl7.testing.runner.core.engine.Scripts.toDestination;
 import static at.hl7.testing.runner.core.engine.Scripts.warningOnly;
+import static at.hl7.testing.runner.core.engine.Scripts.withHeaders;
+import static at.hl7.testing.runner.core.engine.Scripts.withRequestId;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestScriptExecutionTest {
@@ -513,6 +516,70 @@ class TestScriptExecutionTest {
         }
     }
 
+    /** {@code operation.requestId} and {@code assert.direction = request}: the runner's own requests can be read. */
+    @Nested
+    class Requests {
+
+        @Test
+        void requestIdKeepsTheRequestForVariablesAndAssertions() {
+            harness.resource("patient", """
+                    {"resourceType":"Patient","identifier":[{"system":"urn:test","value":"${testrunner.uuid}"}]}""")
+                    .add("ts", script().fixture("patient", false, false)
+                            .variable(new VariableDefinition("sent", null, "Patient.identifier[0].value", null, null,
+                                    "create-request", null))
+                            .test(test("t",
+                                    withRequestId(op("create", "Patient", "patient", null, null, null), "create-request"),
+                                    op("search", "Patient", null, null, "?identifier=${sent}", null),
+                                    check(new Check.Expression("Bundle.total"), Operator.EQUALS, "1"),
+                                    on(check(new Check.ContentType("json")), "create-request"),
+                                    on(check(new Check.Resource("Patient")), "create-request")))
+                            .build());
+
+            TestScriptResult result = harness.runOne();
+
+            assertThat(result.outcome()).isEqualTo(Outcome.PASS);
+            assertThat(server.requests().get(1).query()).matches("identifier=[0-9a-f-]{36}");
+            assertThat(phase(result, "t").actions().get(3).requestId()).isEqualTo("REQ-0001");
+        }
+
+        @Test
+        void directionRequestChecksTheLastRequestSent() {
+            harness.resource("patient", PATIENT.replace("Organization/org-1", "Organization/none"))
+                    .add("ts", script().fixture("patient", false, false)
+                            .test(test("t",
+                                    withHeaders(op("create", "Patient", "patient", null, null, null),
+                                            new RequestHeader("Prefer", "return=representation")),
+                                    onRequest(check(new Check.HeaderField("Prefer"), null, "return=representation")),
+                                    onRequest(check(new Check.Expression("Patient.id"), Operator.EQUALS, "pat-1")),
+                                    check(new Check.Expression("Patient.id"), Operator.EQUALS, "1"),
+                                    onRequest(responseCode("201"))))
+                            .build());
+
+            PhaseResult t = phase(harness.runOne(), "t");
+
+            assertThat(t.actions()).extracting(ActionResult::outcome)
+                    .containsExactly(Outcome.PASS, Outcome.PASS, Outcome.PASS, Outcome.PASS, Outcome.ERROR);
+            assertThat(t.actions().get(1).description()).isEqualTo("headerField 'Prefer' 'return=representation' on"
+                    + " the request");
+            assertThat(t.messages().getFirst()).contains("responseCode can only be checked on a response, not on the"
+                    + " request REQ-0001");
+        }
+
+        @Test
+        void requestIdIsNoTargetId() {
+            harness.resource("patient", PATIENT);
+            harness.add("ts", script().fixture("patient", false, false).test(test("t",
+                    withRequestId(op("create", "Patient", "patient", null, null, null), "sent"),
+                    op("read", null, null, "sent", null, null))).build());
+
+            TestScriptResult result = harness.runOne();
+
+            assertThat(result.phases().getFirst().kind()).isEqualTo(PhaseKind.LOAD);
+            assertThat(result.phases().getFirst().messages().getFirst())
+                    .contains("Test 't', action 2: targetId 'sent' is a requestId; use the responseId");
+        }
+    }
+
     /** Problems found before anything is sent: phase {@code Load} is {@code error}, the server sees no request. */
     @Nested
     class Checks {
@@ -559,7 +626,8 @@ class TestScriptExecutionTest {
                     check(new Check.MinimumId("minimun")))).build());
 
             assertThat(message).contains(
-                    "Test 't', action 1: sourceId 'patinet' is neither a fixture nor the responseId of an operation",
+                    "Test 't', action 1: sourceId 'patinet' is neither a fixture nor the responseId or requestId of an"
+                            + " operation",
                     "Test 't', action 2: targetId 'creatd' is neither",
                     "Test 't', action 3: sourceId 'nope' is neither",
                     "Test 't', action 4: minimumId 'minimun' is neither");
@@ -571,7 +639,7 @@ class TestScriptExecutionTest {
                     .setup(op("read", null, null, "later", null, null))
                     .test(test("t", op("capabilities", null, null, null, null, "later"))).build());
 
-            assertThat(message).contains("Setup, action 1: targetId 'later' is not there yet, it is the responseId of"
+            assertThat(message).contains("Setup, action 1: targetId 'later' is not there yet, it is kept by"
                     + " Test 't', action 1");
         }
 
