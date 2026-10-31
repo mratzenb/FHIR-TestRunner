@@ -16,6 +16,11 @@ Defaults are applied in the **compact constructors** (null ⇒ default), so bind
 ```yaml
 testrunner:
   fhir-server: {base-url: , headers: {}}     # no base-url ⇒ every TestScript skipped
+    oauth2: {token-url: , client-id: , client-secret: , scope: , client-authentication: basic}
+                                             # OAuth2Config: client credentials grant; core http.AccessTokens (one per
+                                             # config per run in RunContext, renewed ≤30 s before expires_in);
+                                             # FhirHttpClient adds Bearer unless the request sets Authorization;
+                                             # problems(): 3 required fields, not with headers.Authorization
   suites:                                    # at least one required
     - name:                                  # default: folder name of base-dir
       base-dir:                              # required
@@ -26,7 +31,7 @@ testrunner:
       igs: []                                # further -ig of this suite (package ids, folders, files); needs a
                                              # pinned fhir-version (problems()), see testrunner-validation
       include: ["*.json", "*.xml"]           # globs relative to test-scripts-dir
-      fhir-server: {base-url: }              # optional own server per suite
+      fhir-server: {base-url: }              # optional own server per suite (own headers/oauth2)
       parallel: true                         # false: TestScripts one after the other, before the parallel ones
       package-id:                            # instead of base-dir: name#version of a FHIR package (PackageSuites);
                                              # a pinned fhir-version is checked by problems() as for folders
@@ -90,7 +95,7 @@ Spring closes it (stops validator servers). Registered in
 | Bean | Default | Replace / add to … |
 |---|---|---|
 | `RunConfiguration` | bound from `testrunner.*` | build it in code |
-| `HttpTransport` | `JdkHttpTransport` (closed with context) | proxy, mTLS, token refresh |
+| `HttpTransport` | `JdkHttpTransport` (closed with context) | proxy, mTLS, token schemes beyond `oauth2` |
 | `ProfileValidator` | by `validation.mode` | another validator (e.g. in-process) |
 | `FhirVersionSupport` (list) | `ServiceLoader` modules | override a version |
 | `ReportWriter` (list) | junit, summary, json, testreport | add a format; select via `reporting.formats` |

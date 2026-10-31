@@ -39,6 +39,12 @@ testrunner:
     base-url: http://localhost:8080/fhir   # without it every TestScript is skipped
     headers:                               # added to every request (unless the TestScript sets the header)
       Authorization: Bearer ${FHIR_TOKEN}
+    oauth2:                                # instead of a fixed Authorization header: a token per run, see below
+      token-url: https://auth.example.org/token
+      client-id: testrunner
+      client-secret: ${OAUTH_CLIENT_SECRET}
+      scope: system/*.rs                   # optional, space separated
+      client-authentication: basic         # basic (default) | post
 
   suites:                                  # one entry per set of TestScripts (typically one IG)
     - name: at-core-r4                     # default: folder name of base-dir
@@ -51,7 +57,7 @@ testrunner:
                                            # folders, files; needs a pinned fhir-version; see validation.md
       include: ["*.json", "*.xml"]         # glob patterns relative to test-scripts-dir; default all JSON/XML
       fhir-server:                         # optional: own server for this suite (e.g. an R5 server)
-        base-url: http://localhost:8081/fhir
+        base-url: http://localhost:8081/fhir   # with headers and oauth2 of its own, if needed
       parallel: true                       # false: with parallelism > 1, run this suite's TestScripts one after
                                            # the other before all others, see ADR-0008
     - package-id: hl7.at.fhir.core.r4#2.1.0  # instead of base-dir: a suite read from a FHIR package, see below
@@ -99,6 +105,40 @@ testrunner:
   exit-on-skip: all                        # app only: when skipped TestScripts give exit code 3 instead of 0:
                                            # all (default, nothing was tested) | any (a skip, no failure) | never
 ```
+
+### Servers protected by OAuth2
+
+A FHIR server that wants an OAuth2 access token needs no code. With `fhir-server.oauth2` the runner uses the client
+credentials grant (RFC 6749, 4.4):
+
+```yaml
+testrunner:
+  fhir-server:
+    base-url: https://fhir.example.org/r4
+    oauth2:
+      token-url: https://auth.example.org/realms/fhir/protocol/openid-connect/token
+      client-id: testrunner
+      client-secret: ${OAUTH_CLIENT_SECRET}   # from the environment, never in a file under version control
+      scope: system/*.rs system/*.cud
+```
+
+* Before the first request, the runner posts `grant_type=client_credentials` (and `scope`) to `token-url`. Client
+  id and secret go as HTTP Basic authentication; `client-authentication: post` sends them as form parameters instead.
+* Every request to the FHIR server gets `Authorization: Bearer <token>`.
+* One token per run and client, shared by parallel TestScripts. It is renewed shortly before it expires
+  (`expires_in`, at most 30 s early); a token without `expires_in` is used for the whole run.
+* A TestScript that sets `Authorization` itself (`requestHeader`) keeps its value, e.g. to test a wrong token.
+* A token request that fails is an `error` of the operation that needed it, with the endpoint's `error` and
+  `error_description`: `REQ-0001 GET …/metadata: not sent (IOException: No OAuth2 access token from
+  https://auth.example.org/…/token: HTTP 401 Unauthorized, invalid_client - …)`.
+* The token request is not in `communication/`: it carries the client secret and is no exchange with the FHIR
+  server. The token itself is masked there (`Authorization: Bearer ***`, see
+  [logging.md](logging.md#sensitive-data)).
+* `token-url`, `client-id` and `client-secret` are required; `oauth2` together with a `headers.Authorization` is a
+  configuration problem (exit code 2). A suite with a `fhir-server` of its own uses its own `oauth2`.
+
+For other schemes (mutual TLS, a token from a file that changes), replace the `HttpTransport`, see
+[Extending the pre-defined Spring configuration](#extending-the-pre-defined-spring-configuration).
 
 ### Suites from FHIR packages
 
@@ -179,7 +219,7 @@ part by declaring its own bean, and adds to the lists by declaring more:
 | Bean | Replace to … | Default |
 |---|---|---|
 | `RunConfiguration` | build the configuration in code or from another source | bound from `testrunner.*` |
-| `HttpTransport` | add a proxy, mutual TLS, OAuth token refresh, a recorder | `JdkHttpTransport` |
+| `HttpTransport` | add a proxy, mutual TLS, a token scheme other than `fhir-server.oauth2`, a recorder | `JdkHttpTransport` |
 | `ProfileValidator` | use another validator, e.g. in-process | `ValidatorCliProfileValidator` or `ValidatorServerProfileValidator` by `validation.mode` (if on classpath and enabled); Spring stops the servers when the context closes |
 | `FhirVersionSupport` (any number) | override a version's mapping | modules found by `ServiceLoader` |
 | `ReportWriter` (any number) | add a format, e.g. HTML; select it in `reporting.formats` | junit, summary, json, testreport |

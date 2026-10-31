@@ -42,10 +42,14 @@ public final class HtmlReportWriter implements ReportWriter {
 
 ## Replace the HTTP transport
 
-For a proxy, mutual TLS or token refresh, declare an `HttpTransport` bean. It is a functional interface. Example
-with a token: [configuration.md](../configuration.md#extending-the-pre-defined-spring-configuration).
+Two common cases need no code:
 
-Static headers (a fixed token) need no code: `testrunner.fhir-server.headers`.
+* A fixed token: `testrunner.fhir-server.headers`.
+* An OAuth2 server: `testrunner.fhir-server.oauth2`, see
+  [configuration.md › Servers protected by OAuth2](../configuration.md#servers-protected-by-oauth2).
+
+For anything else, e.g. a proxy or mutual TLS, declare an `HttpTransport` bean. It is a functional interface.
+Example: [configuration.md](../configuration.md#extending-the-pre-defined-spring-configuration).
 
 ## React to run events
 

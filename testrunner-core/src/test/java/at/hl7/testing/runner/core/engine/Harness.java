@@ -3,6 +3,7 @@ package at.hl7.testing.runner.core.engine;
 import at.hl7.testing.runner.core.config.ExecutionConfig;
 import at.hl7.testing.runner.core.config.FhirServerConfig;
 import at.hl7.testing.runner.core.config.HttpConfig;
+import at.hl7.testing.runner.core.config.OAuth2Config;
 import at.hl7.testing.runner.core.config.ReportingConfig;
 import at.hl7.testing.runner.core.config.RunConfiguration;
 import at.hl7.testing.runner.core.config.SuiteConfig;
@@ -38,6 +39,7 @@ final class Harness {
     private int parallelism = 1;
     private boolean serialSuite;
     private String fhirBase;
+    private OAuth2Config oauth2;
 
     Harness(Path dir, String fhirBase) {
         this.dir = dir;
@@ -92,6 +94,11 @@ final class Harness {
         return this;
     }
 
+    Harness oauth2(OAuth2Config oauth2) {
+        this.oauth2 = oauth2;
+        return this;
+    }
+
     Harness noServer() {
         this.fhirBase = null;
         return this;
@@ -104,7 +111,8 @@ final class Harness {
                     null, null, null, null, false, null));
         }
         suites.add(SuiteConfig.of(dir.resolve("suite"), "R4"));
-        RunConfiguration configuration = new RunConfiguration(FhirServerConfig.of(fhirBase), suites, HttpConfig.defaults(),
+        RunConfiguration configuration = new RunConfiguration(FhirServerConfig.of(fhirBase).withOAuth2(oauth2), suites,
+                HttpConfig.defaults(),
                 new ExecutionConfig(parallelism),
                 ValidationConfig.disabled(),
                 new ReportingConfig(dir.resolve("results"), List.of("junit", "summary", "json"), true, false, null, null),
