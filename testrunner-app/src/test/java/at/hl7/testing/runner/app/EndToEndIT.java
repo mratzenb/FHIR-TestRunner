@@ -284,6 +284,44 @@ class EndToEndIT {
         assertThat(exitCode(never.toArray(String[]::new))).isEqualTo(RunCommand.EXIT_PASSED);
     }
 
+    @Test
+    void fixtureFromTestScriptContainedInR4AndR5() throws Exception {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+        String testScript = """
+                {"resourceType" : "TestScript", "url" : "http://example.org/TestScript/%1$s", "name" : "%1$s",
+                 "status" : "active",
+                 "contained" : [{"resourceType" : "Patient", "id" : "pat", "name" : [{"family" : "Contained"}]}],
+                 "fixture" : [{"id" : "patient", "autocreate" : false, "autodelete" : false,
+                   "resource" : {"reference" : "#%2$s"}}],
+                 "test" : [{"name" : "create", "action" : [
+                   {"operation" : {"type" : {"system" : "%3$s", "code" : "create"},
+                     "resource" : "%4$s", "encodeRequestUrl" : true, "sourceId" : "patient"}},
+                   {"assert" : {"responseCode" : "201", "warningOnly" : false%5$s}}]}]}""";
+        String r4Codes = "http://terminology.hl7.org/CodeSystem/testscript-operation-codes";
+        Path r4 = Files.createDirectories(dir.resolve("contained-r4/Test_Scripts"));
+        Files.writeString(r4.resolve("TestScript-r4.json"), testScript.formatted("R4", "pat", r4Codes, "Patient", ""));
+        Files.writeString(r4.resolve("TestScript-missing.json"),
+                testScript.formatted("Missing", "other", r4Codes, "Patient", ""));
+        Path r5 = Files.createDirectories(dir.resolve("contained-r5/Test_Scripts"));
+        Files.writeString(r5.resolve("TestScript-r5.json"), testScript.formatted("R5", "pat",
+                "http://terminology.hl7.org/CodeSystem/restful-interaction",
+                "http://hl7.org/fhir/StructureDefinition/Patient", ", \"stopTestOnFail\" : false"));
+
+        RunResult run = run("testrunner.fhir-server.base-url=" + r4Server.baseUrl(),
+                "testrunner.validation.enabled=false",
+                "testrunner.suites[0].base-dir=" + r4.getParent(),
+                "testrunner.suites[0].fhir-version=R4",
+                "testrunner.suites[1].base-dir=" + r5.getParent(),
+                "testrunner.suites[1].fhir-version=R5");
+
+        assertThat(run.testScripts()).extracting(r -> r.fhirVersion() + " " + r.outcome())
+                .containsExactly("R4 ERROR", "R4 PASS", "R5 PASS");
+        assertThat(run.testScripts().getFirst().phases().getFirst().messages().getFirst())
+                .contains("Fixture 'patient' references the contained resource '#other'", "contained: [pat]");
+        assertThat(r4Server.resource("Patient/1").path("name").get(0).path("family").asText()).isEqualTo("Contained");
+        assertThat(r4Server.requestLines()).containsExactly("POST /Patient", "POST /Patient");
+    }
+
     private static int exitCode(String... args) {
         try (ConfigurableApplicationContext app = new SpringApplicationBuilder(TestRunnerApplication.class).run(args)) {
             return SpringApplication.exit(app);

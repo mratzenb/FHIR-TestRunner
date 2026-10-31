@@ -15,8 +15,9 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
    notifies `RunListener`s.
 2. `source.TestScriptDiscovery` lists files per suite (glob `include` relative to `Test_Scripts/`, stable order).
 3. Per file (in parallel if `execution.parallelism > 1`): `source.TestScriptLoader` detects or takes the pinned FHIR
-   version, maps the file via that version's `FhirVersionSupport`, loads fixture resources from `Example_Instances/`
-   (`ExampleInstanceResolver`).
+   version, maps the file via that version's `FhirVersionSupport`, loads fixture resources: `#id` references from
+   `TestScript.contained` (`ResourceContent.contained` on the file, JSON/XML, version-neutral; unknown id ⇒ Load
+   error listing `containedIds`), others from `Example_Instances/` (`ExampleInstanceResolver`).
 4. Before anything is sent: `TestScriptChecks.problems(testScript, fixtureResources, builtInNames)` (unique
    fixture/responseId/requestId ids; a variable has at most one of expression/path/headerField, and at least one of
    them or a `defaultValue`; at most one server addressed via `TestScript.destination`/`operation.destination`;

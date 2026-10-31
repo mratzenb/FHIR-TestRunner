@@ -1,5 +1,6 @@
 package at.hl7.testing.runner.core.source;
 
+import at.hl7.testing.runner.core.content.ResourceContent;
 import at.hl7.testing.runner.core.model.Body;
 import at.hl7.testing.runner.core.model.CapabilityRequirement;
 import at.hl7.testing.runner.core.model.ContentFormat;
@@ -47,7 +48,9 @@ public final class TestScriptLoader {
         ExampleInstanceResolver resolver = new ExampleInstanceResolver(source.suite().resolvedExampleInstancesDir());
         Map<String, Body> resources = new LinkedHashMap<>();
         for (FixtureDefinition fixture : testScript.fixtures()) {
-            if (fixture.reference() != null) {
+            if (fixture.reference() != null && fixture.reference().startsWith("#")) {
+                resources.put(fixture.id(), contained(content, fixture, testScript));
+            } else if (fixture.reference() != null) {
                 try {
                     resources.put(fixture.id(), resolver.load(fixture));
                 } catch (ExampleInstanceResolver.FixtureNotFoundException e) {
@@ -66,6 +69,15 @@ public final class TestScriptLoader {
             }
         }
         return new LoadedTestScript(source, content, testScript, support, resources, capabilities, read.warnings());
+    }
+
+    /** The resource of a fixture referencing {@code #id}: a resource in {@code TestScript.contained}. */
+    private static Body contained(Body content, FixtureDefinition fixture, TestScript testScript) {
+        String id = fixture.reference().substring(1);
+        return ResourceContent.contained(content, id).orElseThrow(() -> new TestScriptFormatException("Fixture '"
+                + fixture.id() + "' references the contained resource '" + fixture.reference() + "', but"
+                + " TestScript.contained has no resource with the id '" + id + "' (contained: "
+                + ResourceContent.containedIds(content) + ")", null, testScript.fhirVersion()));
     }
 
     private static Body read(TestScriptSource source) {

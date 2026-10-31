@@ -10,15 +10,18 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 
 /**
  * Reads and changes the parts of a FHIR resource that look the same in every FHIR version: {@code resourceType},
- * {@code id}, {@code meta.versionId} and the {@code reference} of References. Works on JSON and XML without a FHIR
- * model, so the engine needs no version-specific code for them.
+ * {@code id}, {@code meta.versionId}, the {@code reference} of References and the {@code contained} resources. Works
+ * on JSON and XML without a FHIR model, so the engine needs no version-specific code for them.
  */
 public final class ResourceContent {
 
@@ -89,6 +92,64 @@ public final class ResourceContent {
             }
             default -> throw new IllegalArgumentException("The body is no FHIR resource, it has no id to set");
         }
+    }
+
+    /**
+     * A resource contained in this one ({@code contained}), as a body of its own in the same format.
+     *
+     * @param id the id of the contained resource, without the {@code #} of a reference to it
+     */
+    public static Optional<Body> contained(Body body, String id) {
+        switch (body.format()) {
+            case JSON -> {
+                for (JsonNode resource : json(body).path("contained")) {
+                    if (id.equals(textOrNull(resource.path("id")))) {
+                        return Optional.of(Body.json(write(resource)));
+                    }
+                }
+            }
+            case XML -> {
+                for (Element resource : containedXml(Xml.parse(body.text()))) {
+                    if (id.equals(valueOf(Xml.child(resource, "id")))) {
+                        Document document = Xml.parse("<x/>");
+                        document.replaceChild(document.importNode(resource, true), document.getDocumentElement());
+                        return Optional.of(Body.xml(Xml.write(document)));
+                    }
+                }
+            }
+            case OTHER -> {
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** The ids of the resources contained in this one, in document order. */
+    public static List<String> containedIds(Body body) {
+        List<String> ids = new ArrayList<>();
+        switch (body.format()) {
+            case JSON -> json(body).path("contained").forEach(r -> ids.add(textOrNull(r.path("id"))));
+            case XML -> containedXml(Xml.parse(body.text())).forEach(r -> ids.add(valueOf(Xml.child(r, "id"))));
+            case OTHER -> {
+            }
+        }
+        ids.removeIf(java.util.Objects::isNull);
+        return ids;
+    }
+
+    /** The resource element inside each {@code <contained>} of the root. */
+    private static List<Element> containedXml(Document document) {
+        List<Element> resources = new ArrayList<>();
+        for (Node node = document.getDocumentElement().getFirstChild(); node != null; node = node.getNextSibling()) {
+            if (node instanceof Element wrapper && "contained".equals(wrapper.getLocalName())) {
+                for (Node inner = wrapper.getFirstChild(); inner != null; inner = inner.getNextSibling()) {
+                    if (inner instanceof Element resource) {
+                        resources.add(resource);
+                        break;
+                    }
+                }
+            }
+        }
+        return resources;
     }
 
     /** All values of {@code Reference.reference} in the resource, in document order. */

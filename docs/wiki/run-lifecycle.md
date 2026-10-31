@@ -91,7 +91,8 @@ Results keep their discovery number. Reports are always in discovery order, what
    [fhir-versions.md](../fhir-versions.md#version-detection).
 2. **Map.** The chosen `FhirVersionSupport` maps the file to the neutral `TestScript` record. Content the version
    ignores becomes a *read warning*.
-3. **Load the resources.** Fixture resources come from `Example_Instances/` (`ExampleInstanceResolver`). Required
+3. **Load the resources.** Fixture resources come from `TestScript.contained` (reference `#id`) or from
+   `Example_Instances/` (`ExampleInstanceResolver`), see [Fixtures](fixtures.md). Required
    CapabilityStatements are looked up there too, then next to the TestScripts.
 
 If loading fails, the TestScript gets an `error` in the phase `Load`. Nothing is sent. The other TestScripts run.
