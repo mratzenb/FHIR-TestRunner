@@ -1,0 +1,154 @@
+# testrunner-core
+
+[Home](../README.md) › [Modules](README.md) › testrunner-core
+
+The heart of the runner. It holds the model, the engine, the HTTP client, the reports, the configuration and the
+ports. It is by far the largest module.
+
+**Dependencies:** SLF4J, Jackson, Jayway JsonPath. **No** Spring, **no** HAPI, **no** Logback.
+`ArchitectureTest` enforces this.
+
+## Why the core is framework-free
+
+* The engine can be embedded anywhere: a CLI, a Maven plugin, a web service, a test.
+* Unit tests need no Spring context and no FHIR library. They use a stub FHIR version (`StubVersionSupport`).
+* HAPI and Spring change on their own schedule. The core does not have to follow.
+
+See [ADR-0002](../../adr/0002-spring-boot-at-the-edge.md).
+
+## Packages
+
+Package `at.hl7.testing.runner.core`. The dependencies between the packages (no cycles, enforced):
+
+```mermaid
+flowchart BT
+    model
+    config --> model
+    content --> model
+    spi --> model
+    http --> config & model
+    source --> config & model & spi
+    report --> config & model & spi
+    engine --> config & content & http & model & report & source & spi
+```
+
+| Package | Holds | Key classes |
+|---|---|---|
+| `model` | The version-neutral TestScript: immutable records and enums | `TestScript`, `Action` (sealed: `Operation` \| `Assertion`), `Check` (sealed, one record per assert type), `FixtureDefinition`, `VariableDefinition`, `FhirVersion`, `Body` |
+| `config` | The configuration tree, all records with defaults | `RunConfiguration`, `SuiteConfig`, `ValidationConfig`, `ReportingConfig`, … |
+| `spi` | Ports to the FHIR version modules and the validator | `FhirVersionSupport`, `FhirVersionRegistry`, `FhirPathEvaluator`, `ProfileValidator`, `ValidationRequest`/`Result`, `TestReportContent` |
+| `content` | Version-independent work on JSON/XML resources | `ResourceContent` (type, id, references), `FhirElement` (`minimumId` comparison), `PathEvaluator` (JSONPath/XPath) |
+| `http` | The HTTP layer and the communication log | `FhirHttpClient`, `HttpTransport` (port), `JdkHttpTransport`, `CommunicationLog`, `FhirRequest`/`FhirResponse`/`Exchange` |
+| `source` | Finding and loading TestScripts | `TestScriptDiscovery`, `TestScriptLoader`, `ExampleInstanceResolver`, `PackageSuites` |
+| `engine` | Running a TestScript | `TestRunner`, `TestRunners`, `RunContext`, `TestScriptExecution`, `ExecutionState`, `AssertionEvaluator`, `RequestFactory`, `VariableResolver`, `FixtureManager`, `CapabilityCheck` |
+| `report` | Results and report writers | `Outcome`, `ActionResult`, `PhaseResult`, `TestScriptResult`, `RunResult`, `ReportWriter` (port) and its four implementations |
+
+## The model
+
+The model holds only what the engine executes. It is not a full copy of the FHIR resource.
+
+```mermaid
+classDiagram
+    direction LR
+    class TestScript {
+        fhirVersion
+        url, name, title
+        destinations
+        capabilities
+        fixtures
+        profiles
+        variables
+        setup : List~Action~
+        tests : List~TestDefinition~
+        teardown : List~Action~
+    }
+    class Action {
+        <<sealed>>
+    }
+    class Operation {
+        type, resource, method
+        params, url
+        sourceId, targetId
+        responseId
+    }
+    class Assertion {
+        check : Check
+        operator, value
+        sourceId
+        warningOnly
+        stopTestOnFail
+    }
+    class Check {
+        <<sealed>>
+        ContentType · Expression · HeaderField
+        MinimumId · NavigationLinks · Path
+        Resource · Response · ResponseCode
+        ValidateProfile · RequestMethod · RequestUrl
+    }
+    TestScript --> "*" Action
+    TestScript --> "*" TestDefinition
+    TestDefinition --> "*" Action
+    Action <|-- Operation
+    Action <|-- Assertion
+    Assertion --> Check
+```
+
+Why sealed types? A FHIR assert carries **exactly one** check (invariants tst-5/tst-6). A sealed `Check` makes that
+a type, not a rule to remember. `switch` over it is exhaustive: add a check type and the compiler shows every
+place that must handle it.
+
+## The engine
+
+`TestRunner` is the entry point. It is stateless between runs and thread-safe. Its collaborators are passed in
+the constructor:
+
+```java
+new TestRunner(versions, transport, validator, reportWriters, listeners, clock);
+```
+
+`TestRunners.create(httpConfig, validator)` builds one with the defaults, without Spring.
+
+Only a few engine classes are public: `TestRunner`, `TestRunners`, `RunContext`, `RunListener`, `Source` and the
+exceptions. The rest is package-private. They are details of how a TestScript is executed.
+
+The step-by-step flow is on [How a run works](../run-lifecycle.md). The exact rules are in
+[architecture.md](../../architecture.md#execution-semantics).
+
+### Exceptions say who must act
+
+| Exception | Meaning | Outcome |
+|---|---|---|
+| `AssertionFailure` | the server did not behave as expected | `fail` |
+| `TestScriptException` | the TestScript cannot be executed (unknown id, unsupported feature) | `error` |
+| `ValidatorUnavailableException` | the validator could not validate at all | `error` |
+| `ExchangeFailedException` | no response from the server | `error` |
+| `TestScriptFormatException` | the file is no valid TestScript | `error` in phase `Load` |
+| `ConfigurationException` | the run cannot start | exit code 2 |
+
+`fail` is for the server developers. `error` is for the TestScript authors or the people running the runner.
+
+## Version-independent content handling
+
+Some things look the same in every FHIR version: the resource type, the id, `meta.versionId`, references. The core
+handles them on the raw JSON/XML (`ResourceContent`), without a FHIR model. Only FHIRPath needs the version-specific
+model; it goes through the `FhirPathEvaluator` port.
+
+`FhirElement` reads JSON and XML into one shape. This lets `assert.minimumId` compare a JSON fixture with an XML
+response. Decimals keep their precision (`100.0` ≠ `100`).
+
+## Tests
+
+| Test | Covers |
+|---|---|
+| `TestScriptExecutionTest` | phase rules, operations, assertions, fixtures, capabilities, variables – through the real `TestRunner` with an in-memory server |
+| `RunConfigurationTest` | defaults and `problems()` |
+| `FhirElementTest`, `PathEvaluatorTest`, `ResourceContentTest`, `UrlEncodingTest` | content helpers |
+| `CommunicationLogTest`, `TestReportWriterTest`, `ExampleInstanceResolverTest`, `PackageSuitesTest` | logs, reports, sources |
+
+`Harness` and `Scripts` (in `src/test`) build TestScript models in code, so engine tests need no FHIR module.
+
+## Related
+
+* Skills: `.claude/skills/testrunner-execution-engine`, `testrunner-logging-and-reports`
+* [ADR-0004: No global state](../../adr/0004-no-global-state.md)
+* [ADR-0007: Logging](../../adr/0007-logging.md), [ADR-0008: Parallel execution](../../adr/0008-parallel-execution.md)
