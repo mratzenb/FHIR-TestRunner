@@ -14,14 +14,19 @@ import java.util.Locale;
  * @param communicationLog whether every request and response is written to {@code communication/}, default true
  * @param logFile          whether the run writes its own log file {@code testrunner.log}, default true
  * @param logFileLevel     lowest level written to the log file, default {@code DEBUG}
+ * @param redactHeaders    headers whose values the communication log masks (case-insensitive), default
+ *                         {@link #DEFAULT_REDACT_HEADERS}; an empty list masks nothing
  */
 public record ReportingConfig(Path outputDir, List<String> formats, Boolean communicationLog, Boolean logFile,
-                              String logFileLevel) {
+                              String logFileLevel, List<String> redactHeaders) {
 
     public static final String JUNIT = "junit";
     public static final String SUMMARY = "summary";
     public static final String JSON = "json";
     public static final String TESTREPORT = "testreport";
+    /** Headers that carry credentials or sessions. */
+    public static final List<String> DEFAULT_REDACT_HEADERS =
+            List.of("Authorization", "Proxy-Authorization", "Cookie", "Set-Cookie");
 
     public ReportingConfig {
         outputDir = outputDir == null ? Path.of("testrunner-results") : outputDir;
@@ -31,9 +36,11 @@ public record ReportingConfig(Path outputDir, List<String> formats, Boolean comm
         communicationLog = communicationLog == null || communicationLog;
         logFile = logFile == null || logFile;
         logFileLevel = logFileLevel == null || logFileLevel.isBlank() ? "DEBUG" : logFileLevel.trim().toUpperCase(Locale.ROOT);
+        redactHeaders = redactHeaders == null ? DEFAULT_REDACT_HEADERS
+                : redactHeaders.stream().map(String::trim).filter(h -> !h.isEmpty()).toList();
     }
 
     public static ReportingConfig defaults() {
-        return new ReportingConfig(null, null, null, null, null);
+        return new ReportingConfig(null, null, null, null, null, null);
     }
 }

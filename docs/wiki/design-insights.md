@@ -164,7 +164,8 @@ Why platform threads, not virtual threads? A bound is needed anyway: in process 
 
 * **MDC `testScript`** – every log line names its TestScript, also in parallel runs.
 * **Run-wide request ids** – `REQ-0001` … in the log, the assertion messages, the reports and the folder names.
-* **Communication log** – one folder per exchange with the exact bytes sent and received.
+* **Communication log** – one folder per exchange with the exact bytes sent and received. Only the values of
+  credential headers are masked, so the folder can go into a bug report.
 
 → [ADR-0007](../adr/0007-logging.md), [logging.md](../logging.md)
 

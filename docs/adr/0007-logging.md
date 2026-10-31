@@ -10,8 +10,10 @@ The PoC implements them with global handlers and module state in `log_setup.py`/
 * MDC `testScript=<NN>_<name>` while a TestScript runs, printed in every pattern, so parallel output stays readable.
 * `RunLogFileListener` (a `RunListener`) adds a file appender per run in the run folder, at its own level.
 * `FhirHttpClient` assigns run-wide request ids and logs one line per request; `CommunicationLog` writes each
-  exchange unfiltered to `communication/<NN>_<TestScript>/<REQ-id>_<METHOD>_<path>/` and to the logger
-  `…runner.communication` at DEBUG.
+  exchange to `communication/<NN>_<TestScript>/<REQ-id>_<METHOD>_<path>/` and to the logger
+  `…runner.communication` at DEBUG, as exchanged except for the values of credential headers
+  (`reporting.redact-headers`, default `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`), which are
+  masked so the folder can be shared with a bug report.
 * Every assertion result carries the request id it checked; reports carry it too.
 
 ## Alternatives

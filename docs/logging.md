@@ -59,8 +59,9 @@ Console level and format are ordinary Spring Boot logging settings (`logging.lev
 
 ## The communication log
 
-`CommunicationLog` (one per TestScript execution) writes each exchange **unfiltered**: all headers, repeated headers
-on separate lines, the body exactly as text. Writing problems are logged as warnings and never fail a test.
+`CommunicationLog` (one per TestScript execution) writes each exchange as it was: all headers, repeated headers
+on separate lines, the body exactly as text – except the values of credential headers, which are masked (see
+[Sensitive data](#sensitive-data)). Writing problems are logged as warnings and never fail a test.
 
 The full exchange is additionally logged at DEBUG to the logger `at.hl7.testing.runner.communication`, so it can be
 routed anywhere through logging configuration alone:
@@ -73,9 +74,28 @@ logging.level.at.hl7.testing.runner.communication: DEBUG   # requests/responses 
 
 ### Sensitive data
 
-The communication log contains what the server returned and any `Authorization` header configured in
-`fhir-server.headers`. Treat the result folder like the test data it contains. A redacting `CommunicationLog` is a
-small extension if the folder must be shared.
+The values of credential headers are masked, in the files and in the `at.hl7.testing.runner.communication` logger.
+An authentication scheme stays visible, so a wrong scheme can still be seen:
+
+```
+GET http://localhost:8080/fhir/Patient HTTP/1.1
+Authorization: Bearer ***
+Accept: application/fhir+json
+```
+
+`testrunner.reporting.redact-headers` lists the headers to mask, compared case-insensitively. The default is
+`Authorization`, `Proxy-Authorization`, `Cookie` and `Set-Cookie`. Setting the list replaces the default, so name them
+all:
+
+```yaml
+testrunner.reporting.redact-headers: [Authorization, Proxy-Authorization, Cookie, Set-Cookie, X-Api-Key]
+```
+
+An empty list (`redact-headers: []`) writes every header unmasked. The request still carries the real values;
+only the log is masked.
+
+Only headers are masked. Bodies, URLs and query parameters are written as exchanged. A token in a URL or in the server
+data stays visible, so treat the result folder like the test data it contains.
 
 ## FHIR TestReports
 
