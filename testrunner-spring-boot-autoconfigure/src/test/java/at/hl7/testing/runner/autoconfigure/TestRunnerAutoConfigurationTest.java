@@ -1,5 +1,6 @@
 package at.hl7.testing.runner.autoconfigure;
 
+import at.hl7.testing.runner.core.config.OAuth2Config;
 import at.hl7.testing.runner.core.config.RunConfiguration;
 import at.hl7.testing.runner.core.config.ValidatorMode;
 import at.hl7.testing.runner.core.engine.RunContext;
@@ -42,6 +43,10 @@ class TestRunnerAutoConfigurationTest {
                 "testrunner.suites[0].igs=hl7.at.fhir.core.r4#2.0.0",
                 "testrunner.suites[1].base-dir=testdata/r5",
                 "testrunner.suites[1].fhir-server.base-url=http://r5/fhir",
+                "testrunner.suites[1].fhir-server.oauth2.token-url=https://auth.example/token",
+                "testrunner.suites[1].fhir-server.oauth2.client-id=runner",
+                "testrunner.suites[1].fhir-server.oauth2.client-secret=secret",
+                "testrunner.suites[1].fhir-server.oauth2.client-authentication=post",
                 "testrunner.suites[1].parallel=false",
                 "testrunner.suites[2].package-id=hl7.at.fhir.core.r4#dev",
                 "testrunner.packages.cache-dir=/tmp/fhir-packages",
@@ -69,6 +74,10 @@ class TestRunnerAutoConfigurationTest {
                     assertThat(config.suites().getFirst().parallel()).as("default").isTrue();
                     assertThat(config.suites().get(1).parallel()).isFalse();
                     assertThat(config.fhirServerOf(config.suites().get(1)).base()).isEqualTo("http://r5/fhir");
+                    assertThat(config.fhirServerOf(config.suites().get(1)).oauth2()).isEqualTo(new OAuth2Config(
+                            java.net.URI.create("https://auth.example/token"), "runner", "secret", null,
+                            OAuth2Config.ClientAuthentication.POST));
+                    assertThat(config.fhirServer().oauth2()).isNull();
                     assertThat(config.execution().parallelism()).isEqualTo(4);
                     assertThat(config.http().requestTimeout()).isEqualTo(Duration.ofMinutes(2));
                     assertThat(config.http().connectTimeout()).isEqualTo(Duration.ofSeconds(10));

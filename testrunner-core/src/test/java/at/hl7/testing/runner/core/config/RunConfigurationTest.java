@@ -38,6 +38,22 @@ class RunConfigurationTest {
     }
 
     @Test
+    void oauth2NeedsTokenUrlClientAndSecretAndNoAuthorizationHeader(@TempDir Path dir) throws Exception {
+        Files.createDirectories(dir.resolve("Test_Scripts"));
+        FhirServerConfig server = new FhirServerConfig(java.net.URI.create("http://s/fhir"),
+                java.util.Map.of("authorization", "Bearer x"), new OAuth2Config(null, " ", null, null, null));
+        RunConfiguration config = new RunConfiguration(server, List.of(SuiteConfig.of(dir, "R4")), null, null,
+                ValidationConfig.disabled(), null, null);
+
+        assertThat(config.problems()).containsExactly(
+                "testrunner.fhir-server.oauth2.token-url is not set",
+                "testrunner.fhir-server.oauth2.client-id is not set",
+                "testrunner.fhir-server.oauth2.client-secret is not set",
+                "testrunner.fhir-server.headers.Authorization and testrunner.fhir-server.oauth2 are both set; the"
+                        + " OAuth2 access token is sent as Authorization header, so remove one of them");
+    }
+
+    @Test
     void namesTheMissingVersionModule(@TempDir Path dir) throws Exception {
         Files.createDirectories(dir.resolve("Test_Scripts"));
         RunConfiguration config = new RunConfiguration(null, List.of(SuiteConfig.of(dir, "R6")), null, null,

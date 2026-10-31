@@ -9,7 +9,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Sends the requests of one TestScript execution: assigns each a run-wide request id, adds the configured
- * headers, logs one line per request and writes the exchange to the {@link CommunicationLog}.
+ * headers and the OAuth2 access token, logs one line per request and writes the exchange to the
+ * {@link CommunicationLog}.
  *
  * <p>The request counter belongs to the run and is shared by all TestScripts, so ids are unique within a run even
  * when TestScripts run in parallel.
@@ -22,6 +23,7 @@ public final class FhirHttpClient {
     private final AtomicInteger requestCounter;
     private final CommunicationLog communicationLog;
     private final HttpHeaders defaultHeaders;
+    private final AccessTokens accessTokens;
 
     /**
      * @param transport        sends the requests
@@ -31,10 +33,20 @@ public final class FhirHttpClient {
      */
     public FhirHttpClient(HttpTransport transport, AtomicInteger requestCounter, CommunicationLog communicationLog,
                           HttpHeaders defaultHeaders) {
+        this(transport, requestCounter, communicationLog, defaultHeaders, null);
+    }
+
+    /**
+     * @param accessTokens the OAuth2 access token sent as {@code Authorization: Bearer} unless the request sets an
+     *                     {@code Authorization} header itself; {@code null} for none
+     */
+    public FhirHttpClient(HttpTransport transport, AtomicInteger requestCounter, CommunicationLog communicationLog,
+                          HttpHeaders defaultHeaders, AccessTokens accessTokens) {
         this.transport = transport;
         this.requestCounter = requestCounter;
         this.communicationLog = communicationLog;
         this.defaultHeaders = defaultHeaders == null ? HttpHeaders.empty() : defaultHeaders;
+        this.accessTokens = accessTokens;
     }
 
     /**
@@ -44,7 +56,13 @@ public final class FhirHttpClient {
      */
     public Exchange send(FhirRequest request) {
         String requestId = "REQ-%04d".formatted(requestCounter.incrementAndGet());
-        FhirRequest sent = withDefaultHeaders(request);
+        FhirRequest sent;
+        try {
+            sent = withAccessToken(withDefaultHeaders(request));
+        } catch (IOException e) {
+            log.error("{} {} {} -> not sent: {}", requestId, request.method(), request.uri(), e.getMessage());
+            throw new ExchangeFailedException(requestId, request, "not sent", e);
+        }
         long start = System.nanoTime();
         FhirResponse response;
         try {
@@ -54,7 +72,7 @@ public final class FhirHttpClient {
             String where = communicationLog.recordFailure(requestId, sent, e);
             log.error("{} {} {} -> no response, {} ({} ms){}", requestId, sent.method(), sent.uri(),
                     e.getClass().getSimpleName(), millis, reference(where));
-            throw new ExchangeFailedException(requestId, sent, e);
+            throw new ExchangeFailedException(requestId, sent, "no response received", e);
         }
         Duration duration = Duration.ofNanos(System.nanoTime() - start);
         String where = communicationLog.record(requestId, sent, response);
@@ -73,18 +91,28 @@ public final class FhirHttpClient {
         return new FhirRequest(request.method(), request.uri(), headers, request.body());
     }
 
+    /** A TestScript that sets {@code Authorization} itself, e.g. to test a wrong token, keeps it. */
+    private FhirRequest withAccessToken(FhirRequest request) throws IOException {
+        if (accessTokens == null || request.headers().contains("Authorization")) {
+            return request;
+        }
+        return new FhirRequest(request.method(), request.uri(),
+                request.headers().with("Authorization", "Bearer " + accessTokens.token()), request.body());
+    }
+
     private static String reference(String where) {
         return where == null ? "" : " [" + where + "]";
     }
 
-    /** No response was received for a request. */
+    /** No response was received for a request, or it could not be sent. */
     public static final class ExchangeFailedException extends RuntimeException {
 
         private final String requestId;
 
-        ExchangeFailedException(String requestId, FhirRequest request, Exception cause) {
-            super(requestId + " " + request.method() + " " + request.uri() + ": no response received ("
-                    + describe(cause) + ")", cause);
+        /** @param what what went wrong, e.g. {@code no response received} */
+        ExchangeFailedException(String requestId, FhirRequest request, String what, Exception cause) {
+            super(requestId + " " + request.method() + " " + request.uri() + ": " + what + " (" + describe(cause) + ")",
+                    cause);
             this.requestId = requestId;
         }
 

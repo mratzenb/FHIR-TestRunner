@@ -26,6 +26,7 @@
 | **Dialect** | `TestScriptDialect`: the semantic differences of one FHIR version. |
 | **Read warning** | Content a FHIR version had to ignore while reading. Reported in the Setup phase. |
 | **Request id** | `REQ-0001`, … unique per run. Links log lines, reports and communication folders. |
+| **OAuth2 access token** | Fetched by the runner with the client credentials grant when `fhir-server.oauth2` is set; sent as `Authorization: Bearer …`, renewed before it expires. |
 | **Communication log** | One folder per HTTP exchange with `request.http` and `response.http`. Credential headers are masked (`Authorization: Bearer ***`). |
 | **MDC** | SLF4J's mapped diagnostic context. Key `testScript` names the running TestScript in every log line. |
 | **Process mode** | One validator process per validation. |

@@ -38,7 +38,7 @@ flowchart BT
 | `config` | The configuration tree, all records with defaults | `RunConfiguration`, `SuiteConfig`, `ValidationConfig`, `ReportingConfig`, … |
 | `spi` | Ports to the FHIR version modules and the validator | `FhirVersionSupport`, `FhirVersionRegistry`, `FhirPathEvaluator`, `ProfileValidator`, `ValidationRequest`/`Result`, `TestReportContent` |
 | `content` | Version-independent work on JSON/XML resources | `ResourceContent` (type, id, references), `FhirElement` (`minimumId` comparison), `PathEvaluator` (JSONPath/XPath) |
-| `http` | The HTTP layer and the communication log | `FhirHttpClient`, `HttpTransport` (port), `JdkHttpTransport`, `CommunicationLog`, `FhirRequest`/`FhirResponse`/`Exchange` |
+| `http` | The HTTP layer, OAuth2 tokens and the communication log | `FhirHttpClient`, `HttpTransport` (port), `JdkHttpTransport`, `AccessTokens`, `CommunicationLog`, `FhirRequest`/`FhirResponse`/`Exchange` |
 | `source` | Finding and loading TestScripts | `TestScriptDiscovery`, `TestScriptLoader`, `ExampleInstanceResolver`, `PackageSuites` |
 | `engine` | Running a TestScript | `TestRunner`, `TestRunners`, `RunContext`, `TestScriptExecution`, `ExecutionState`, `AssertionEvaluator`, `RequestFactory`, `VariableResolver`, `FixtureManager`, `CapabilityCheck` |
 | `report` | Results and report writers | `Outcome`, `ActionResult`, `PhaseResult`, `TestScriptResult`, `RunResult`, `ReportWriter` (port) and its four implementations |

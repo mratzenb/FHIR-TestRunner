@@ -38,6 +38,8 @@ configured, or the server lacks a required capability. `testrunner.exit-on-skip`
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Every TestScript is `skip`, exit code 3 | no FHIR server configured | set `testrunner.fhir-server.base-url` |
+| `error`: "not sent (… No OAuth2 access token from …)" | the token endpoint rejected the client, or `token-url` is wrong | the message has the endpoint's `error`; check `client-id`, `client-secret`, `scope`, `client-authentication` |
+| Every request is `401` | no token, or the server wants another `scope` | set `fhir-server.oauth2` or `headers.Authorization`; `Authorization: Bearer ***` in `communication/` shows a token was sent |
 | `error` in phase `Load`: version could not be determined | the file is no valid TestScript in R4 or R5 | the message lists the parser errors per version |
 | TestScript detected as the wrong version | ambiguous content | pin `fhir-version` on the suite |
 | Warning "Ignored while reading the TestScript" | an element that does not exist in the detected version, e.g. `stopTestOnFail` in R4 | fix the TestScript, or pin the version you meant |

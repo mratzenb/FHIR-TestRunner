@@ -257,7 +257,8 @@ public final class TestRunner {
                 : CommunicationLog.none()).redacting(run.configuration().reporting().redactHeaders());
         HttpHeaders defaultHeaders = HttpHeaders.of(server.headers().entrySet().stream()
                 .collect(LinkedHashMap::new, (m, e) -> m.put(e.getKey(), List.of(e.getValue())), Map::putAll));
-        FhirHttpClient http = new FhirHttpClient(transport, run.requestCounter(), communication, defaultHeaders);
+        FhirHttpClient http = new FhirHttpClient(transport, run.requestCounter(), communication, defaultHeaders,
+                server.oauth2() == null ? null : run.accessTokens(server.oauth2(), transport, clock));
         List<PhaseResult> phases = new TestScriptExecution(loaded, http, server.base(), validator,
                 suite.resolvedProfilesDir(), suite.igs(), capabilities, builtIn).run();
         return result(index, loaded, server.base(), started, phases);
@@ -326,6 +327,10 @@ public final class TestRunner {
         RunConfiguration c = run.configuration();
         log.info("FHIR TestScript Runner - {}", run.runId());
         log.info("  FHIR server:        {}", c.fhirServer().base() == null ? "- (TestScripts will be skipped)" : c.fhirServer().base());
+        if (c.fhirServer().oauth2() != null) {
+            log.info("  OAuth2:             client {} at {}", c.fhirServer().oauth2().clientId(),
+                    c.fhirServer().oauth2().tokenUrl());
+        }
         log.info("  FHIR versions:      {}", versions.versions());
         log.info("  Results:            {}", run.runDirectory().toAbsolutePath());
         log.info("  Parallelism:        {}", c.execution().parallelism());

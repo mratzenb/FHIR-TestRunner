@@ -29,7 +29,7 @@ public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> su
     private static final Set<String> LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR");
 
     public RunConfiguration {
-        fhirServer = fhirServer == null ? new FhirServerConfig(null, null) : fhirServer;
+        fhirServer = fhirServer == null ? new FhirServerConfig(null, null, null) : fhirServer;
         suites = suites == null ? List.of() : List.copyOf(suites);
         http = http == null ? HttpConfig.defaults() : http;
         execution = execution == null ? ExecutionConfig.defaults() : execution;
@@ -58,9 +58,13 @@ public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> su
         if (suites.isEmpty()) {
             problems.add("No suite configured (testrunner.suites): there are no TestScripts to run");
         }
+        problems.addAll(fhirServer.problems("testrunner.fhir-server"));
         for (int i = 0; i < suites.size(); i++) {
             SuiteConfig suite = suites.get(i);
             String prefix = "testrunner.suites[" + i + "]";
+            if (suite.fhirServer() != null) {
+                problems.addAll(suite.fhirServer().problems(prefix + ".fhir-server"));
+            }
             if (suite.packageId() != null) {
                 if (suite.baseDir() != null) {
                     problems.add(prefix + " has both base-dir and package-id; a suite comes from one of them");

@@ -998,6 +998,49 @@ class TestScriptExecutionTest {
     }
 
     @Test
+    void oauth2TokenIsFetchedOncePerRunAndSentWithEveryRequest() throws Exception {
+        server.on("POST", "/token", InMemoryFhirServer.Answer.json(200, """
+                {"access_token":"tok-1","token_type":"Bearer","expires_in":3600}"""));
+        harness.oauth2(new at.hl7.testing.runner.core.config.OAuth2Config(
+                java.net.URI.create(server.baseUrl() + "/token"), "runner", "secret", "system/*.rs", null));
+        for (String name : List.of("a", "b")) {
+            harness.add(name, script().test(test("t", op("capabilities"),
+                    withHeaders(op("search", "Patient", null, null, null, null),
+                            new RequestHeader("Authorization", "Bearer wrong")))).build());
+        }
+
+        var run = harness.parallelism(2).run();
+
+        assertThat(run.testScripts()).allMatch(r -> r.outcome() == Outcome.PASS);
+        assertThat(server.requestLines()).filteredOn("POST /token"::equals).hasSize(1);
+        assertThat(server.requests()).filteredOn(r -> r.path().equals("/metadata"))
+                .allSatisfy(r -> assertThat(r.header("Authorization")).isEqualTo("Bearer tok-1"));
+        assertThat(server.requests()).filteredOn(r -> r.path().equals("/Patient"))
+                .as("a TestScript setting Authorization itself keeps it")
+                .allSatisfy(r -> assertThat(r.header("Authorization")).isEqualTo("Bearer wrong"));
+        try (var folders = java.nio.file.Files.list(run.runDirectory().resolve("communication/01_a"))) {
+            assertThat(folders.map(f -> f.getFileName().toString()))
+                    .as("the token request is no exchange with the FHIR server").noneMatch(f -> f.contains("token"));
+        }
+    }
+
+    @Test
+    void failingTokenRequestIsAnErrorOfTheOperation() {
+        server.on("POST", "/token", InMemoryFhirServer.Answer.json(401, """
+                {"error":"invalid_client"}"""));
+        harness.oauth2(new at.hl7.testing.runner.core.config.OAuth2Config(
+                        java.net.URI.create(server.baseUrl() + "/token"), "runner", "wrong", null, null))
+                .add("ts", script().test(test("t", op("capabilities"), responseCode("200"))).build());
+
+        PhaseResult t = phase(harness.runOne(), "t");
+
+        assertThat(t.outcome()).isEqualTo(Outcome.ERROR);
+        assertThat(t.messages().getFirst()).contains("REQ-0001 GET", "not sent",
+                "No OAuth2 access token from " + server.baseUrl() + "/token: HTTP 401", "invalid_client");
+        assertThat(server.requestLines()).containsExactly("POST /token");
+    }
+
+    @Test
     void communicationLogMasksCredentialsByDefault() throws Exception {
         harness.add("ts", script().test(test("t", withHeaders(op("capabilities"),
                 new RequestHeader("Authorization", "Basic dXNlcjpzZWNyZXQ="))))

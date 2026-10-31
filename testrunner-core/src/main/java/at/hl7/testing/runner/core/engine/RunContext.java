@@ -1,11 +1,17 @@
 package at.hl7.testing.runner.core.engine;
 
+import at.hl7.testing.runner.core.config.OAuth2Config;
 import at.hl7.testing.runner.core.config.RunConfiguration;
+import at.hl7.testing.runner.core.http.AccessTokens;
+import at.hl7.testing.runner.core.http.HttpTransport;
 
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -17,9 +23,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @param configuration  the configuration of the run
  * @param runDirectory   folder of the run's results and logs
  * @param requestCounter counter of the requests sent, shared by all TestScripts so request ids are unique per run
+ * @param accessTokens   the OAuth2 access tokens of the run, one source per token endpoint and client, shared by all
+ *                       TestScripts so a token is fetched once
  */
 public record RunContext(String runId, Instant started, RunConfiguration configuration, Path runDirectory,
-                         AtomicInteger requestCounter) {
+                         AtomicInteger requestCounter, ConcurrentMap<OAuth2Config, AccessTokens> accessTokens) {
 
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss-SSS")
             .withZone(ZoneId.systemDefault());
@@ -27,7 +35,12 @@ public record RunContext(String runId, Instant started, RunConfiguration configu
     static RunContext start(RunConfiguration configuration, Instant now) {
         String runId = "run_" + STAMP.format(now);
         Path runDirectory = configuration.reporting().outputDir().resolve(runId);
-        return new RunContext(runId, now, configuration, runDirectory, new AtomicInteger());
+        return new RunContext(runId, now, configuration, runDirectory, new AtomicInteger(), new ConcurrentHashMap<>());
+    }
+
+    /** The access tokens of an OAuth2 client, created on first use. */
+    AccessTokens accessTokens(OAuth2Config oauth2, HttpTransport transport, Clock clock) {
+        return accessTokens.computeIfAbsent(oauth2, config -> new AccessTokens(config, transport, clock));
     }
 
     /** Folder of the communication logs of this run. */
