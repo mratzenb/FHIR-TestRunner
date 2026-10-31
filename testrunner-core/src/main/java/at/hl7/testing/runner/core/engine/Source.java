@@ -19,7 +19,11 @@ public sealed interface Source {
     /** The request that produced it, or {@code null} for a fixture that was never sent. */
     String requestId();
 
-    /** A static fixture. {@code serverId} is set once the fixture has been created on the server. */
+    /**
+     * A static fixture. Until it is created on the server, the state keeps its {@code body} as written and hands out a
+     * copy with placeholders and references resolved at each use ({@link FixtureManager#resolve}). Once created,
+     * {@code serverId} is set and {@code body} is the content sent.
+     */
     record Fixture(String id, Body body, String resourceType, String serverId, String requestId) implements Source {
 
         @Override
@@ -29,6 +33,10 @@ public sealed interface Source {
 
         Fixture created(Body sentBody, String newServerId, String byRequest) {
             return new Fixture(id, sentBody, resourceType, newServerId, byRequest);
+        }
+
+        Fixture withBody(Body newBody) {
+            return new Fixture(id, newBody, resourceType, serverId, requestId);
         }
     }
 

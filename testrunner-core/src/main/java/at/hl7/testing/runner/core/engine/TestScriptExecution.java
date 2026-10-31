@@ -68,7 +68,8 @@ final class TestScriptExecution {
         this.requests = new RequestFactory(fhirBase, state);
         this.assertions = new AssertionEvaluator(state, loaded.support().fhirPath(), validator, testScript.profiles(),
                 testScript.fhirVersion(), profilesDir, igs);
-        this.fixtures = new FixtureManager(state, http, fhirBase);
+        this.fixtures = new FixtureManager(state, http, fhirBase, variables::resolve);
+        state.resolveFixturesWith(fixtures::resolve);
     }
 
     List<PhaseResult> run() {
@@ -128,7 +129,7 @@ final class TestScriptExecution {
         log.info("--- Setup");
         PhaseRecorder phase = setupRecorder();
         try {
-            fixtures.register(testScript.fixtures(), loaded.fixtureResources(), variables::resolve);
+            fixtures.register(testScript.fixtures(), loaded.fixtureResources());
             fixtures.autocreate(testScript.fixtures());
         } catch (TestScriptException | FhirHttpClient.ExchangeFailedException e) {
             phase.problem(Outcome.ERROR, "Fixture initialization failed: " + e.getMessage());

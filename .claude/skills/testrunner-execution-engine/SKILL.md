@@ -105,9 +105,14 @@ and, if a sample uses it, `EndToEndIT`.
 * Built-in values (`VariableResolver.BUILT_IN` = `testrunner.`, built by `TestRunner.builtInValues`, fixed per
   execution): `${testrunner.runId}`, `${testrunner.testScriptId}` (`run-…-NN`, a valid FHIR id), `${testrunner.uuid}`,
   `${testrunner.timestamp}`, `${testrunner.date}`. Unknown `testrunner.x` ⇒ error listing the known ones.
-* Placeholders in **fixture resources**: `FixtureManager.register(…, variables::resolve)` resolves them once at setup
-  start via `ResourceContent.replaceText` (JSON string values, XML attribute values/text; never names). A failing
-  placeholder ⇒ Setup `error` naming the fixture.
+* **Fixtures are resolved at each use** (`docs/wiki/fixtures.md`): `ExecutionState` keeps them as
+  written; `find`/`require` hand them out through `FixtureManager.resolve` (set via `state.resolveFixturesWith`):
+  placeholders replaced by `ResourceContent.replaceText` (JSON string values, XML attribute values/text; never
+  names) with the values at that moment, and references to autocreated fixtures rewritten to the server ids
+  (`ExecutionState.serverReference`, keyed by `localReference`). A failing placeholder ⇒ `error` of the action using
+  the fixture, naming it; a variable reading its own fixture ⇒ error (cycle guard `resolving`).
+  `state.fixtureAsWritten` bypasses the view (autocreate). Autocreated fixtures are resolved once in `autocreate`
+  (no response yet ⇒ a response variable fails there ⇒ Setup `error`); afterwards `find` returns them as sent.
 
 ## Required capabilities (`CapabilityCheck`) and destinations
 
