@@ -141,8 +141,9 @@ response. Decimals keep their precision (`100.0` ≠ `100`).
 
 | Test | Covers |
 |---|---|
-| `TestScriptExecutionTest` | phase rules, operations, assertions, fixtures, capabilities, variables – through the real `TestRunner` with an in-memory server |
+| `TestScriptExecutionTest` | phase rules, operations, assertions, fixtures, capabilities, variables, kept requests, checks before sending, OAuth2 – through the real `TestRunner` with an in-memory server |
 | `RunConfigurationTest` | defaults and `problems()` |
+| `AccessTokensTest` | fetching and renewing OAuth2 access tokens |
 | `FhirElementTest`, `PathEvaluatorTest`, `ResourceContentTest`, `UrlEncodingTest` | content helpers |
 | `CommunicationLogTest`, `TestReportWriterTest`, `ExampleInstanceResolverTest`, `PackageSuitesTest` | logs, reports, sources |
 

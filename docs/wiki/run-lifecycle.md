@@ -111,9 +111,10 @@ What the reference check finds:
 
 | Problem | Example message |
 |---|---|
-| an id that names nothing | `Test 'read', action 2: targetId 'creatd' is neither a fixture nor the responseId of an operation` |
-| a response used before the operation that keeps it | `Setup, action 1: targetId 'later' is not there yet, it is the responseId of Test 't', action 1` |
+| an id that names nothing | `Test 'read', action 2: targetId 'creatd' is neither a fixture nor the responseId or requestId of an operation` |
+| a response used before the operation that keeps it | `Setup, action 1: targetId 'later' is not there yet, it is kept by Test 't', action 1` |
 | `targetId` on a fixture that is not created | `targetId 'p' is a fixture without autocreate, so it has no id on the server` |
+| `targetId` on a kept request | `targetId 'sent' is a requestId; use the responseId of that operation …` |
 | a `${name}` that is no variable | `Variable 'pid' (Test 'read', action 1) is used but not defined by the TestScript` |
 | an unknown `${testrunner.…}` value | `'${testrunner.nope}' (…) is no value of the runner; known: […]` |
 | a variable on a response in an autocreated fixture | `Fixture 'obs' (autocreate): variable 'pid' reads 'created', which is not there yet …` |
