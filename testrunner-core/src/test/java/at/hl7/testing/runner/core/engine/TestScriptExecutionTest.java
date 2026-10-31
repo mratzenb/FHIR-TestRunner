@@ -95,7 +95,7 @@ class TestScriptExecutionTest {
                     .resource("b", """
                             {"resourceType":"Patient","id":"b","link":[{"other":{"reference":"Patient/a"}}]}""")
                     .add("ts", script().fixture("a", true, false).fixture("b", true, false)
-                            .test(test("t", responseCode("200"))).build());
+                            .test(test("t", op("capabilities"), responseCode("200"))).build());
 
             TestScriptResult result = harness.runOne();
 
@@ -109,7 +109,8 @@ class TestScriptExecutionTest {
         void rejectedFixtureNamesTheRequest() {
             server.on("POST", "/Patient", InMemoryFhirServer.Answer.json(422, "{\"resourceType\":\"OperationOutcome\"}"));
             harness.resource("patient", PATIENT)
-                    .add("ts", script().fixture("patient", true, false).test(test("t", responseCode("200"))).build());
+                    .add("ts", script().fixture("patient", true, false)
+                            .test(test("t", op("capabilities"), responseCode("200"))).build());
 
             TestScriptResult result = harness.runOne();
 
@@ -186,14 +187,14 @@ class TestScriptExecutionTest {
         @Test
         void operationThatCannotBeBuiltIsAnErrorAndEndsTheTest() {
             harness.add("ts", script().test(test("t",
-                    op("create", "Patient", "unknown-fixture", null, null, null),
-                    responseCode("201"))).build());
+                    op("read"),
+                    responseCode("200"))).build());
 
             TestScriptResult result = harness.runOne();
 
             PhaseResult t = phase(result, "t");
             assertThat(t.outcome()).isEqualTo(Outcome.ERROR);
-            assertThat(t.messages().getFirst()).contains("unknown-fixture");
+            assertThat(t.messages().getFirst()).contains("The URL cannot be determined");
             assertThat(t.actions()).hasSize(1);
         }
 
@@ -299,16 +300,6 @@ class TestScriptExecutionTest {
         }
 
         @Test
-        void assertionWithoutResponseIsAnError() {
-            harness.add("ts", script().test(test("t", responseCode("200"))).build());
-
-            PhaseResult t = phase(harness.runOne(), "t");
-
-            assertThat(t.outcome()).isEqualTo(Outcome.ERROR);
-            assertThat(t.messages().getFirst()).contains("no operation has been executed yet");
-        }
-
-        @Test
         void unsupportedChecksAreErrors() {
             TestScriptResult result = runAfterCapabilities(check(new Check.RequestMethod("GET")));
 
@@ -345,14 +336,6 @@ class TestScriptExecutionTest {
             assertThat(t.messages().getFirst()).contains("the response of REQ-0001 does not contain everything of"
                     + " minimumId 'minimum'", "Patient.name.family: expected 'Meier', found 'Bucher'",
                     "Patient.gender: missing, expected female");
-        }
-
-        @Test
-        void minimumIdOfAnUnknownFixtureIsAnError() {
-            PhaseResult t = phase(runAfterCapabilities(check(new Check.MinimumId("nope"))), "t");
-
-            assertThat(t.outcome()).isEqualTo(Outcome.ERROR);
-            assertThat(t.messages().getFirst()).contains("minimumId 'nope' is neither a fixture");
         }
 
         @Test
@@ -530,6 +513,147 @@ class TestScriptExecutionTest {
         }
     }
 
+    /** Problems found before anything is sent: phase {@code Load} is {@code error}, the server sees no request. */
+    @Nested
+    class Checks {
+
+        private String loadError(at.hl7.testing.runner.core.model.TestScript script) {
+            harness.add("ts", script);
+            TestScriptResult result = harness.runOne();
+            assertThat(result.phases().getFirst().kind()).isEqualTo(PhaseKind.LOAD);
+            assertThat(result.phases().getFirst().outcome()).isEqualTo(Outcome.ERROR);
+            assertThat(server.requests()).isEmpty();
+            return result.phases().getFirst().messages().getFirst();
+        }
+
+        @Test
+        void undefinedVariable() {
+            assertThat(loadError(script().test(test("t", op("search", "Patient", null, null, "?id=${nope}", null)))
+                    .build())).contains("Variable 'nope' (Test 't', action 1) is used but not defined");
+        }
+
+        @Test
+        void unknownValueOfTheRunner() {
+            assertThat(loadError(script().test(test("t", op("search", "Patient", null, null,
+                    "?id=${testrunner.nope}", null))).build()))
+                    .contains("'${testrunner.nope}'", "is no value of the runner", "${testrunner.uuid}");
+        }
+
+        @Test
+        void undefinedVariableInAFixtureIsNamedWithTheFixture() {
+            harness.resource("p", """
+                    {"resourceType":"Patient","name":[{"family":"${nope}"}]}""");
+
+            assertThat(loadError(script().fixture("p", true, false).test(test("t", op("capabilities"))).build()))
+                    .contains("Variable 'nope' (Fixture 'p' (autocreate)) is used but not defined");
+        }
+
+        @Test
+        void unknownSourceIds() {
+            harness.resource("patient", PATIENT);
+
+            String message = loadError(script().fixture("patient", false, false).test(test("t",
+                    op("create", "Patient", "patinet", null, null, "created"),
+                    op("read", null, null, "creatd", null, null),
+                    on(responseCode("200"), "nope"),
+                    check(new Check.MinimumId("minimun")))).build());
+
+            assertThat(message).contains(
+                    "Test 't', action 1: sourceId 'patinet' is neither a fixture nor the responseId of an operation",
+                    "Test 't', action 2: targetId 'creatd' is neither",
+                    "Test 't', action 3: sourceId 'nope' is neither",
+                    "Test 't', action 4: minimumId 'minimun' is neither");
+        }
+
+        @Test
+        void responseIdUsedBeforeTheOperationKeepingIt() {
+            String message = loadError(script()
+                    .setup(op("read", null, null, "later", null, null))
+                    .test(test("t", op("capabilities", null, null, null, null, "later"))).build());
+
+            assertThat(message).contains("Setup, action 1: targetId 'later' is not there yet, it is the responseId of"
+                    + " Test 't', action 1");
+        }
+
+        @Test
+        void variableOnAResponseUsedInAnAutocreatedFixture() {
+            harness.resource("obs", """
+                    {"resourceType":"Observation","subject":{"reference":"Patient/${pid}"}}""");
+
+            String message = loadError(script().fixture("obs", true, false)
+                    .variable(new VariableDefinition("pid", null, "Patient.id", null, null, "created", null))
+                    .test(test("t", op("capabilities", null, null, null, null, "created"))).build());
+
+            assertThat(message).contains("Fixture 'obs' (autocreate): variable 'pid' reads 'created', which is not"
+                    + " there yet");
+        }
+
+        @Test
+        void variableOnTheLastResponseBeforeAnyOperation() {
+            String message = loadError(script()
+                    .variable(new VariableDefinition("loc", null, null, null, "Location", null, null))
+                    .test(test("t", op("read", "Patient", null, null, "/${loc}", null))).build());
+
+            assertThat(message).contains("Test 't', action 1: variable 'loc' reads the last response, but no"
+                    + " operation runs before");
+        }
+
+        @Test
+        void headerOfAFixture() {
+            harness.resource("p", PATIENT);
+
+            String message = loadError(script().fixture("p", false, false)
+                    .variable(new VariableDefinition("etag", null, null, null, "ETag", "p", null))
+                    .test(test("t", op("read", "Patient", null, null, "/${etag}", null))).build());
+
+            assertThat(message).contains("variable 'etag' reads header ETag, but 'p' is a fixture, not a response");
+        }
+
+        @Test
+        void targetIdOfAFixtureThatIsNotCreated() {
+            harness.resource("p", PATIENT);
+
+            assertThat(loadError(script().fixture("p", false, false)
+                    .test(test("t", op("read", null, null, "p", null, null))).build()))
+                    .contains("targetId 'p' is a fixture without autocreate, so it has no id on the server");
+        }
+
+        @Test
+        void assertionBeforeAnyOperation() {
+            assertThat(loadError(script().test(test("t", responseCode("200"))).build()))
+                    .contains("Test 't', action 1: the assertion has no sourceId and no operation runs before it");
+        }
+
+        @Test
+        void undeclaredProfile() {
+            assertThat(loadError(script().profile("p", "http://example.org/StructureDefinition/p")
+                    .test(test("t", op("capabilities"), check(new Check.ValidateProfile("q")))).build()))
+                    .contains("Test 't', action 2: validateProfileId 'q' is not declared in TestScript.profile"
+                            + " (declared: [p])");
+        }
+
+        @Test
+        void everyProblemIsListed() {
+            String message = loadError(script().test(test("t",
+                    op("search", "Patient", null, null, "?a=${a}&b=${b}", null),
+                    check(new Check.MinimumId("m")))).build());
+
+            assertThat(message).contains("Variable 'a'", "Variable 'b'", "minimumId 'm'");
+        }
+
+        @Test
+        void responseKeptInAnEarlierTestAndPlaceholdersInIdsAreAccepted() {
+            harness.add("ts", script()
+                    .variable(new VariableDefinition("kept", "caps", null, null, null, null, null))
+                    .test(test("first", op("capabilities", null, null, null, null, "caps")))
+                    .test(test("second", op("capabilities"), on(responseCode("200"), "caps"),
+                            on(responseCode("200"), "${kept}")))
+                    .build());
+
+            assertThat(harness.runOne().outcome()).isEqualTo(Outcome.PASS);
+        }
+    }
+
     @Nested
     class Phases {
 
@@ -652,16 +776,21 @@ class TestScriptExecutionTest {
         }
 
         @Test
-        void unknownValueOfTheRunnerInAnAutocreatedFixtureIsAnErrorOfTheSetup() {
+        void placeholderInAnAutocreatedFixtureThatFindsNothingIsAnErrorOfTheSetup() {
             harness.resource("p", """
-                            {"resourceType":"Patient","id":"${testrunner.nope}"}""")
-                    .add("ts", script().fixture("p", true, false).test(test("t", op("capabilities"))).build());
+                            {"resourceType":"Patient","name":[{"family":"${family}"}]}""")
+                    .resource("source", """
+                            {"resourceType":"Patient"}""")
+                    .add("ts", script().fixture("p", true, false).fixture("source", false, false)
+                            .variable(new VariableDefinition("family", null, "Patient.name.family", null, null, "source", null))
+                            .test(test("t", op("capabilities"))).build());
 
             TestScriptResult result = harness.runOne();
 
             assertThat(phase(result, "Setup").outcome()).isEqualTo(Outcome.ERROR);
-            assertThat(phase(result, "Setup").messages().getFirst()).contains("Fixture 'p'", "${testrunner.nope}",
-                    "${testrunner.runId}", "${testrunner.uuid}");
+            assertThat(phase(result, "Setup").messages().getFirst()).contains("Fixture 'p'", "Variable 'family' has no value");
+            assertThat(phase(result, "t").outcome()).isEqualTo(Outcome.SKIP);
+            assertThat(server.requests()).isEmpty();
         }
 
         @Test
@@ -706,8 +835,9 @@ class TestScriptExecutionTest {
         @Test
         void failingPlaceholderInAFixtureIsAnErrorWhereTheFixtureIsUsed() {
             harness.resource("p", """
-                            {"resourceType":"Patient","name":[{"family":"${nope}"}]}""")
+                            {"resourceType":"Patient","name":[{"family":"${missing}"}]}""")
                     .add("ts", script().fixture("p", false, false)
+                            .variable(new VariableDefinition("missing", null, null, null, "X-Missing", null, null))
                             .test(test("t", op("capabilities"), op("create", "Patient", "p", null, null, null)))
                             .build());
 
@@ -715,7 +845,7 @@ class TestScriptExecutionTest {
 
             assertThat(phase(result, "Setup").outcome()).isEqualTo(Outcome.PASS);
             assertThat(phase(result, "t").outcome()).isEqualTo(Outcome.ERROR);
-            assertThat(phase(result, "t").messages().getFirst()).contains("Fixture 'p'", "Variable 'nope'");
+            assertThat(phase(result, "t").messages().getFirst()).contains("Fixture 'p'", "Variable 'missing' has no value");
             assertThat(server.requestLines()).containsExactly("GET /metadata");
         }
 
@@ -781,16 +911,6 @@ class TestScriptExecutionTest {
                 assertThat(r.outcome()).isEqualTo(Outcome.PASS);
             });
         }
-    }
-
-    @Test
-    void unknownVariableIsAnError() {
-        harness.add("ts", script().test(test("t", op("search", "Patient", null, null, "?id=${nope}", null))).build());
-
-        PhaseResult t = phase(harness.runOne(), "t");
-
-        assertThat(t.outcome()).isEqualTo(Outcome.ERROR);
-        assertThat(t.messages().getFirst()).contains("Variable 'nope'");
     }
 
     @Test

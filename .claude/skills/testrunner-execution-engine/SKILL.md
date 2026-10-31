@@ -17,11 +17,17 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
 3. Per file (in parallel if `execution.parallelism > 1`): `source.TestScriptLoader` detects or takes the pinned FHIR
    version, maps the file via that version's `FhirVersionSupport`, loads fixture resources from `Example_Instances/`
    (`ExampleInstanceResolver`).
-4. Before anything is sent: `TestScriptChecks.problems` (unique fixture/responseId/requestId ids; a variable has at
-   most one of expression/path/headerField, and at least one of them or a `defaultValue`; at most one server
-   addressed via `TestScript.destination`/`operation.destination`) and, if
-   `validation.validate-test-scripts`, the
-   validator checks the TestScript against its base spec. Problems ⇒ phase `Load` = `error`, nothing sent.
+4. Before anything is sent: `TestScriptChecks.problems(testScript, fixtureResources, builtInNames)` (unique
+   fixture/responseId/requestId ids; a variable has at most one of expression/path/headerField, and at least one of
+   them or a `defaultValue`; at most one server addressed via `TestScript.destination`/`operation.destination`;
+   `References` walks setup → tests → teardown in order: every `sourceId`/`targetId`/`compareToSourceId`/`minimumId`
+   names a fixture with resource or a responseId kept **before** (else "is not there yet"), `targetId` fixture needs
+   autocreate, every `${name}` (also in fixture resources, collected via `withValues`/`replaceText` +
+   `VariableResolver.placeholders`) is defined, a used variable's source exists at that point, no last-response
+   variable/assertion before the first operation, `validateProfileId` declared; ids containing `${` are skipped;
+   only "fails in every run" problems, each placeholder reported once) and, if `validation.validate-test-scripts`,
+   the validator checks the TestScript against its base spec. Problems ⇒ phase `Load` = `error`, all listed,
+   nothing sent. Messages name the place: `Test 'read', action 2: …`.
 5. `TestScriptExecution` checks `metadata.capability` (`CapabilityCheck`, see below), then runs setup → tests →
    teardown with its own `ExecutionState` (fixtures, responses by `responseId`, last response). Helpers:
    `VariableResolver`, `RequestFactory`, `AssertionEvaluator`, `FixtureManager`, `PhaseRecorder`.

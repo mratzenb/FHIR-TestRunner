@@ -230,7 +230,9 @@ public final class TestRunner {
                 testScript.variables().size(), testScript.profiles().size(), testScript.tests().size());
         loaded.readWarnings().forEach(w -> log.warn("Ignored while reading the TestScript: {}", w));
 
-        List<String> problems = new ArrayList<>(TestScriptChecks.problems(testScript));
+        Map<String, String> builtIn = builtInValues(run, index, started);
+        List<String> problems = new ArrayList<>(TestScriptChecks.problems(testScript, loaded.fixtureResources(),
+                builtIn.keySet()));
         problems.addAll(validateTestScript(run, loaded));
         if (!problems.isEmpty()) {
             problems.forEach(p -> log.error("{}", p));
@@ -257,7 +259,7 @@ public final class TestRunner {
                 .collect(LinkedHashMap::new, (m, e) -> m.put(e.getKey(), List.of(e.getValue())), Map::putAll));
         FhirHttpClient http = new FhirHttpClient(transport, run.requestCounter(), communication, defaultHeaders);
         List<PhaseResult> phases = new TestScriptExecution(loaded, http, server.base(), validator,
-                suite.resolvedProfilesDir(), suite.igs(), capabilities, builtInValues(run, index, started)).run();
+                suite.resolvedProfilesDir(), suite.igs(), capabilities, builtIn).run();
         return result(index, loaded, server.base(), started, phases);
     }
 
