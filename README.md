@@ -47,6 +47,7 @@ docs/                                   architecture, decisions, configuration, 
 
 ## Documentation
 
+* [Wiki](docs/wiki/README.md) – guided tour: modules, how a run works, design insights, extending, troubleshooting
 * [Architecture](docs/architecture.md) – modules, runtime, execution semantics, differences to the PoC, open points
 * [FHIR versions](docs/fhir-versions.md) – how R4/R5 are mapped without duplication, and how to add R6
 * [Configuration](docs/configuration.md) – all properties, PoC mapping, library use, extending the Spring configuration
