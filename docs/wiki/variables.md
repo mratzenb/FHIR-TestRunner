@@ -27,7 +27,7 @@ reads the fixtures and responses of that execution from its `ExecutionState`. No
 
 | Where | Resolved | Values that may contain `${…}` |
 |---|---|---|
-| Fixture resources (`Example_Instances/`) | once, when the setup starts | JSON string values; XML attribute values and text |
+| Fixture resources (`Example_Instances/`) | each time the fixture is used; an autocreated fixture once, when it is created | JSON string values; XML attribute values and text |
 | Operations | before each operation, just before the request is built | `resource`, `params`, `url`, `accept`, `contentType`, the values of `requestHeader`, `sourceId`, `targetId`, `responseId`, `requestId` |
 | Assertions | before each assertion is evaluated | `value`, `sourceId`, `compareToSourceId`, `compareToSourceExpression`, `compareToSourcePath`, and the check itself: `expression`, `path`, `headerField`, `contentType`, `resource`, `responseCode`, `minimumId`, `validateProfileId` |
 
@@ -39,12 +39,12 @@ Not resolved:
 * `type`, `label`, `description`, `method`, `destination`, `operator`, `direction`, the boolean flags, `response`,
   `navigationLinks`.
 
-The request body of an operation is the fixture or response named by `sourceId`, as it is. A fixture body already
-had its placeholders replaced when the setup started.
+The request body of an operation is the fixture or response named by `sourceId`. A response is sent as it is. A
+fixture has its placeholders replaced at that moment, see [Placeholders in fixture resources](#placeholders-in-fixture-resources).
 
 In the code, `Operation.withValues` and `Assertion.withValues` (in `core.model`) return a copy with every text value
 passed through `VariableResolver::resolve`. `TestScriptExecution.execute` and `check` call them. Fixture resources go
-through `FixtureManager.register` and `ResourceContent.replaceText`. Like the Python PoC, every text value may use
+through `FixtureManager.resolve` and `ResourceContent.replaceText`. Like the Python PoC, every text value may use
 variables, not only `params` and `url`.
 
 ## How one text is resolved
@@ -148,17 +148,23 @@ variable always reads the same response once it has arrived.
 
 ## Placeholders in fixture resources
 
-`FixtureManager.register` replaces them once, when the setup starts, before the autocreate. The fixtures must be ready
-before the first request, so there is no later moment.
+A fixture is kept as written. Its placeholders are replaced each time it is used: as the body of an operation
+(`sourceId`), as `targetId`, as the source of an assertion or a variable, or as `minimumId`. So a fixture can use
+a variable on a response that arrived just before.
+
+An autocreated fixture is the exception. It is created when the setup starts, before any operation has run. Its
+placeholders are replaced once, at that moment. After that, every use sees the content that was sent.
 
 * Only text values change: JSON string values (also in arrays), XML attribute values and text. Names and structure
   stay. The value is escaped when the document is written, so a value with `"` or `<` cannot break it. A body that is
   neither JSON nor XML is treated as one text.
 * A JSON string stays a string. `"valueInteger": "${n}"` sends `"5"`, not `5`.
-* No operation has run yet. So only these resolve here: built-in values, variables with only a `defaultValue`, and
-  variables on a fixture declared further up. A variable on a response cannot be used in a fixture.
-* A failing placeholder makes the Setup `error` (`Fixture initialization failed: Fixture 'p': …`). The tests are
-  skipped; the teardown runs.
+* In an autocreated fixture, only these resolve: built-in values, variables with only a `defaultValue`, and
+  variables on another fixture. A variable on a response fails there – no operation has run yet.
+* A variable that reads the fixture it is used in is an `error`: `Fixture 'p': a variable reads the fixture it is
+  used in (p -> p)`.
+* A failing placeholder is an `error` where the fixture is used. In an autocreated fixture, that is the Setup
+  (`Fixture initialization failed: Fixture 'p': …`); the tests are skipped and the teardown runs.
 * A body without `${` is neither parsed nor rewritten.
 
 Example (from `TestScriptExecutionTest.FixtureValues`):
@@ -174,8 +180,29 @@ Example (from `TestScriptExecutionTest.FixtureValues`):
 With `autocreate` and a search with `params: ?identifier=${testrunner.testScriptId}`, each TestScript finds exactly its
 own patient, also with `parallelism: 2`.
 
+A fixture that uses the id of a resource created in a test:
+
+```json
+{
+  "resourceType": "Observation",
+  "status": "final",
+  "subject": { "reference": "Patient/${pid}" }
+}
+```
+
+```json
+"variable": [{ "name": "pid", "expression": "Patient.id", "sourceId": "created" }],
+…
+{ "operation": { "type": { "code": "create" }, "resource": "Patient", "sourceId": "patient", "responseId": "created" } },
+{ "operation": { "type": { "code": "create" }, "resource": "Observation", "sourceId": "obs" } }
+```
+
+The Patient is created first and gets the id `1`. When the Observation is sent, `${pid}` is evaluated on the
+response `created`, and the server gets `"reference": "Patient/1"`.
+
 A variable on an autocreated fixture reads the fixture as it was sent. That content does not contain the id the
-server assigned. To address the created resource, use `targetId` – it uses the server's id.
+server assigned. To address the created resource, use `targetId` – it uses the server's id. References to an
+autocreated fixture are rewritten for you, see [Fixtures › References](fixtures.md#references-to-autocreated-fixtures).
 
 ## Errors
 
@@ -183,7 +210,8 @@ server assigned. To address the created resource, use `targetId` – it uses the
 |---|---|---|
 | reading the TestScript | a variable without `name` | `error` in phase `Load` |
 | before anything is sent (`TestScriptChecks`) | two variables with the same name; more than one of `expression`, `path`, `headerField`; none of them and no `defaultValue` | `error` in phase `Load`, nothing sent |
-| setup start | a placeholder in a fixture resource fails | Setup `error`, tests `skip`, teardown runs |
+| setup start | a placeholder in an autocreated fixture fails | Setup `error`, tests `skip`, teardown runs |
+| a fixture is used | a placeholder in that fixture fails | the operation or assertion using it is `error`, the phase stops |
 | an operation | a placeholder fails | the operation is `error`, the phase stops |
 | an assertion | a placeholder fails | the assertion is `error`, the phase stops. `warningOnly` does not help; it only softens a `fail`. |
 
@@ -196,7 +224,8 @@ A placeholder fails with one of these messages (`TestScriptException`):
 | `Variable 'x' is used but not defined by the TestScript` | a typo, or the variable is missing in `TestScript.variable` |
 | `'${testrunner.x}' is no value of the runner; known: […]` | an unknown built-in value |
 | `sourceId of variable 'x' 'r' is neither a fixture nor the responseId of an earlier operation` | a typo, or the operation that keeps `r` has not run yet |
-| `Variable 'x' has no sourceId and no operation has been executed yet` | used before the first operation, e.g. in a fixture |
+| `Variable 'x' has no sourceId and no operation has been executed yet` | used before the first operation, e.g. in an autocreated fixture |
+| `Fixture 'p': a variable reads the fixture it is used in (p -> p)` | a fixture uses a variable whose `sourceId` is that fixture |
 | `Variable 'x' reads header H, but 'f' is a fixture, not a response` | `headerField` on a fixture |
 | `Expression '…' of variable 'x' returned 2 values where one was expected: […]` | the expression or path is not specific enough, e.g. use `.first()` |
 | `Variable 'x' has no value: expression '…' on r found nothing and there is no defaultValue` | the source lacks the element or header – check the response in `communication/` |
@@ -269,7 +298,7 @@ e.g. `1`, and the read becomes `GET [base]/Patient/1`. The same read before the 
 | `core.model.VariableDefinition` | one declared variable |
 | `core.model.Operation.withValues`, `Assertion.withValues`, `RequestHeader.map` | which values are resolved |
 | `core.engine.TestScriptExecution` | resolves before each operation and assertion; hands `variables::resolve` to the fixtures |
-| `core.engine.FixtureManager.register`, `core.content.ResourceContent.replaceText` | placeholders in fixture resources |
+| `core.engine.FixtureManager.resolve`, `core.content.ResourceContent.replaceText` | placeholders in fixture resources, at each use |
 | `core.engine.TestRunner.builtInValues` | the `${testrunner.…}` values |
 | `core.engine.TestScriptChecks` | checks the variable definitions before the run |
 | `core.engine.Values.single` | exactly one value, as text |

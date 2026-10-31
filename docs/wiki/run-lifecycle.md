@@ -140,11 +140,11 @@ The full table is in [architecture.md](../architecture.md#execution-semantics).
 
 | Class | Job |
 |---|---|
-| `ExecutionState` | fixtures, responses kept by `responseId`, the last response |
+| `ExecutionState` | fixtures (as written), responses kept by `responseId`, the last response |
 | `VariableResolver` | replaces `${name}` with the variable's current value, evaluated each time it is used – see [Variables and placeholders](variables.md) |
 | `RequestFactory` | builds URL, headers and body of an operation |
 | `AssertionEvaluator` | evaluates one assertion (one `Check` type each) |
-| `FixtureManager` | registers fixtures; autocreate in dependency order; autodelete in reverse order |
+| `FixtureManager` | registers fixtures; autocreate in dependency order; resolves a fixture at each use; autodelete in reverse order – see [Fixtures](fixtures.md) |
 | `CapabilityCheck` | compares the required CapabilityStatement with the server's (`GET [base]/metadata`, once per server and run) |
 
 ## 8. Every request goes through `FhirHttpClient`

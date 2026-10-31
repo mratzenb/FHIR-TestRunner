@@ -207,8 +207,14 @@ server-assigned ids); a cycle is an `error`. Fixtures with `autodelete` are dele
 order. Variables are evaluated each time a `${name}` placeholder is used, so they always reflect the latest response.
 
 Placeholders also work in the text values of fixture resources (JSON string values, XML attribute values and text –
-never names, so a value cannot break the document); they are resolved once, when the setup starts. Next to the
-TestScript's variables, the runner provides values of its own, fixed per TestScript execution:
+never names, so a value cannot break the document). A fixture is kept as written and resolved each time it is used
+(sent, checked, read by a variable): its placeholders get their values at that moment, and its references to
+autocreated fixtures are rewritten to the server-assigned ids, like those between autocreated fixtures. So a fixture
+sent in a test can reference a resource created before (`"reference": "Patient/${pid}"`, or `Patient/<id of an
+autocreated fixture>`). An autocreated fixture is resolved once, when it is created before the setup actions; a
+variable on a response cannot be used in it. A placeholder that fails is an `error` of the action using the fixture
+(of the Setup for an autocreated one). Next to the TestScript's variables, the runner provides values of its own,
+fixed per TestScript execution:
 
 | Placeholder | Value |
 |---|---|

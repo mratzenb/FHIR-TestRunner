@@ -652,16 +652,86 @@ class TestScriptExecutionTest {
         }
 
         @Test
-        void unknownValueOfTheRunnerIsAnErrorOfTheSetup() {
+        void unknownValueOfTheRunnerInAnAutocreatedFixtureIsAnErrorOfTheSetup() {
             harness.resource("p", """
                             {"resourceType":"Patient","id":"${testrunner.nope}"}""")
-                    .add("ts", script().fixture("p", false, false).test(test("t", op("capabilities"))).build());
+                    .add("ts", script().fixture("p", true, false).test(test("t", op("capabilities"))).build());
 
             TestScriptResult result = harness.runOne();
 
             assertThat(phase(result, "Setup").outcome()).isEqualTo(Outcome.ERROR);
             assertThat(phase(result, "Setup").messages().getFirst()).contains("Fixture 'p'", "${testrunner.nope}",
                     "${testrunner.runId}", "${testrunner.uuid}");
+        }
+
+        @Test
+        void fixtureSentInATestUsesAVariableOnAnEarlierResponse() {
+            harness.resource("patient", PATIENT.replace("Organization/org-1", "Organization/none"))
+                    .resource("obs", """
+                            {"resourceType":"Observation","status":"final","subject":{"reference":"Patient/${pid}"}}""")
+                    .add("ts", script().fixture("patient", false, false).fixture("obs", false, false)
+                            .variable(new VariableDefinition("pid", null, "Patient.id", null, null, "created", null))
+                            .test(test("t",
+                                    op("create", "Patient", "patient", null, null, "created"),
+                                    op("create", "Observation", "obs", null, null, null),
+                                    responseCode("201")))
+                            .build());
+
+            TestScriptResult result = harness.runOne();
+
+            assertThat(result.outcome()).isEqualTo(Outcome.PASS);
+            assertThat(server.resource("Observation/2").path("subject").path("reference").asText())
+                    .isEqualTo("Patient/1");
+        }
+
+        @Test
+        void fixtureSentInATestReferencesTheServerIdOfAnAutocreatedFixture() {
+            harness.resource("patient", PATIENT.replace("Organization/org-1", "Organization/none"))
+                    .resource("obs", """
+                            {"resourceType":"Observation","status":"final","subject":{"reference":"Patient/pat-1"}}""")
+                    .add("ts", script().fixture("patient", true, false).fixture("obs", false, false)
+                            .test(test("t",
+                                    op("create", "Observation", "obs", null, null, null),
+                                    responseCode("201"),
+                                    check(new Check.MinimumId("obs"))))
+                            .build());
+
+            TestScriptResult result = harness.runOne();
+
+            assertThat(result.outcome()).isEqualTo(Outcome.PASS);
+            assertThat(server.resource("Observation/2").path("subject").path("reference").asText())
+                    .isEqualTo("Patient/1");
+        }
+
+        @Test
+        void failingPlaceholderInAFixtureIsAnErrorWhereTheFixtureIsUsed() {
+            harness.resource("p", """
+                            {"resourceType":"Patient","name":[{"family":"${nope}"}]}""")
+                    .add("ts", script().fixture("p", false, false)
+                            .test(test("t", op("capabilities"), op("create", "Patient", "p", null, null, null)))
+                            .build());
+
+            TestScriptResult result = harness.runOne();
+
+            assertThat(phase(result, "Setup").outcome()).isEqualTo(Outcome.PASS);
+            assertThat(phase(result, "t").outcome()).isEqualTo(Outcome.ERROR);
+            assertThat(phase(result, "t").messages().getFirst()).contains("Fixture 'p'", "Variable 'nope'");
+            assertThat(server.requestLines()).containsExactly("GET /metadata");
+        }
+
+        @Test
+        void variableThatReadsTheFixtureItIsUsedInIsAnError() {
+            harness.resource("p", """
+                            {"resourceType":"Patient","id":"x","name":[{"family":"${self}"}]}""")
+                    .add("ts", script().fixture("p", false, false)
+                            .variable(new VariableDefinition("self", null, "Patient.id", null, null, "p", null))
+                            .test(test("t", op("create", "Patient", "p", null, null, null)))
+                            .build());
+
+            PhaseResult t = phase(harness.runOne(), "t");
+
+            assertThat(t.outcome()).isEqualTo(Outcome.ERROR);
+            assertThat(t.messages().getFirst()).contains("Fixture 'p'", "reads the fixture it is used in");
         }
     }
 

@@ -31,6 +31,10 @@ import java.util.function.UnaryOperator;
  * <p>Autocreated fixtures may reference each other ({@code Patient/<id of another fixture's resource>}). They are
  * created in dependency order and each reference is rewritten to the id the server assigned to the referenced
  * fixture. A reference to a resource that is not an autocreated fixture is left as it is.
+ *
+ * <p>A fixture that is not autocreated is resolved each time it is used ({@link #resolve}): its {@code ${…}}
+ * placeholders are replaced with the values at that moment, and its references to autocreated fixtures are rewritten
+ * like those between autocreated fixtures. So a fixture sent in a test can use a variable on an earlier response.
  */
 final class FixtureManager {
 
@@ -39,31 +43,26 @@ final class FixtureManager {
     private final ExecutionState state;
     private final FhirHttpClient http;
     private final String base;
+    private final UnaryOperator<String> values;
+    /** Fixtures being resolved, to detect a variable that reads the fixture it is used in. */
+    private final Set<String> resolving = new LinkedHashSet<>();
 
-    FixtureManager(ExecutionState state, FhirHttpClient http, String base) {
+    /**
+     * @param values replaces {@code ${variable}} placeholders in the text values of the fixture resources
+     */
+    FixtureManager(ExecutionState state, FhirHttpClient http, String base, UnaryOperator<String> values) {
         this.state = state;
         this.http = http;
         this.base = base;
+        this.values = values;
     }
 
-    /**
-     * Makes every fixture available to {@code sourceId}, {@code targetId} and variables.
-     *
-     * @param values replaces {@code ${variable}} placeholders in the text values of the fixture resources, once, when
-     *               the setup starts; a fixture that references a response therefore cannot use variables on it
-     * @throws TestScriptException if a placeholder cannot be resolved
-     */
-    void register(List<FixtureDefinition> fixtures, Map<String, Body> resources, UnaryOperator<String> values) {
+    /** Makes every fixture available to {@code sourceId}, {@code targetId} and variables, as written. */
+    void register(List<FixtureDefinition> fixtures, Map<String, Body> resources) {
         for (FixtureDefinition fixture : fixtures) {
-            Body resource = resources.get(fixture.id());
-            if (resource == null) {
+            Body body = resources.get(fixture.id());
+            if (body == null) {
                 continue; // a fixture without resource only reserves its id
-            }
-            Body body;
-            try {
-                body = resource.text().contains("${") ? ResourceContent.replaceText(resource, values) : resource;
-            } catch (TestScriptException e) {
-                throw new TestScriptException("Fixture '" + fixture.id() + "': " + e.getMessage(), e);
             }
             String type = body.format() == ContentFormat.OTHER ? null : safe(() -> ResourceContent.resourceType(body));
             state.putFixture(new Source.Fixture(fixture.id(), body, type, null, null));
@@ -74,20 +73,75 @@ final class FixtureManager {
     }
 
     /**
-     * Creates the fixtures with {@code autocreate} in dependency order.
+     * The fixture as it is to be used now: placeholders replaced, references to autocreated fixtures rewritten to the
+     * server's ids. A fixture created on the server is returned as it was sent.
      *
-     * @throws TestScriptException if the references form a cycle or the server does not create a fixture
+     * @throws TestScriptException if a placeholder cannot be resolved, naming the fixture
+     */
+    Source.Fixture resolve(Source.Fixture fixture) {
+        if (fixture.serverId() != null) {
+            return fixture;
+        }
+        Body body = withValues(fixture.id(), fixture.body());
+        if (state.hasCreatedFixtures()) {
+            body = withServerReferences(fixture.id(), body);
+        }
+        return body == fixture.body() ? fixture : fixture.withBody(body);
+    }
+
+    /** Replaces the placeholders of a fixture's body with their values at this moment. */
+    private Body withValues(String fixtureId, Body body) {
+        if (!body.text().contains("${")) {
+            return body;
+        }
+        if (!resolving.add(fixtureId)) {
+            throw new TestScriptException("a variable reads the fixture it is used in ("
+                    + String.join(" -> ", resolving) + " -> " + fixtureId + ")");
+        }
+        try {
+            return ResourceContent.replaceText(body, values);
+        } catch (TestScriptException e) {
+            throw new TestScriptException("Fixture '" + fixtureId + "': " + e.getMessage(), e);
+        } catch (IllegalArgumentException e) {
+            throw new TestScriptException("Fixture '" + fixtureId + "' has placeholders, but its content cannot be"
+                    + " read: " + e.getMessage(), e);
+        } finally {
+            resolving.remove(fixtureId);
+        }
+    }
+
+    /** Rewrites the references to autocreated fixtures; content that cannot be read is sent as it is. */
+    private Body withServerReferences(String fixtureId, Body body) {
+        try {
+            return ResourceContent.replaceReferences(body, reference -> state.serverReference(localReference(reference))
+                    .map(server -> {
+                        log.debug("Fixture '{}': reference {} -> {}", fixtureId, reference, server);
+                        return server;
+                    })
+                    .orElse(reference));
+        } catch (IllegalArgumentException e) {
+            return body;
+        }
+    }
+
+    /**
+     * Creates the fixtures with {@code autocreate} in dependency order. Their placeholders are resolved now, before
+     * any operation has run.
+     *
+     * @throws TestScriptException if a placeholder cannot be resolved, the references form a cycle or the server does
+     *                             not create a fixture
      */
     void autocreate(List<FixtureDefinition> fixtures) {
         Map<String, Source.Fixture> toCreate = new LinkedHashMap<>();
         for (FixtureDefinition definition : fixtures) {
             if (definition.autocreate()) {
-                Source.Fixture fixture = (Source.Fixture) state.require(definition.id(), "fixture");
+                Source.Fixture fixture = state.fixtureAsWritten(definition.id()).orElseThrow(() ->
+                        new TestScriptException("Fixture '" + definition.id() + "' has autocreate, but no resource"));
                 if (fixture.resourceType() == null) {
                     throw new TestScriptException("Fixture '" + definition.id() + "' has autocreate, but its content is"
                             + " no FHIR resource");
                 }
-                toCreate.put(definition.id(), fixture);
+                toCreate.put(definition.id(), fixture.withBody(withValues(fixture.id(), fixture.body())));
             }
         }
         if (toCreate.isEmpty()) {
@@ -118,23 +172,19 @@ final class FixtureManager {
         List<String> order = creationOrder(dependencies);
         log.debug("Fixture creation order: {}", order);
 
-        Map<String, String> serverRefByResourceRef = new HashMap<>();
         for (String fixtureId : order) {
             Source.Fixture fixture = toCreate.get(fixtureId);
             Body body = ResourceContent.replaceReferences(fixture.body(),
-                    reference -> serverRefByResourceRef.getOrDefault(localReference(reference), reference));
-            log.info("Creating fixture '{}' ({}/{})", fixtureId, fixture.resourceType(), ResourceContent.id(fixture.body()));
+                    reference -> state.serverReference(localReference(reference)).orElse(reference));
+            String originalId = ResourceContent.id(fixture.body());
+            log.info("Creating fixture '{}' ({}/{})", fixtureId, fixture.resourceType(), originalId);
             Exchange exchange = http.send(new FhirRequest(HttpMethod.POST, URI.create(base + "/" + fixture.resourceType()),
                     HttpHeaders.of(Map.of("Content-Type", List.of(body.format().fhirMimeType()),
                             "Accept", List.of(body.format().fhirMimeType()))),
                     body.text()));
             String serverId = createdId(exchange, fixtureId);
-            Source.Fixture created = fixture.created(body, serverId, exchange.requestId());
-            state.fixtureCreated(created);
-            String originalId = ResourceContent.id(fixture.body());
-            if (originalId != null) {
-                serverRefByResourceRef.put(fixture.resourceType() + "/" + originalId, fixture.resourceType() + "/" + serverId);
-            }
+            state.fixtureCreated(fixture.created(body, serverId, exchange.requestId()),
+                    originalId == null ? null : fixture.resourceType() + "/" + originalId);
             log.info("Fixture '{}' created as {}/{}", fixtureId, fixture.resourceType(), serverId);
         }
     }
