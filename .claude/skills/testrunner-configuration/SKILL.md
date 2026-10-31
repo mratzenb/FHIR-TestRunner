@@ -53,6 +53,7 @@ testrunner:
     log-file-level: DEBUG                    # TRACE|DEBUG|INFO|WARN|ERROR
   packages: {cache-dir: ~/.fhir/packages, registry: https://packages.fhir.org}   # PackagesConfig
   run-on-startup: true                       # app only (RunCommand); false = wire without running
+  exit-on-skip: all                          # app only (RunCommand.ExitOnSkip, bound via Binder): all | any | never
 ```
 
 Sources, highest first: command line → system properties → env vars (`TESTRUNNER_FHIRSERVER_BASEURL`) → `--config`

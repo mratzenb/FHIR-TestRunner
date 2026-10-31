@@ -18,8 +18,8 @@ import java.util.List;
  * {@code --testrunner.validation.enabled=false}. Any property can also be given as argument, system property or
  * environment variable ({@code TESTRUNNER_FHIRSERVER_BASEURL}).
  *
- * <p>Exit codes: 0 every TestScript passed (or was skipped), 1 at least one failed or had an error,
- * 2 the configuration is invalid.
+ * <p>Exit codes: 0 every TestScript passed, 1 at least one failed or had an error, 2 the configuration is invalid,
+ * 3 TestScripts were skipped – by default only when every TestScript was, see {@link RunCommand.ExitOnSkip}.
  */
 @SpringBootApplication
 public class TestRunnerApplication {

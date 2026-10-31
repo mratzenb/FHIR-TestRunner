@@ -196,8 +196,10 @@ Taken over from the PoC (and its README/VALIDATION-NOTES), now encoded in one pl
 | No FHIR server configured | `skip` | — |
 | `validateProfileId` with validation disabled | `pass` + warning | Never silently `pass` |
 
-Outcome precedence for a TestScript and the run: `error > fail > skip > pass`. Exit code of the CLI: 0 pass/skip,
-1 fail/error, 2 invalid configuration.
+Outcome precedence for a TestScript and the run: `error > fail > skip > pass`. Exit code of the CLI: 0 pass,
+1 fail/error, 2 invalid configuration, 3 skipped – by default only when every TestScript was skipped, so a run that
+tested nothing (no server, a required capability missing everywhere) does not look green; `testrunner.exit-on-skip`
+(`all` | `any` | `never`) changes when skips count.
 
 Two assertions compare whole resources: `minimumId` passes if the checked response or fixture contains every element
 and value of the named fixture (the resource id excepted, the server assigns its own), by the rules of the FHIR

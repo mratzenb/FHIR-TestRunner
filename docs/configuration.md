@@ -96,6 +96,8 @@ testrunner:
     registry: https://packages.fhir.org    # default; where missing packages are downloaded from
 
   run-on-startup: true                     # app only: false to wire everything without running (tests, embedding)
+  exit-on-skip: all                        # app only: when skipped TestScripts give exit code 3 instead of 0:
+                                           # all (default, nothing was tested) | any (a skip, no failure) | never
 ```
 
 ### Suites from FHIR packages
