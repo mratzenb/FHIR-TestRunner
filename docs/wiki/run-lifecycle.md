@@ -99,8 +99,29 @@ If loading fails, the TestScript gets an `error` in the phase `Load`. Nothing is
 ## 6. Checks before sending
 
 * `TestScriptChecks` – unique fixture/response/request ids, well-formed variables, at most one destination.
+  It also walks the actions in the order they run and checks every reference. See below.
 * Validation of the TestScript itself against its FHIR version, if `validate-test-scripts` is on.
 * No FHIR server configured → every test is `skip`.
+
+Each problem gives an `error` in the phase `Load`. All problems are listed at once, and nothing is sent. So a typo
+never leaves a half-created fixture on the server.
+
+What the reference check finds:
+
+| Problem | Example message |
+|---|---|
+| an id that names nothing | `Test 'read', action 2: targetId 'creatd' is neither a fixture nor the responseId of an operation` |
+| a response used before the operation that keeps it | `Setup, action 1: targetId 'later' is not there yet, it is the responseId of Test 't', action 1` |
+| `targetId` on a fixture that is not created | `targetId 'p' is a fixture without autocreate, so it has no id on the server` |
+| a `${name}` that is no variable | `Variable 'pid' (Test 'read', action 1) is used but not defined by the TestScript` |
+| an unknown `${testrunner.…}` value | `'${testrunner.nope}' (…) is no value of the runner; known: […]` |
+| a variable on a response in an autocreated fixture | `Fixture 'obs' (autocreate): variable 'pid' reads 'created', which is not there yet …` |
+| a variable or assertion on the last response, before any operation | `Test 't', action 1: the assertion has no sourceId and no operation runs before it …` |
+| `headerField` on a fixture | `variable 'etag' reads header ETag, but 'p' is a fixture, not a response` |
+| an undeclared profile | `validateProfileId 'q' is not declared in TestScript.profile (declared: [p])` |
+
+Only what fails in **every** run is reported. A response kept in an earlier test counts as there, even if that test
+might stop early. An id or profile that is itself a placeholder (`sourceId: ${which}`) is checked when it is used.
 
 ## 7. Execution
 

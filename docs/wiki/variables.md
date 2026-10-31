@@ -210,14 +210,23 @@ autocreated fixture are rewritten for you, see [Fixtures › References](fixture
 |---|---|---|
 | reading the TestScript | a variable without `name` | `error` in phase `Load` |
 | before anything is sent (`TestScriptChecks`) | two variables with the same name; more than one of `expression`, `path`, `headerField`; none of them and no `defaultValue` | `error` in phase `Load`, nothing sent |
+| before anything is sent (`TestScriptChecks`) | a `${name}` that is no variable and no `testrunner.*` value; a variable whose `sourceId` names nothing, or a response kept only later; a variable on the last response before any operation; `headerField` on a fixture | `error` in phase `Load`, nothing sent |
 | setup start | a placeholder in an autocreated fixture fails | Setup `error`, tests `skip`, teardown runs |
 | a fixture is used | a placeholder in that fixture fails | the operation or assertion using it is `error`, the phase stops |
 | an operation | a placeholder fails | the operation is `error`, the phase stops |
 | an assertion | a placeholder fails | the assertion is `error`, the phase stops. `warningOnly` does not help; it only softens a `fail`. |
 
-Whether every `${name}` used is declared is not checked before the run. It shows at the first use.
+`TestScriptChecks` walks the actions in the order they run. It finds a placeholder that can never resolve before
+anything is sent, also inside a fixture resource. The message names where the placeholder is used:
 
-A placeholder fails with one of these messages (`TestScriptException`):
+```
+TestScript is not valid: Variable 'pdi' (Test 'read', action 1) is used but not defined by the TestScript
+```
+
+A variable is only checked where it is used. A declared but unused variable with a broken `sourceId` is no error.
+
+What remains for the run is what depends on the server's answers. A placeholder then fails with one of these
+messages (`TestScriptException`):
 
 | Message | Cause |
 |---|---|
@@ -300,12 +309,12 @@ e.g. `1`, and the read becomes `GET [base]/Patient/1`. The same read before the 
 | `core.engine.TestScriptExecution` | resolves before each operation and assertion; hands `variables::resolve` to the fixtures |
 | `core.engine.FixtureManager.resolve`, `core.content.ResourceContent.replaceText` | placeholders in fixture resources, at each use |
 | `core.engine.TestRunner.builtInValues` | the `${testrunner.…}` values |
-| `core.engine.TestScriptChecks` | checks the variable definitions before the run |
+| `core.engine.TestScriptChecks` | checks the variable definitions, and every placeholder where it is used, before the run |
 | `core.engine.Values.single` | exactly one value, as text |
 | `fhir.hapi.TestScriptMapper.variable` | reads `TestScript.variable`, for R4 and R5 |
 
 Tests: `TestScriptExecutionTest` (`createKeepsTheResponseForLaterOperationsAndVariables`,
-`variablesWithDefaultValueAndHeaderField`, `unknownVariableIsAnError`, nested class `FixtureValues`) and
+`variablesWithDefaultValueAndHeaderField`, nested classes `FixtureValues` and `Checks`) and
 `ResourceContentTest.replacesTextValuesButNotNamesOrStructure`.
 
 The reference is [architecture.md › Execution semantics](../architecture.md#execution-semantics).

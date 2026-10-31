@@ -3,6 +3,7 @@ package at.hl7.testing.runner.app;
 import at.hl7.testing.runner.core.config.RunConfiguration;
 import at.hl7.testing.runner.core.engine.TestRunner;
 import at.hl7.testing.runner.core.report.Outcome;
+import at.hl7.testing.runner.core.report.PhaseKind;
 import at.hl7.testing.runner.core.report.PhaseResult;
 import at.hl7.testing.runner.core.report.RunResult;
 import at.hl7.testing.runner.core.report.TestScriptResult;
@@ -216,9 +217,12 @@ class EndToEndIT {
         assertThat(test02.outcome()).isEqualTo(Outcome.FAIL);
         assertThat(test02.actions()).as("without stopTestOnFail every assertion runs").hasSize(4);
 
+        // an undeclared profile id fails every run, so it is reported before anything is sent
         TestScriptResult profile = script(run, "TestScript-testscript-validateProfile.json");
-        assertThat(phase(profile, "CheckProfileSupportFalseWarningFalse").outcome())
-                .as("undeclared profile id").isEqualTo(Outcome.ERROR);
+        assertThat(profile.phases().getFirst().kind()).isEqualTo(PhaseKind.LOAD);
+        assertThat(profile.phases().getFirst().messages().getFirst())
+                .contains("Test 'CheckProfileSupportFalseWarningFalse', action 1: validateProfileId 'test1234' is not"
+                        + " declared in TestScript.profile (declared: [at-core-patient-profile])");
 
         // minimumId on JSON and XML, navigationLinks on a search result
         TestScriptResult minimum = script(run, "TestScript-testscript-minimumId-navigationLinks.json");

@@ -6,6 +6,7 @@ import at.hl7.testing.runner.core.spi.FhirPathEvaluator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +42,18 @@ final class VariableResolver {
         this.state = state;
         this.fhirPath = fhirPath;
         definitions.forEach(variable -> variables.put(variable.name(), variable));
+    }
+
+    /** The names of the placeholders in {@code text}, in order, e.g. {@code pid} for {@code /${pid}}. */
+    static List<String> placeholders(String text) {
+        List<String> names = new ArrayList<>();
+        if (text != null && text.contains("${")) {
+            Matcher matcher = PLACEHOLDER.matcher(text);
+            while (matcher.find()) {
+                names.add(matcher.group(1));
+            }
+        }
+        return names;
     }
 
     /** Replaces every placeholder in {@code text}; text without placeholders is returned as it is. */
