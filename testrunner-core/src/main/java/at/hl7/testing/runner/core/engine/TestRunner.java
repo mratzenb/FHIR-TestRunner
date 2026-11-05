@@ -92,10 +92,22 @@ public final class TestRunner {
      * Runs the configured TestScripts under a {@link RunControl}, through which the run can be stopped from another
      * thread, e.g. by a shutdown hook.
      *
+     * <p>Once the run has started, the reports are always written, whatever happens: after a normal end, a stop, an
+     * unexpected exception (which is then rethrown) or {@link RunControl#reportNow()}. A TestScript that did not end is
+     * {@code error}, one that did not start {@code skip}, both with the reason.
+     *
      * @param control controls this run only; a new one is needed for every run
      * @throws ConfigurationException if the configuration cannot be used; nothing is run then
      */
     public RunResult run(RunConfiguration configuration, RunControl control) {
+        try {
+            return start(configuration, control);
+        } finally {
+            control.finish();
+        }
+    }
+
+    private RunResult start(RunConfiguration configuration, RunControl control) {
         List<String> problems = new ArrayList<>(configuration.problems());
         problems.addAll(configuration.unsupportedVersions(versions.versions()));
         problems.addAll(configuration.unknownFormats(reports.formats()));
@@ -112,37 +124,95 @@ public final class TestRunner {
             throw new ConfigurationException(problems);
         }
         RunContext run = RunContext.start(configuration, clock.instant());
-        Duration timeout = configuration.execution().timeout();
-        control.begin(clock, timeout == null ? null : run.started().plus(timeout),
-                "the run timeout of " + (timeout == null ? "" : RunControl.describe(timeout)) + " has passed");
         try {
             Files.createDirectories(run.runDirectory());
         } catch (IOException e) {
             throw new ConfigurationException(List.of("Cannot create the result folder " + run.runDirectory() + ": " + e));
         }
-        listeners.forEach(l -> l.runStarted(run));
+        RunProgress progress = new RunProgress();
+        Duration timeout = configuration.execution().timeout();
+        control.begin(clock, timeout == null ? null : run.started().plus(timeout),
+                "the run timeout of " + (timeout == null ? "" : RunControl.describe(timeout)) + " has passed",
+                () -> publish(run, progress, "the run was aborted before it ended"));
+        notify(listener -> listener.runStarted(run));
+        Throwable failure = null;
         try {
             List<TestScriptSource> sources = TestScriptDiscovery.discover(configuration.suites());
+            progress.found(sources);
             logStart(run, sources);
             CapabilityCheck capabilities = new CapabilityCheck();
-            List<TestScriptResult> results = scheduler.runAll(run, sources, control,
-                    (index, source) -> runOne(run, control, index, sources.size(), source, capabilities),
-                    (index, source, reason) -> notRun(run, index, source, reason));
+            scheduler.runAll(run, sources, control,
+                    (index, source) -> {
+                        progress.started(index);
+                        TestScriptResult result = runOne(run, control, index, sources.size(), source, capabilities);
+                        progress.finished(result);
+                        return result;
+                    },
+                    (index, source, reason) -> {
+                        TestScriptResult result = notRun(run, index, source, reason);
+                        progress.finished(result);
+                        return result;
+                    });
             if (control.stopReason() != null) {
                 log.warn("The run ended early: {}", control.stopReason());
             }
-            RunResult result = reports.publish(run, new RunResult(run.runId(), run.runDirectory(), run.started(),
-                    Duration.between(run.started(), clock.instant()), results, Map.of()));
-            RunResult finished = result;
-            listeners.forEach(l -> l.runFinished(run, finished));
-            return result;
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | Error e) {
             log.error("The run failed: {}", e.toString(), e);
-            RunResult failed = new RunResult(run.runId(), run.runDirectory(), run.started(),
-                    Duration.between(run.started(), clock.instant()), List.of(), Map.of());
-            listeners.forEach(l -> l.runFinished(run, failed));
-            throw e;
+            failure = e;
         }
+        // without a failure every TestScript has a result, and the reason is never used
+        RunResult result = publish(run, progress, failure == null ? "the run ended" : "the run failed: " + failure);
+        switch (failure) {
+            case null -> {
+                return result;
+            }
+            case RuntimeException e -> throw e;
+            case Error e -> throw e;
+            default -> throw new IllegalStateException(failure);
+        }
+    }
+
+    /**
+     * Writes the reports and tells the listeners, once per run: at its end, after an unexpected exception, or when a
+     * shutdown cannot wait ({@link RunControl#reportNow()}). A TestScript without a result is {@code error} if it had
+     * started, {@code skip} if not.
+     *
+     * @param reason why a TestScript has no result, for its message
+     */
+    private RunResult publish(RunContext run, RunProgress progress, String reason) {
+        return progress.publishOnce(() -> {
+            List<TestScriptResult> results = new ArrayList<>();
+            List<TestScriptSource> sources = progress.sources();
+            for (int index = 1; index <= sources.size(); index++) {
+                TestScriptResult result = progress.result(index);
+                results.add(result != null ? result : unfinished(index, sources.get(index - 1),
+                        progress.isStarted(index), reason));
+            }
+            RunResult published = reports.publish(run, new RunResult(run.runId(), run.runDirectory(), run.started(),
+                    Duration.between(run.started(), clock.instant()), results, Map.of()));
+            notify(listener -> listener.runFinished(run, published));
+            return published;
+        });
+    }
+
+    /** Tells every listener; a listener that throws is logged and does not stop the run or the other listeners. */
+    private void notify(java.util.function.Consumer<RunListener> event) {
+        for (RunListener listener : listeners) {
+            try {
+                event.accept(listener);
+            } catch (RuntimeException e) {
+                log.error("The run listener {} failed: {}", listener.getClass().getName(), e.toString(), e);
+            }
+        }
+    }
+
+    /** The result of a TestScript that has no result of its own when the reports are written. */
+    private TestScriptResult unfinished(int index, TestScriptSource source, boolean started, String reason) {
+        PhaseResult phase = started
+                ? PhaseResult.error(PhaseKind.LOAD, "Load", Duration.ZERO, "Did not end: " + reason)
+                : PhaseResult.skipped(PhaseKind.LOAD, "Load", 0, "Not started: " + reason);
+        return new TestScriptResult(index, source.suite().name(), source.baseName(), source.file().toString(),
+                source.file(), null, null, clock.instant(), Duration.ZERO, List.of(phase));
     }
 
     /**
@@ -154,7 +224,7 @@ public final class TestRunner {
         TestScriptResult result = new TestScriptResult(index, source.suite().name(), source.baseName(),
                 source.file().toString(), source.file(), null, null, clock.instant(), Duration.ZERO,
                 List.of(PhaseResult.skipped(PhaseKind.LOAD, "Load", 0, "Not started: " + reason)));
-        listeners.forEach(l -> l.testScriptFinished(run, result));
+        notify(listener -> listener.testScriptFinished(run, result));
         return result;
     }
 
@@ -190,7 +260,7 @@ public final class TestRunner {
                 control.stopStarting("fail-fast: TestScript " + label + " ended with " + result.outcome());
             }
             TestScriptResult finished = result;
-            listeners.forEach(l -> l.testScriptFinished(run, finished));
+            notify(listener -> listener.testScriptFinished(run, finished));
             return result;
         } finally {
             MDC.remove(MDC_TEST_SCRIPT);

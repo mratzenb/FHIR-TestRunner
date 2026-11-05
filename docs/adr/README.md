@@ -16,4 +16,4 @@ Format: context, decision, alternatives considered, consequences. Status of all:
 | [0010](0010-build.md) | Maven build: BOMs, version properties, enforcer, exec jar |
 | [0011](0011-validator-server-mode.md) | Validator server mode with fallback to one process per validation (default since 2026-10) |
 | [0012](0012-reference-rewriting.md) | Rewriting references to fixtures created on the server: a configurable convenience of this runner |
-| [0013](0013-run-control.md) | Run control: timeouts, fail-fast and cancel, checked between actions, never a killed thread |
+| [0013](0013-run-control.md) | Run control: timeouts, fail-fast and cancel, checked between actions, never a killed thread; reports always written, also on Ctrl-C |

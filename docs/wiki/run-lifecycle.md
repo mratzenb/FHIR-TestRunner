@@ -268,6 +268,16 @@ Outcomes combine by severity: `error > fail > skip > pass`.
 `ReportPublisher` hands the `RunResult` to each configured `ReportWriter` and logs the summary. A writer that fails
 is logged; the other reports are still written. Then `RunListener.runFinished` is called and the log file is closed.
 
+This happens exactly once for every run that has started, **whatever ends it**:
+
+| The run … | Reports | TestScripts without a result |
+|---|---|---|
+| ends normally, or is stopped by a limit | at the end | – (stopped ones have their `error`, not started ones their `skip`) |
+| throws an unexpected exception or error | written, then the exception is rethrown | started: `error` "Did not end: the run failed: …"; not started: `skip` |
+| gets Ctrl-C or SIGTERM (app) | after the teardowns, at most `shutdown-grace` later | as above, "the run was aborted before it ended" |
+
+A listener that throws is logged and does not stop the run. See [ADR-0013](../adr/0013-run-control.md).
+
 | Format | File | Writer |
 |---|---|---|
 | `junit` | `junit.xml` | `JUnitXmlReportWriter` |

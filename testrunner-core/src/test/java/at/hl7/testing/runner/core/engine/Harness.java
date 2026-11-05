@@ -47,6 +47,8 @@ final class Harness {
     private Duration testScriptTimeout;
     private Boolean failFast;
     private RunControl control = new RunControl();
+    private final Map<String, Error> failing = new LinkedHashMap<>();
+    private final List<RunListener> listeners = new java.util.ArrayList<>();
 
     Harness(Path dir, String fhirBase) {
         this.dir = dir;
@@ -120,6 +122,17 @@ final class Harness {
         return this;
     }
 
+    /** Loading the TestScript added as {@code name} throws {@code error}, like a bug in a FHIR version module. */
+    Harness failingOn(String name, Error error) {
+        failing.put(name, error);
+        return this;
+    }
+
+    Harness listener(RunListener listener) {
+        listeners.add(listener);
+        return this;
+    }
+
     Harness oauth2(OAuth2Config oauth2) {
         this.oauth2 = oauth2;
         return this;
@@ -144,9 +157,15 @@ final class Harness {
                 new ReportingConfig(dir.resolve("results"), List.of("junit", "summary", "json"), true, false, null, null),
                 null);
         try (JdkHttpTransport transport = new JdkHttpTransport(HttpConfig.defaults())) {
-            FhirVersionRegistry versions = new FhirVersionRegistry(List.of(StubVersionSupport.of(scripts)));
+            FhirVersionRegistry versions = new FhirVersionRegistry(List.of(new StubVersionSupport(body -> {
+                Error error = failing.get(body.text().trim());
+                if (error != null) {
+                    throw error;
+                }
+                return scripts.get(body.text().trim());
+            })));
             TestRunner runner = new TestRunner(versions, transport, validator, TestRunners.defaultReportWriters(versions),
-                    List.of(), Clock.systemDefaultZone());
+                    listeners, Clock.systemDefaultZone());
             return runner.run(configuration, control);
         }
     }

@@ -56,6 +56,7 @@ flowchart TB
         i1["EndToEndIT: whole app, in-memory server, fake validator"]
         i2["RealValidatorIT: real validator, opt-in via VALIDATOR_JAR"]
         i3["HapiServerIT: real HAPI FHIR R4 + R5 in Docker, skipped without Docker"]
+        i4["ShutdownIT: the app in its own JVM, killed with SIGTERM: teardown and reports"]
     end
     unit --> it
 ```
