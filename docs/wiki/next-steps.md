@@ -47,7 +47,10 @@ Both were reproduced with a probe test against `InMemoryFhirServer`. The probe t
 
 ### D1 – Conditional update sends the resource type as id
 
-**What happens.** An `update` with `params: "?identifier=…"` is a conditional update (`PUT [base]/[type]?[search]`).
+**Status:** fixed. `RequestFactory` sets the body id only for an instance URL; test
+`TestScriptExecutionTest.Operations.conditionalUpdateSendsTheFixtureAsWritten`.
+
+**What happened.** An `update` with `params: "?identifier=…"` is a conditional update (`PUT [base]/[type]?[search]`).
 The runner sends it with the body's `id` replaced by `Patient`.
 
 **Why.** `RequestFactory.create` sets the body id to the last path segment of the URL for every update. It does this
@@ -272,11 +275,9 @@ step below is one pull request, with tests and documentation.
 
 ### M1 – Correctness (S–M)
 
-1. **D1.** In `RequestFactory.create`, set the body id only for an instance URL (`ResourceContent.parseLocation` of
-   the path, the type equals the body's resource type, no query).
-   *Tests:* `TestScriptExecutionTest.Operations` – a conditional update keeps the body id and sends
-   `PUT /Patient?identifier=x`; the existing `updatePutsTheFixtureWithTheIdOfTheUrl` still passes. Teach
-   `InMemoryFhirServer` to answer `PUT [type]?query` if needed.
+1. ~~**D1.**~~ Done: in `RequestFactory.create`, the body id is set only for an instance URL
+   (`ResourceContent.parseLocation`, the type equals the body's resource type). `InMemoryFhirServer` answers
+   conditional updates.
 2. **A1 + D2.** Add `ActionRules` (see A1). Use it in `AssertionEvaluator.operator`, `RequestFactory` and
    `TestScriptChecks.References.check`.
    *Tests:* for each case listed under D2: phase `Load` is `error`, the message names test and action, and

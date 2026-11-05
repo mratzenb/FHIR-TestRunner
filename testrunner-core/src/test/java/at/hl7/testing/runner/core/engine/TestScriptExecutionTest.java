@@ -160,6 +160,25 @@ class TestScriptExecutionTest {
         }
 
         @Test
+        void conditionalUpdateSendsTheFixtureAsWritten() {
+            harness.resource("patient", PATIENT)
+                    .add("ts", script().fixture("patient", false, false)
+                            .test(test("t",
+                                    op("update", "Patient", "patient", null, "?name=Bucher", null), responseCode("201"),
+                                    op("update", "Patient", "patient", null, "?name=Bucher", null), responseCode("200")))
+                            .build());
+
+            TestScriptResult result = harness.runOne();
+
+            assertThat(result.outcome()).isEqualTo(Outcome.PASS);
+            InMemoryFhirServer.Request put = server.requests().getFirst();
+            assertThat(put.line()).isEqualTo("PUT /Patient");
+            assertThat(put.query()).isEqualTo("name=Bucher");
+            assertThat(put.body()).isEqualTo(PATIENT);
+            assertThat(server.resource("Patient/pat-1")).isNotNull();
+        }
+
+        @Test
         void capabilitiesTransactionAndSearchUrls() {
             harness.resource("bundle", "{\"resourceType\":\"Bundle\",\"type\":\"batch\"}")
                     .add("ts", script().fixture("bundle", false, false)

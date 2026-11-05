@@ -47,10 +47,13 @@ final class RequestFactory {
         if (operation.encodeRequestUrl()) {
             url = UrlEncoding.encode(url);
         }
-        if (operation.type() == OperationType.UPDATE && body != null && body.format() != ContentFormat.OTHER
-                && ResourceContent.resourceType(body) != null) {
-            // an update carries the id of the URL ([base]/[type]/[id]), otherwise the server rejects it
-            body = ResourceContent.withId(body, lastSegment(url));
+        if (operation.type() == OperationType.UPDATE && body != null && body.format() != ContentFormat.OTHER) {
+            // an update carries the id of the URL ([base]/[type]/[id]), otherwise the server rejects it; a conditional
+            // update ([base]/[type]?[search]) names no id, its body is sent as it is
+            String id = instanceId(url, ResourceContent.resourceType(body));
+            if (id != null) {
+                body = ResourceContent.withId(body, id);
+            }
         }
         return new FhirRequest(method, uri(url), headers(operation, body), body == null ? null : body.text());
     }
@@ -217,14 +220,13 @@ final class RequestFactory {
                 || type == OperationType.DELETE || type == OperationType.PATCH;
     }
 
-    private static String lastSegment(String url) {
-        String path = url;
-        int query = path.indexOf('?');
-        if (query >= 0) {
-            path = path.substring(0, query);
-        }
-        path = path.replaceAll("/+$", "");
-        return path.substring(path.lastIndexOf('/') + 1);
+    /**
+     * The id of an instance URL {@code [base]/[type]/[id]} of a resource of {@code type}; {@code null} for any other
+     * URL, e.g. {@code [base]/[type]?[search]}, or if {@code type} is {@code null}.
+     */
+    private static String instanceId(String url, String type) {
+        Map<String, String> location = ResourceContent.parseLocation(url);
+        return type != null && type.equals(location.get("type")) ? location.get("id") : null;
     }
 
     /** {@code W/"3"} -> {@code 3}. */
