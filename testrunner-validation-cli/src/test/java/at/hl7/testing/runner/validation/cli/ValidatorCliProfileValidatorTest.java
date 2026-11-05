@@ -74,7 +74,19 @@ class ValidatorCliProfileValidatorTest {
         ValidatorCliProfileValidator missing = validator(dir.resolve("nope.jar"));
 
         assertThat(missing.problems()).singleElement().asString().contains("does not exist", "validator_cli.jar");
+        assertThat(missing.configurationProblems()).as("the run starts; each validation is an error").isEmpty();
         assertThatThrownBy(() -> missing.validate(request("{}"))).isInstanceOf(ValidatorUnavailableException.class);
+    }
+
+    @Test
+    void jarNotSetIsAConfigurationProblemInBothModes() {
+        ValidationConfig config = ValidationConfig.enabled(null);
+
+        assertThat(new ValidatorCliProfileValidator(config).configurationProblems()).singleElement().asString()
+                .startsWith("testrunner.validation.validator-jar is not set");
+        assertThat(new ValidatorServerProfileValidator(config).configurationProblems()).singleElement().asString()
+                .startsWith("testrunner.validation.validator-jar is not set");
+        assertThat(ProfileValidators.create(ValidationConfig.disabled()).configurationProblems()).isEmpty();
     }
 
     @Test

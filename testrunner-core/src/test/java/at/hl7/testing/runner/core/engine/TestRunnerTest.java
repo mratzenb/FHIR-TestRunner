@@ -15,6 +15,8 @@ import at.hl7.testing.runner.core.report.Outcome;
 import at.hl7.testing.runner.core.report.TestScriptResult;
 import at.hl7.testing.runner.core.spi.FhirVersionRegistry;
 import at.hl7.testing.runner.core.spi.ProfileValidator;
+import at.hl7.testing.runner.core.spi.ValidationRequest;
+import at.hl7.testing.runner.core.spi.ValidationResult;
 import at.hl7.testing.runner.testsupport.InMemoryFhirServer;
 import org.junit.jupiter.api.Test;
 
@@ -30,6 +32,7 @@ import static at.hl7.testing.runner.core.engine.Scripts.responseCode;
 import static at.hl7.testing.runner.core.engine.Scripts.script;
 import static at.hl7.testing.runner.core.engine.Scripts.test;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** The run as a whole: suites with {@code parallel = false}, parallel TestScripts, package suites. */
 class TestRunnerTest extends EngineTestBase {
@@ -72,6 +75,30 @@ class TestRunnerTest extends EngineTestBase {
                 .flatMap(p -> p.actions().stream()).filter(a -> a.kind().equals(ActionResult.OPERATION))
                 .map(ActionResult::requestId).toList();
         assertThat(requestIds).hasSize(12).doesNotHaveDuplicates();
+    }
+
+    @Test
+    void configurationProblemOfTheValidatorStopsTheRunBeforeAnythingIsSent() {
+        harness.validator(new ProfileValidator() {
+            @Override
+            public boolean isEnabled() {
+                return true;
+            }
+
+            @Override
+            public List<String> configurationProblems() {
+                return List.of("testrunner.validation.x is not set");
+            }
+
+            @Override
+            public ValidationResult validate(ValidationRequest request) {
+                throw new AssertionError("never called");
+            }
+        }).add("ts", script().test(test("t", op("capabilities"))).build());
+
+        assertThatThrownBy(harness::run).isInstanceOf(ConfigurationException.class)
+                .hasMessageContaining("testrunner.validation.x is not set");
+        assertThat(server.requests()).isEmpty();
     }
 
     @Test

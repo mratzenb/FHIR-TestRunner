@@ -7,6 +7,8 @@ description: Profile validation in the FHIR TestScript Runner (TestRunnerOnJava)
 
 `assert.validateProfileId` and (if `validation.validate-test-scripts`, default true) the check of every TestScript
 against its FHIR version go through the port `core.spi.ProfileValidator` (`isEnabled`, `description`,
+`configurationProblems` – settings that block every run, added to the run's problems ⇒ exit 2; the adapters report
+`validator-jar is not set` via `ValidatorArguments.configurationProblems`, `DISABLED` reports none –,
 `validate(ValidationRequest(body, fhirVersion, profile, profilesDir, igs))` → `ValidationResult`).
 `ProfileValidators.create(ValidationConfig)` picks: disabled ⇒ `ProfileValidator.DISABLED`; `PROCESS` ⇒
 `ValidatorCliProfileValidator`; `SERVER` ⇒ `ValidatorServerProfileValidator`. Implementations must be thread-safe.

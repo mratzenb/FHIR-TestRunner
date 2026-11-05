@@ -74,6 +74,11 @@ public final class ValidatorServerProfileValidator implements ProfileValidator, 
     }
 
     @Override
+    public List<String> configurationProblems() {
+        return ValidatorArguments.configurationProblems(config);
+    }
+
+    @Override
     public ValidationResult validate(ValidationRequest request) {
         if (closed) {
             throw new ValidatorUnavailableException("The validator has been closed");

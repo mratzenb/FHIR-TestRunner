@@ -20,7 +20,9 @@ which is also the fallback of a failed server.
 * The FHIR version (`-version 4.0` / `5.0`) is the version of the TestScript – the PoC's `validation.fhirVersion`
   setting and the bugs from forgetting it are gone.
 
-At start-up, `ValidatorCheck` warns if validation is enabled but the jar or java is missing (both modes). The first
+If validation is enabled and `validator-jar` is not set, the run does not start (exit code 2): the adapter reports
+it as `ProfileValidator.configurationProblems()`. At start-up, `ValidatorCheck` warns if the jar or java is missing
+(both modes); each validation is then an `error`. The first
 lines of every run log name the mode in use (`Profile validation: …`).
 
 ## Where the profiles come from

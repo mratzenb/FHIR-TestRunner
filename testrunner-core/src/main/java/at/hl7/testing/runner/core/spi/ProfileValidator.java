@@ -1,5 +1,7 @@
 package at.hl7.testing.runner.core.spi;
 
+import java.util.List;
+
 /**
  * Validates resources against the base specification or a profile. Used for {@code assert.validateProfileId}
  * and for the check of each TestScript before it runs. Implementations must be thread-safe.
@@ -12,6 +14,17 @@ public interface ProfileValidator {
     /** How validation is done, for the log at the start of a run. */
     default String description() {
         return isEnabled() ? "enabled" : "disabled";
+    }
+
+    /**
+     * Problems in the configuration of this validator that keep every run from starting, each naming the property to
+     * fix, e.g. a validator jar that is not set. The runner adds them to the problems of the configuration: the run
+     * does not start, exit code 2. Problems that only some validations meet are thrown by {@link #validate} instead.
+     *
+     * @return the problems, empty if there are none (the default)
+     */
+    default List<String> configurationProblems() {
+        return List.of();
     }
 
     /**

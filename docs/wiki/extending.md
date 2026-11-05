@@ -108,6 +108,8 @@ Implement `ProfileValidator` and declare it as a bean. Rules:
 * Thread-safe.
 * Throw `ValidatorUnavailableException` when you could not validate. **Never** return a valid result then.
 * If you hold processes or connections, implement `AutoCloseable`.
+* Settings that keep every run from starting go into `configurationProblems()`, one message per problem naming the
+  property. The run then stops with exit code 2 before anything is sent.
 
 An in-process validator (`org.hl7.fhir.validation`) would fit here. Why it was not chosen so far:
 [ADR-0006](../adr/0006-validator-cli.md).

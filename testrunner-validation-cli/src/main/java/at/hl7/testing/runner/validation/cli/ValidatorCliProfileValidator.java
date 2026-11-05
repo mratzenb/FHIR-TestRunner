@@ -55,6 +55,11 @@ public final class ValidatorCliProfileValidator implements ProfileValidator {
     }
 
     @Override
+    public List<String> configurationProblems() {
+        return ValidatorArguments.configurationProblems(config);
+    }
+
+    @Override
     public String description() {
         return "HL7 validator, one process per validation (" + config.validatorJar() + ")";
     }
