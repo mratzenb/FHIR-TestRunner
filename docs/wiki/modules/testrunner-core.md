@@ -108,14 +108,15 @@ new TestRunner(versions, transport, validator, reportWriters, listeners, clock);
 
 `TestRunners.create(httpConfig, validator)` builds one with the defaults, without Spring.
 
-`TestRunner` checks the configuration and runs one TestScript at a time: load, check, execute. Three helpers do
+`TestRunner` checks the configuration and runs one TestScript at a time: load, check, execute. `check` stops
+before execute, for authors and CI without a server ([ADR-0014](../../adr/0014-author-workflow.md)). Three helpers do
 the rest:
 
 | Class | Job |
 |---|---|
 | `RunScheduler` | which TestScript runs when: serial suites first, then the pool of `execution.parallelism` threads |
 | `ExecutionFactory` | what one execution gets from its run, as an `ExecutionEnvironment`: the `FhirHttpClient` with its communication log, default headers and OAuth2 token, and the `${testrunner.…}` values |
-| `ReportPublisher` | writes the reports in the configured formats and logs the summary |
+| `ReportPublisher` | writes the reports in the configured formats and logs the summary; no FHIR TestReports for a check |
 
 ### The public API
 
@@ -163,7 +164,7 @@ response. Decimals keep their precision (`100.0` ≠ `100`).
 
 | Test | Covers |
 |---|---|
-| Engine tests, one class per concern, all on `EngineTestBase`: `FixturesTest`, `OperationsTest`, `AssertionsTest`, `CapabilitiesTest`, `ReferenceRewritingTest`, `KeptRequestsTest`, `ChecksBeforeSendingTest`, `PhasesTest`, `PlaceholdersTest`, `TestRunnerTest`, `RunFolderTest`, `OAuth2Test` | phase rules, operations, assertions, fixtures, capabilities, variables, kept requests, checks before sending, parallel runs, the run folder, OAuth2 – through the real `TestRunner` with an in-memory server |
+| Engine tests, one class per concern, all on `EngineTestBase`: `FixturesTest`, `OperationsTest`, `AssertionsTest`, `CapabilitiesTest`, `ReferenceRewritingTest`, `KeptRequestsTest`, `ChecksBeforeSendingTest`, `CheckModeTest`, `PhasesTest`, `PlaceholdersTest`, `TestRunnerTest`, `RunControlTest`, `RunFolderTest`, `OAuth2Test` | phase rules, operations, assertions, fixtures, capabilities, variables, kept requests, checks before sending, check mode, parallel runs, run control, the run folder, OAuth2 – through the real `TestRunner` with an in-memory server |
 | `RunConfigurationTest` | defaults and `problems()` |
 | `AccessTokensTest` | fetching and renewing OAuth2 access tokens |
 | `FhirElementTest`, `PathEvaluatorTest`, `ResourceContentTest`, `UrlEncodingTest` | content helpers |

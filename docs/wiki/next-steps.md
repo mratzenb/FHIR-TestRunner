@@ -227,7 +227,7 @@ TestScripts are sent to servers, so the integrity of the package matters.
 
 | Id | Feature | Value | Effort | Depends on |
 |---|---|---|---|---|
-| F1 | **Check mode**: load and check TestScripts without a server | high | S | A1 |
+| F1 | **Check mode**: load and check TestScripts without a server (done, M3.1) | high | S | A1 |
 | F2 | **Select what runs**: by TestScript and test name; list mode | high | S | – |
 | F3 | **Run control**: run and TestScript timeouts, fail-fast, reports after Ctrl-C (done, M2.3/M2.4) | high | M | A2, A5 |
 | F4 | **Container image** and a compose file with HAPI FHIR | medium | S | – |
@@ -352,9 +352,13 @@ pages and skills.
 
 ### M3 – Author workflow (S–M)
 
-1. **F1.** `TestRunner.check(RunConfiguration)` runs `runOne` up to the checks before sending and returns a
-   `RunResult` with the `Load` phase only, so all report writers work unchanged. `--check` in
-   `TestRunnerApplication.translate` maps to `testrunner.mode=check`; `RunCommand` picks the method.
+1. ~~**F1.**~~ Done as proposed: `TestRunner.check(RunConfiguration[, RunControl])` runs `runOne` up to the checks
+   before sending and returns a `RunResult` with the `Load` phase only (`pass` with the warnings, or `error`), so all
+   report writers work unchanged. `--check` in `TestRunnerApplication.translate` maps to `testrunner.mode=check`;
+   `RunCommand` picks the method. Beyond the proposal ([ADR-0014](../adr/0014-author-workflow.md)): no FHIR
+   TestReports for a check, a run folder `check_<timestamp>`, the validator only needed when it validates the
+   TestScripts, fail-fast and the TestScript timeout do not apply. Tests: `CheckModeTest`,
+   `EndToEndIT.checkModeNeedsNoServerAndExitsWithOneForBrokenTestScripts`, `wikiSamplesAreCheckedWithoutAServer`.
 2. **F2.** `testrunner.select.testscripts` and `testrunner.select.tests` (globs), with the CLI short forms
    `--testscript` and `--test`, plus `--list`. Proposal: deselected tests are not run and not reported, and the log
    says how many were left out.

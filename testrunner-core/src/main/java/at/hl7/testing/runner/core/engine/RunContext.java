@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * explicitly; nothing about a run lives in static fields. Internal to the engine: listeners get a {@link RunInfo},
  * which holds values only.
  *
- * @param runId          id of the run, e.g. {@code run_2026-10-21_14-03-07-123}
+ * @param runId          id of the run, e.g. {@code run_2026-10-21_14-03-07-123}; {@code check_…} for a check
  * @param started        when the run started
  * @param configuration  the configuration of the run
  * @param runDirectory   folder of the run's results and logs
@@ -33,8 +33,11 @@ record RunContext(String runId, Instant started, RunConfiguration configuration,
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss-SSS")
             .withZone(ZoneId.systemDefault());
 
-    static RunContext start(RunConfiguration configuration, Instant now) {
-        String runId = "run_" + STAMP.format(now);
+    /**
+     * @param kind {@code run} or {@code check}, the start of the run id and the name of the run folder
+     */
+    static RunContext start(RunConfiguration configuration, Instant now, String kind) {
+        String runId = kind + "_" + STAMP.format(now);
         Path runDirectory = configuration.reporting().outputDir().resolve(runId);
         return new RunContext(runId, now, configuration, runDirectory, new AtomicInteger(), new ConcurrentHashMap<>());
     }

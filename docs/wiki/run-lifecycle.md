@@ -39,7 +39,9 @@ sequenceDiagram
 
 ## 1. Start and configuration check
 
-`RunCommand` (in `testrunner-app`) calls `TestRunner.run(configuration)`.
+`RunCommand` (in `testrunner-app`) calls `TestRunner.run(configuration)`, or `TestRunner.check(configuration)` with
+`--check`. A check goes the same way up to the end of step 6 and then stops: see
+[Check mode](#check-mode-stop-before-sending).
 
 `TestRunner` first collects **all** problems at once:
 
@@ -47,7 +49,8 @@ sequenceDiagram
 * `unsupportedVersions()` – a suite pins a FHIR version that no module on the classpath supports.
 * `unknownFormats()` – a report format that no `ReportWriter` provides.
 * `ProfileValidator.configurationProblems()` – the validator's own settings, e.g. no validator jar. The adapter
-  knows its properties; with validation off, the validator is `DISABLED` and reports none.
+  knows its properties; with validation off, the validator is `DISABLED` and reports none. A check asks only if it
+  validates the TestScripts.
 
 Then suites with a `package-id` are resolved by `PackageSuites`. It finds the package in the FHIR package cache,
 or downloads it. The suite then points to the unpacked folder.
@@ -159,6 +162,20 @@ warnings are listed after them in the `Load` phase.
 
 Only what fails in **every** run is reported. A response kept in an earlier test counts as there, even if that test
 might stop early. An id or profile that is itself a placeholder (`sourceId: ${which}`) is checked when it is used.
+
+### Check mode: stop before sending
+
+`TestRunner.check` (`--check`) runs steps 1 to 6 and stops before the first request
+([ADR-0014](../adr/0014-author-workflow.md)):
+
+| | Run | Check |
+|---|---|---|
+| Run folder | `run_<timestamp>` | `check_<timestamp>` |
+| FHIR server | needed, else `skip` | not needed |
+| Phases of a TestScript | `Load` (only if it has problems), Setup, tests, Teardown | `Load` only: `pass` with the warnings, or `error` |
+| Warnings (ignored elements, unsupported assertions, fixture order) | on the Setup | on `Load` |
+| Reports | all configured formats | all but `testreport` |
+| `fail-fast`, `test-script-timeout` | apply | do not apply; the run timeout does |
 
 ## 7. Execution
 
@@ -291,7 +308,7 @@ A listener that throws is logged and does not stop the run. See [ADR-0013](../ad
 | Code | Meaning |
 |---|---|
 | 0 | every TestScript passed or was skipped, and at least one passed |
-| 1 | at least one `fail` or `error` |
+| 1 | at least one `fail` or `error`; in a check: a TestScript has problems |
 | 2 | invalid configuration, nothing was run |
 | 3 | every TestScript was skipped, nothing was tested |
 

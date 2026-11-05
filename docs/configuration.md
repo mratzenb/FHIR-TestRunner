@@ -20,6 +20,7 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
 |---|---|
 | `--config=<file>` | Adds a configuration file (short for `--spring.config.additional-location=file:<file>`) |
 | `--novalidator` | Disables profile validation (short for `--testrunner.validation.enabled=false`) |
+| `--check` | Only loads and checks the TestScripts, sends nothing (short for `--testrunner.mode=check`), see [Check mode](#check-mode) |
 | `--testrunner.<property>=<value>` | Overrides any single property |
 | `--spring.profiles.active=<p>` | Activates `application-<p>.yml` files placed next to the jar or in `./config/` |
 
@@ -107,6 +108,7 @@ testrunner:
     registry: https://packages.fhir.org    # default; where missing packages are downloaded from
 
   run-on-startup: true                     # app only: false to wire everything without running (tests, embedding)
+  mode: run                                # app only: run (default) | check – load and check, send nothing (--check)
   exit-on-skip: all                        # app only: when skipped TestScripts give exit code 3 instead of 0:
                                            # all (default, nothing was tested) | any (a skip, no failure) | never
   shutdown-grace: 30s                      # app only: on Ctrl-C or kill, how long to wait for the run to tear
@@ -159,6 +161,26 @@ RunControl control = new RunControl();
 //   if (!control.awaitFinished(Duration.ofSeconds(30))) control.reportNow();
 RunResult result = runner.run(configuration, control);
 ```
+
+### Check mode
+
+`--check` (`testrunner.mode=check`) does everything a run does before it sends the first request, and stops there:
+
+* discovers and loads the TestScripts (version detection, fixtures from Example Instances or `contained`),
+* applies every check before sending ([How a run works › Checks before sending](wiki/run-lifecycle.md#6-checks-before-sending)),
+* validates each TestScript against its FHIR version if `validation.validate-test-scripts` is on (the default).
+
+It needs no FHIR server, and the validator only for that validation: `--check --novalidator` needs neither.
+
+```sh
+java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=my-suite.yml --check
+```
+
+Every TestScript gets one phase, `Load`: `pass` with the warnings a run would show (e.g. an element the FHIR version
+ignores, an assertion the runner cannot evaluate), or `error` listing every problem. The reports go to
+`output-dir/check_<timestamp>/` – `junit.xml`, `summary.txt`, `result.json` – but no FHIR TestReports: nothing was
+executed. Exit code 0 no problems, 1 problems, 2 configuration. In a library, call `TestRunner.check(configuration)`.
+Why it is built this way: [ADR-0014](adr/0014-author-workflow.md).
 
 ### Servers protected by OAuth2
 

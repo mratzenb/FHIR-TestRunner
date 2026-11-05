@@ -40,6 +40,15 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
 7. `TestScriptResult`s → `RunResult` (in discovery order) → `ReportPublisher` (`ReportWriter`s, summary log) →
    `RunListener.runFinished` – exactly once per started run, whatever ends it (see Run control).
 
+**Check mode (F1, ADR-0014).** `TestRunner.check(configuration[, control])` = steps 1–4, then stop: same `start`/
+`runOne`, private enum `TestRunner.Mode` (`RUN`, `CHECK`). Per TestScript one phase `Load`: problems ⇒ `error`
+(tests **not** added as skip), else `pass` with `WARNING:` messages (read warnings, `unsupportedWarnings`,
+`orderWarnings`; in a run these go on the Setup) via `TestRunner.checked`. Run id/folder `check_<timestamp>`
+(`RunContext.start(…, kind)`); no server needed; `validator.configurationProblems()` only asked when
+`validate-test-scripts` is on; fail-fast and `test-script-timeout` ignored, run timeout/cancel apply;
+`ReportPublisher.publish(run, result, check)` skips format `testreport` and logs "===== Check …". App:
+`--check` = `testrunner.mode=check` (`RunCommand.Mode`), exit codes as for a run.
+
 The MDC key `testScript` (`TestRunner.MDC_TEST_SCRIPT`) = `<NN>_<file base name>` while a TestScript runs.
 
 ## Phase and outcome rules (`TestScriptExecution`)
@@ -217,4 +226,4 @@ TestScripts one after the other first, then the rest in the pool.
 problems, run folder, listeners; per TestScript load → checks → execution), `RunScheduler` (serial suites, thread pool),
 `ExecutionFactory` (`ExecutionEnvironment` of one execution: `FhirHttpClient`, communication log, headers, OAuth2,
 `builtInValues`), `ReportPublisher` (report writers, summary log).
-Docs: `docs/architecture.md` › Runtime view, Execution semantics, Open points; ADR-0004, ADR-0008.
+Docs: `docs/architecture.md` › Runtime view, Execution semantics, Open points; ADR-0004, ADR-0008, ADR-0013, ADR-0014.

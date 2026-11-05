@@ -62,6 +62,8 @@ testrunner:
     log-file-level: DEBUG                    # TRACE|DEBUG|INFO|WARN|ERROR
   packages: {cache-dir: ~/.fhir/packages, registry: https://packages.fhir.org}   # PackagesConfig
   run-on-startup: true                       # app only (RunCommand); false = wire without running
+  mode: run                                  # app only (RunCommand.Mode, Binder): run | check (--check: load +
+                                             # check, send nothing, TestRunner.check, ADR-0014)
   exit-on-skip: all                          # app only (RunCommand.ExitOnSkip, bound via Binder): all | any | never
   shutdown-grace: 30s                        # app only (RunCommand, Binder): wait on Ctrl-C/SIGTERM before reportNow
 ```
@@ -69,7 +71,7 @@ testrunner:
 Sources, highest first: command line → system properties → env vars (`TESTRUNNER_FHIRSERVER_BASEURL`) → `--config`
 file → `testrunner-app/src/main/resources/application.yml`. CLI shortcuts (`TestRunnerApplication`):
 `--config=<file>` = `--spring.config.additional-location=file:<file>`, `--novalidator` =
-`--testrunner.validation.enabled=false`. Console logging is ordinary Spring Boot (`logging.level.*`).
+`--testrunner.validation.enabled=false`, `--check` = `--testrunner.mode=check`. Console logging is ordinary Spring Boot (`logging.level.*`).
 
 Dev configs in `config/`: `dev-r4.yml`, `dev-r5.yml`, `dev-all.yml` (samples + r4 + r5, parallelism 4, R5 on
 `:8081`), `negative-control.yml` (expected FAIL). All take `validator-jar: ${VALIDATOR_JAR:validator_cli.jar}`,

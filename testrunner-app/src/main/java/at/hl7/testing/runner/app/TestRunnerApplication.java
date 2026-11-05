@@ -10,13 +10,14 @@ import java.util.List;
  * Command line entry point.
  *
  * <pre>
- * java -jar testrunner-app.jar --config=my-run.yml [--novalidator] [--testrunner.execution.parallelism=4] ...
+ * java -jar testrunner-app.jar --config=my-run.yml [--check] [--novalidator] [--testrunner.execution.parallelism=4] ...
  * </pre>
  *
  * {@code --config} adds a configuration file to the Spring Boot configuration (it is short for
  * {@code --spring.config.additional-location=file:...}); {@code --novalidator} is short for
- * {@code --testrunner.validation.enabled=false}. Any property can also be given as argument, system property or
- * environment variable ({@code TESTRUNNER_FHIRSERVER_BASEURL}).
+ * {@code --testrunner.validation.enabled=false}; {@code --check} for {@code --testrunner.mode=check}: load and check
+ * the TestScripts, send nothing. Any property can also be given as argument, system property or environment variable
+ * ({@code TESTRUNNER_FHIRSERVER_BASEURL}).
  *
  * <p>Exit codes: 0 every TestScript passed, 1 at least one failed or had an error, 2 the configuration is invalid,
  * 3 TestScripts were skipped – by default only when every TestScript was, see {@link RunCommand.ExitOnSkip}.
@@ -40,6 +41,8 @@ public class TestRunnerApplication {
                 translated.add("--spring.config.additional-location=" + location(arg.substring("--config=".length())));
             } else if (arg.equals("--novalidator")) {
                 translated.add("--testrunner.validation.enabled=false");
+            } else if (arg.equals("--check")) {
+                translated.add("--testrunner.mode=check");
             } else {
                 translated.add(arg);
             }

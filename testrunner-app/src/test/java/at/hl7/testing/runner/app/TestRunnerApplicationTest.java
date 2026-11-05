@@ -13,5 +13,6 @@ class TestRunnerApplicationTest {
                         "--testrunner.validation.enabled=false", "--x=y");
         assertThat(TestRunnerApplication.translate(new String[] {"--config=classpath:dev.yml"}))
                 .containsExactly("--spring.config.additional-location=classpath:dev.yml");
+        assertThat(TestRunnerApplication.translate(new String[] {"--check"})).containsExactly("--testrunner.mode=check");
     }
 }

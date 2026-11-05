@@ -160,6 +160,22 @@ class EndToEndIT {
         assertThat(r4Server.requests()).isEmpty();
     }
 
+    /** The {@code --check} commands of docs/wiki/samples.md: the same Load error without a server, 0 for the good suite. */
+    @Test
+    void wikiSamplesAreCheckedWithoutAServer() {
+        Path samples = SampleData.wikiSamples();
+        String output = "--testrunner.reporting.output-dir=" + dir.resolve("results");
+
+        assertThat(exitCode(TestRunnerApplication.translate(new String[] {"--check", "--novalidator", output,
+                "--testrunner.fhir-server.base-url=",
+                "--testrunner.suites[0].base-dir=" + samples.resolve("mistakes"),
+                "--testrunner.suites[0].fhir-version=R4"}))).isEqualTo(RunCommand.EXIT_FAILED);
+        assertThat(exitCode(TestRunnerApplication.translate(new String[] {"--check", "--novalidator", output,
+                "--config=" + samples.resolve("first-suite.yml"),
+                "--testrunner.fhir-server.base-url=",
+                "--testrunner.suites[0].base-dir=" + samples.resolve("first-suite")}))).isEqualTo(RunCommand.EXIT_PASSED);
+    }
+
     @Test
     void mixedSuiteRunsR4AndR5InParallelAgainstTheirOwnServers() {
         r4Server = InMemoryFhirServer.start("4.0.1");
@@ -361,6 +377,41 @@ class EndToEndIT {
                 .contains("Fixture 'patient' references the contained resource '#other'", "contained: [pat]");
         assertThat(r4Server.resource("Patient/1").path("name").get(0).path("family").asText()).isEqualTo("Contained");
         assertThat(r4Server.requestLines()).containsExactly("POST /Patient", "POST /Patient");
+    }
+
+    /**
+     * F1 of docs/wiki/next-steps.md: {@code --check} loads, checks and validates the samples without a FHIR server.
+     * The two that cannot run make the exit code 1; nothing is sent, and no FHIR TestReport claims a result.
+     */
+    @Test
+    void checkModeNeedsNoServerAndExitsWithOneForBrokenTestScripts() throws Exception {
+        Path calls = dir.resolve("validator-calls.log");
+        String[] args = TestRunnerApplication.translate(new String[] {"--check",
+                "--testrunner.fhir-server.base-url=",
+                "--testrunner.validation.validator-jar=" + validatorJar,
+                "--testrunner.validation.jvm-arguments=-DFAKE_VALIDATOR_LOG=" + calls,
+                "--testrunner.reporting.output-dir=" + dir.resolve("results"),
+                "--testrunner.suites[0].base-dir=" + SampleData.samples()});
+
+        assertThat(exitCode(args)).isEqualTo(RunCommand.EXIT_FAILED);
+
+        Path check;
+        try (var folders = Files.list(dir.resolve("results"))) {
+            check = folders.collect(java.util.stream.Collectors.toList()).getFirst();
+        }
+        assertThat(check.getFileName().toString()).startsWith("check_");
+        assertThat(check.resolve("summary.txt")).content().contains("TestScripts:       9", "passed:          7",
+                "errors:          2",
+                "ERROR  HL7® AT Core TestScript - Patient Create (Validate Profile) (TestScript-testscript-validateProfile.json)",
+                "validateProfileId 'test1234' is not declared in TestScript.profile",
+                "No Example Instance found for fixture 'fixture-patient-create'");
+        assertThat(check.resolve("junit.xml")).as("warnings of a TestScript without problems").content()
+                .contains("unknown element 'stopTestOnFail'");
+        assertThat(check.resolve("result.json")).exists();
+        assertThat(check.resolve("testreports")).as("nothing was tested").doesNotExist();
+        assertThat(check.resolve("communication")).as("nothing was sent").doesNotExist();
+        assertThat(Files.readAllLines(calls)).as("every TestScript that could be read is validated")
+                .filteredOn(l -> l.startsWith("validate")).hasSize(8);
     }
 
     private static int exitCode(String... args) {

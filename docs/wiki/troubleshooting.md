@@ -26,12 +26,15 @@ grep REQ-0003 testrunner.log                                               # wha
 
 A worked example, from a failed assertion to the bytes: [Samples › Reading a failure](samples.md#reading-a-failure).
 
+A typo in a TestScript does not need a server to show up: `--check` loads and checks every TestScript and sends
+nothing ([configuration.md › Check mode](../configuration.md#check-mode)).
+
 ## Exit codes
 
 | Code | Meaning | Look at |
 |---|---|---|
 | 0 | all passed (some may be skipped, see below) | – |
-| 1 | at least one `fail` or `error` | `summary.txt` |
+| 1 | at least one `fail` or `error`; with `--check`: a TestScript has problems | `summary.txt` |
 | 2 | invalid configuration, nothing ran | the console: all problems are listed |
 | 3 | TestScripts were skipped, none failed | `summary.txt` names the reason per TestScript |
 
@@ -75,6 +78,7 @@ configured, or the server lacks a required capability. `testrunner.exit-on-skip`
 | `skip` "Not started: fail-fast: TestScript 02_… ended with FAIL" | `execution.fail-fast` is on and an earlier TestScript failed | fix that one first, or run without `fail-fast` to see every result |
 | Capability requirement reported as warning | the required CapabilityStatement is not in Example Instances | add it, or accept that it is not checked |
 | No `testrunner.log` | logging backend is not Logback, or `reporting.log-file=false` | the console log and `communication/` still work |
+| A `check_<timestamp>` folder without `testreports/` and `communication/` | the run was started with `--check` | intended: a check sends nothing, and a TestReport would claim an execution |
 | `HapiServerIT`: `Skipped: 3`, log says "Could not find a valid Docker environment" | Docker is not running, or on macOS Testcontainers does not find the socket of Rancher Desktop or Colima | start Docker; on macOS set `DOCKER_HOST` and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE`, see [Build and test › Docker on macOS](build-and-test.md#docker-on-macos) |
 | `/bin/mvn: no such file` (on the original dev machine) | the shell's `mvn` function needs `M2_HOME` | call Maven by its full path, see skill `testrunner-build-and-run` |
 

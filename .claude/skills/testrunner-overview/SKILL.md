@@ -19,7 +19,7 @@ communication log of every HTTP exchange. Group `at.hl7.testing`, version `0.1.0
 | `testrunner-fhir-r4`, `-r5` | `fhir.r4`, `fhir.r5` | `R4Support`/`R5Support` + `R4Dialect`/`R5Dialect`, `META-INF/services` registration | fhir-hapi, `hapi-fhir-structures-rX` |
 | `testrunner-validation-cli` | `validation.cli` | `ValidatorCliProfileValidator` (process), `ValidatorServerProfileValidator` + `ValidatorServer` (server), `ProfileValidators` factory | core |
 | `testrunner-spring-boot-autoconfigure` | `autoconfigure` | `TestRunnerAutoConfiguration`, `ValidatorCliAutoConfiguration`, `RunLogFileListener` | core, Spring Boot |
-| `testrunner-app` | `app` | `TestRunnerApplication` (main, `--config`, `--novalidator`), `RunCommand` (exit code), `ValidatorCheck`; `EndToEndIT`, `RealValidatorIT`, `ArchitectureTest` | everything |
+| `testrunner-app` | `app` | `TestRunnerApplication` (main, `--config`, `--novalidator`, `--check`), `RunCommand` (run or check, exit code), `ValidatorCheck`; `EndToEndIT`, `RealValidatorIT`, `HapiServerIT`, `ShutdownIT`, `ArchitectureTest` | everything |
 | `testrunner-test-support` | `testsupport` | **test code only** (`src/test/java`, test-jar classifier `tests`): `InMemoryFhirServer`, `FakeValidator`/`FakeValidatorJar`, `SampleData` | Jackson, Jetty |
 
 Other folders: `config/` dev configurations (`dev-r4.yml`, `dev-r5.yml`, `dev-all.yml`, `negative-control.yml`),
@@ -35,7 +35,8 @@ Other folders: `config/` dev configurations (`dev-r4.yml`, `dev-r5.yml`, `dev-al
 | `report.ReportWriter` | one report format, selected by `format()` | `JUnitXmlReportWriter` (`junit`), `SummaryReportWriter` (`summary`), `JsonReportWriter` (`json`), `TestReportWriter` (`testreport`) |
 | `engine.RunListener` | run / TestScript events, with a read-only `RunInfo` (not `RunContext`) | `RunLogFileListener` |
 
-Entry points: `TestRunner.run(RunConfiguration)` or `run(RunConfiguration, RunControl)` (stoppable, ADR-0013); without Spring `TestRunners.create(HttpConfig, ProfileValidator)`
+Entry points: `TestRunner.run(RunConfiguration)` or `run(RunConfiguration, RunControl)` (stoppable, ADR-0013);
+`TestRunner.check(…)` loads and checks without sending (ADR-0014); without Spring `TestRunners.create(HttpConfig, ProfileValidator)`
 and `ProfileValidators.create(ValidationConfig)`.
 
 ## Rules that the build enforces
@@ -67,5 +68,5 @@ and `ProfileValidators.create(ValidationConfig)`.
 ## Documentation (source of truth if a skill and the docs disagree)
 
 `README.md`; `docs/architecture.md`, `fhir-versions.md`, `configuration.md`, `logging.md`, `validation.md`;
-`docs/adr/0001`–`0013` (index in `docs/adr/README.md`). When code changes a documented behaviour, update the
+`docs/adr/0001`–`0014` (index in `docs/adr/README.md`). When code changes a documented behaviour, update the
 doc, the ADR and the matching skill together.

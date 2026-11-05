@@ -25,6 +25,10 @@ import java.util.Locale;
  * Runs the configured TestScripts once at start-up and turns the outcome into the exit code. Switched off with
  * {@code testrunner.run-on-startup=false}, e.g. when the runner is embedded or in tests.
  *
+ * <p>{@code testrunner.mode} says what to do with the TestScripts: {@code run} them (default), or only {@code check}
+ * them – load them and apply every check done before sending, without a FHIR server ({@link TestRunner#check}). In
+ * check mode, exit code {@link #EXIT_FAILED} means that a TestScript has problems.
+ *
  * <p>A skipped TestScript tested nothing. {@code testrunner.exit-on-skip} decides when skips give
  * {@link #EXIT_SKIPPED} instead of {@link #EXIT_PASSED}, so that a CI run that tested nothing does not look green.
  *
@@ -46,6 +50,14 @@ public class RunCommand implements ApplicationRunner, ExitCodeGenerator, Applica
     /** How long a shutdown waits for the run by default. */
     static final Duration DEFAULT_SHUTDOWN_GRACE = Duration.ofSeconds(30);
 
+    /** What the command does with the TestScripts ({@code testrunner.mode}). */
+    public enum Mode {
+        /** Run them against the FHIR server (default). */
+        RUN,
+        /** Load and check them; nothing is sent, no FHIR server is needed ({@code --check}). */
+        CHECK
+    }
+
     /** When skipped TestScripts make the exit code {@link #EXIT_SKIPPED} ({@code testrunner.exit-on-skip}). */
     public enum ExitOnSkip {
         /** Only when every TestScript was skipped, i.e. nothing was tested (default). */
@@ -60,6 +72,7 @@ public class RunCommand implements ApplicationRunner, ExitCodeGenerator, Applica
 
     private final TestRunner runner;
     private final RunConfiguration configuration;
+    private final Mode mode;
     private final ExitOnSkip exitOnSkip;
     private final Duration shutdownGrace;
     private volatile RunControl control;
@@ -69,6 +82,7 @@ public class RunCommand implements ApplicationRunner, ExitCodeGenerator, Applica
         this.runner = runner;
         this.configuration = configuration;
         Binder binder = Binder.get(environment);
+        this.mode = binder.bind("testrunner.mode", Mode.class).orElse(Mode.RUN);
         this.exitOnSkip = binder.bind("testrunner.exit-on-skip", ExitOnSkip.class).orElse(ExitOnSkip.ALL);
         this.shutdownGrace = binder.bind("testrunner.shutdown-grace", Duration.class).orElse(DEFAULT_SHUTDOWN_GRACE);
     }
@@ -78,7 +92,11 @@ public class RunCommand implements ApplicationRunner, ExitCodeGenerator, Applica
         RunControl started = new RunControl();
         control = started;
         try {
-            exitCode = exitCode(runner.run(configuration, started), exitOnSkip);
+            RunResult result = switch (mode) {
+                case RUN -> runner.run(configuration, started);
+                case CHECK -> runner.check(configuration, started);
+            };
+            exitCode = exitCode(result, exitOnSkip);
         } catch (ConfigurationException e) {
             log.error("{}", e.getMessage());
             exitCode = EXIT_INVALID_CONFIGURATION;
