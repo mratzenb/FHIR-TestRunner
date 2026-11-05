@@ -94,11 +94,19 @@ public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> su
         if (execution.parallelism() < 1) {
             problems.add("testrunner.execution.parallelism must be at least 1, is " + execution.parallelism());
         }
+        positive("testrunner.execution.timeout", execution.timeout(), problems);
+        positive("testrunner.execution.test-script-timeout", execution.testScriptTimeout(), problems);
         if (!LEVELS.contains(reporting.logFileLevel())) {
             problems.add("testrunner.reporting.log-file-level: unknown level '" + reporting.logFileLevel()
                     + "', known: " + LEVELS);
         }
         return problems;
+    }
+
+    private static void positive(String property, java.time.Duration value, List<String> problems) {
+        if (value != null && (value.isZero() || value.isNegative())) {
+            problems.add(property + " must be positive, is " + value + "; leave it out for no limit");
+        }
     }
 
     /** The report formats that no writer in {@code available} produces. */

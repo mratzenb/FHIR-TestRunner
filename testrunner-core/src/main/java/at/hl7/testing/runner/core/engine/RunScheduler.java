@@ -19,6 +19,9 @@ import java.util.concurrent.Future;
  * {@code execution.parallelism > 1} on a fixed pool of threads {@code testscript-N}. The TestScripts of suites with
  * {@code parallel = false} run first, one after the other, while nothing else runs. The results keep the discovery
  * order.
+ *
+ * <p>Before a TestScript starts, the {@link RunControl} is asked: once the run is stopped (cancelled, run timeout) or
+ * fail-fast has ended it, the TestScripts not started yet are not run but reported by {@link NotRun}.
  */
 final class RunScheduler {
 
@@ -33,8 +36,23 @@ final class RunScheduler {
         TestScriptResult run(int index, TestScriptSource source);
     }
 
-    /** Runs every TestScript of the run with {@code task}. */
-    List<TestScriptResult> runAll(RunContext run, List<TestScriptSource> sources, Task task) {
+    /** The result of a TestScript that is not started; never throws. */
+    @FunctionalInterface
+    interface NotRun {
+        TestScriptResult result(int index, TestScriptSource source, String reason);
+    }
+
+    /** Runs every TestScript of the run with {@code task}, unless {@code control} says not to start it. */
+    List<TestScriptResult> runAll(RunContext run, List<TestScriptSource> sources, RunControl control, Task task,
+                                  NotRun notRun) {
+        Task guarded = (index, source) -> {
+            String reason = control.startReason();
+            if (reason != null) {
+                control.applied(reason);
+                return notRun.result(index, source, reason);
+            }
+            return task.run(index, source);
+        };
         List<Integer> serial = new ArrayList<>();
         List<Integer> parallel = new ArrayList<>();
         for (int i = 0; i < sources.size(); i++) {
@@ -44,7 +62,7 @@ final class RunScheduler {
         TestScriptResult[] results = new TestScriptResult[sources.size()];
         if (parallelism == 1) {
             for (int i = 0; i < sources.size(); i++) {
-                results[i] = task.run(i + 1, sources.get(i));
+                results[i] = guarded.run(i + 1, sources.get(i));
             }
             return List.of(results);
         }
@@ -52,7 +70,7 @@ final class RunScheduler {
             log.info("Running {} TestScript(s) of suites with parallel=false one after the other first", serial.size());
         }
         for (int i : serial) {
-            results[i] = task.run(i + 1, sources.get(i));
+            results[i] = guarded.run(i + 1, sources.get(i));
         }
         log.info("Running {} TestScripts with parallelism {}", parallel.size(), parallelism);
         try (ExecutorService executor = Executors.newFixedThreadPool(parallelism,
@@ -61,7 +79,7 @@ final class RunScheduler {
             for (int i : parallel) {
                 TestScriptSource source = sources.get(i);
                 int index = i + 1;
-                futures.put(i, executor.submit(() -> task.run(index, source)));
+                futures.put(i, executor.submit(() -> guarded.run(index, source)));
             }
             for (var future : futures.entrySet()) {
                 results[future.getKey()] = future.getValue().get();

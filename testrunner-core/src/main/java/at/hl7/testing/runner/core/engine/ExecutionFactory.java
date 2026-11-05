@@ -41,9 +41,11 @@ final class ExecutionFactory {
      * @param label    {@code <NN>_<file base name>}, the name of its folder in the communication log
      * @param builtIn  the values of {@code ${testrunner.…}}, see {@link #builtInValues}
      * @param warnings what the checks before sending found worth a warning
+     * @param deadline when the execution must stop
      */
     ExecutionEnvironment create(RunContext run, String label, SuiteConfig suite, FhirServerConfig server,
-                                CapabilityCheck capabilities, Map<String, String> builtIn, List<String> warnings) {
+                                CapabilityCheck capabilities, Map<String, String> builtIn, List<String> warnings,
+                                Deadline deadline) {
         CommunicationLog communication = (run.configuration().reporting().communicationLog()
                 ? CommunicationLog.toFolder(run.communicationDirectory(), label, server.base())
                 : CommunicationLog.none()).redacting(run.configuration().reporting().redactHeaders());
@@ -52,7 +54,7 @@ final class ExecutionFactory {
         FhirHttpClient http = new FhirHttpClient(transport, run.requestCounter(), communication, defaultHeaders,
                 server.oauth2() == null ? null : run.accessTokens(server.oauth2(), transport, clock));
         return new ExecutionEnvironment(http, server.base(), validator, suite.resolvedProfilesDir(), suite.igs(),
-                capabilities, builtIn, run.configuration().execution().rewriteReferences(), warnings);
+                capabilities, builtIn, run.configuration().execution().rewriteReferences(), warnings, deadline);
     }
 
     /**

@@ -130,6 +130,9 @@ that should never fire.
 
 ### A2 – Run control
 
+**Status:** limits done in M2.3 ([ADR-0013](../adr/0013-run-control.md)); reports after an exception or Ctrl-C in
+M2.4.
+
 * No run timeout, no per-TestScript timeout, no fail-fast. A server that answers slowly holds the run for
   `request-timeout` × requests.
 * `TestRunner.runAll` waits on its futures without a deadline.
@@ -243,7 +246,7 @@ publishing, and the TinkerTool.
 selects tests; setup and teardown always run. `--list` prints what would run. Today, the only way to select is to
 edit `suites[n].include`.
 
-**F3 – Run control.** `execution.timeout`, `execution.testscript-timeout` and `execution.fail-fast`. Deadlines are
+**F3 – Run control.** `execution.timeout`, `execution.test-script-timeout` and `execution.fail-fast`. Deadlines are
 checked between actions; a thread is never killed. TestScripts that did not run are `skip` with the reason. Reports
 are always written, also after an unexpected exception or Ctrl-C.
 
@@ -322,10 +325,11 @@ step below is one pull request, with tests and documentation.
 2. ~~**A11.**~~ Done: `ProfileValidator.configurationProblems()` (default none). The validator-cli adapters report
    a missing `validator-jar`; `RunConfiguration.problems()` no longer knows the property and `TestRunner` no longer
    filters messages. Test: `TestRunnerTest.configurationProblemOfTheValidatorStopsTheRunBeforeAnythingIsSent`.
-3. **A2 + F3.** `ExecutionConfig.timeout`, `testScriptTimeout` and `failFast`, with defaults that keep today's
-   behaviour (none, none, false). A per-run cancellation flag lives in `RunContext` – run state, not global state.
-   `TestScriptExecution` checks it between actions. `RunScheduler` turns everything that did not run into `skip`
-   with the reason.
+3. ~~**A2 + F3.**~~ Done: `execution.timeout`, `test-script-timeout` and `fail-fast` (defaults none, none, false),
+   [ADR-0013](../adr/0013-run-control.md). The cancellation lives in a `RunControl` per run, passed to
+   `TestRunner.run(configuration, control)` rather than kept in `RunContext`, so that a caller can hold it before the
+   run starts. A `Deadline` is checked before every setup and test action; the teardown always runs. Stopped:
+   `error`; not started: `skip`, both with the reason. Tests: `RunControlTest`, with `InMemoryFhirServer.delay`.
 4. **Reports always.** `TestRunner.run` writes the reports for all finished TestScripts in a `finally`; unfinished
    ones are `error` ("run aborted: …"). In the app, a shutdown hook cancels the run and waits a short, configurable
    time, so Ctrl-C and a CI kill still leave `junit.xml`.

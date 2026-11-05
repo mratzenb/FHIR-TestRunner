@@ -22,10 +22,11 @@ import java.util.Map;
  * @param warnings     what the checks before sending found worth a warning, put on the Setup: assertions the
  *                     runner cannot evaluate ({@link TestScriptChecks#unsupportedWarnings}), fixtures sent before a
  *                     fixture they reference is created ({@link TestScriptChecks#orderWarnings})
+ * @param deadline     when the execution must stop: the run was stopped, or the TestScript timeout has passed
  */
 record ExecutionEnvironment(FhirHttpClient http, String fhirBase, ProfileValidator validator, Path profilesDir,
                             List<String> igs, CapabilityCheck capabilities, Map<String, String> builtIn,
-                            ReferenceRewriting rewriting, List<String> warnings) {
+                            ReferenceRewriting rewriting, List<String> warnings, Deadline deadline) {
 
     ExecutionEnvironment {
         igs = List.copyOf(igs);

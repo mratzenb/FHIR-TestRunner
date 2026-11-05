@@ -6,6 +6,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 
@@ -18,11 +19,25 @@ class RunConfigurationTest {
         RunConfiguration config = new RunConfiguration(null, null, null, null, null, null, null);
         assertThat(config.execution().parallelism()).isEqualTo(1);
         assertThat(config.execution().rewriteReferences()).isEqualTo(ReferenceRewriting.AUTOCREATE);
+        assertThat(config.execution().timeout()).as("no limit").isNull();
+        assertThat(config.execution().testScriptTimeout()).as("no limit").isNull();
+        assertThat(config.execution().failFast()).isFalse();
         assertThat(config.validation().terminologyServer()).isEqualTo("n/a");
         assertThat(config.reporting().formats()).containsExactly("junit", "summary");
         assertThat(config.http().followRedirects()).isTrue();
         assertThat(config.reporting().redactHeaders())
                 .containsExactly("Authorization", "Proxy-Authorization", "Cookie", "Set-Cookie");
+    }
+
+    @Test
+    void timeoutsMustBePositive(@TempDir Path dir) throws Exception {
+        Files.createDirectories(dir.resolve("Test_Scripts"));
+        RunConfiguration config = new RunConfiguration(null, List.of(SuiteConfig.of(dir, "R4")), null,
+                ExecutionConfig.defaults().withLimits(Duration.ZERO, Duration.ofSeconds(-1), true), null, null, null);
+
+        assertThat(config.problems()).containsExactly(
+                "testrunner.execution.timeout must be positive, is PT0S; leave it out for no limit",
+                "testrunner.execution.test-script-timeout must be positive, is PT-1S; leave it out for no limit");
     }
 
     @Test

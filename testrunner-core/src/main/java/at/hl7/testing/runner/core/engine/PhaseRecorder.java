@@ -53,6 +53,14 @@ final class PhaseRecorder {
         return outcome;
     }
 
+    PhaseKind kind() {
+        return kind;
+    }
+
+    String name() {
+        return name;
+    }
+
     PhaseResult finish() {
         List<String> messages = new ArrayList<>(problems);
         warnings.forEach(w -> messages.add("WARNING: " + w));
