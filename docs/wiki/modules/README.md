@@ -23,7 +23,7 @@ flowchart BT
 
 | Module | In one sentence | Size (main code) | Page |
 |---|---|---|---|
-| `testrunner-core` | The engine and everything that does not depend on a framework or FHIR library. | 92 classes | [core](testrunner-core.md) |
+| `testrunner-core` | The engine and everything that does not depend on a framework or FHIR library. | 96 classes | [core](testrunner-core.md) |
 | `testrunner-fhir-hapi` | Reads TestScripts of any FHIR version with HAPI and maps them to the core model. | 9 classes | [fhir-hapi](testrunner-fhir-hapi.md) |
 | `testrunner-fhir-r4`, `-r5` | Plug in one FHIR version each: a `FhirContext` and a dialect. | 2 classes each | [fhir-r4 / r5](testrunner-fhir-versions.md) |
 | `testrunner-validation-cli` | Validates resources with `validator_cli.jar`, as a process or as a server. | 7 classes | [validation-cli](testrunner-validation-cli.md) |

@@ -47,6 +47,13 @@ final class Scripts {
                 o.responseId(), o.sourceId(), o.targetId(), o.url(), o.destination());
     }
 
+    /** {@code encodeRequestUrl = false}: the URL is sent as built. */
+    static Operation noEncoding(Operation o) {
+        return new Operation(o.type(), o.typeCode(), o.resource(), o.label(), o.description(), o.accept(),
+                o.contentType(), false, o.method(), o.params(), o.requestHeaders(), o.requestId(),
+                o.responseId(), o.sourceId(), o.targetId(), o.url(), o.destination());
+    }
+
     static Operation withRequestId(Operation o, String requestId) {
         return new Operation(o.type(), o.typeCode(), o.resource(), o.label(), o.description(), o.accept(),
                 o.contentType(), o.encodeRequestUrl(), o.method(), o.params(), o.requestHeaders(), requestId,

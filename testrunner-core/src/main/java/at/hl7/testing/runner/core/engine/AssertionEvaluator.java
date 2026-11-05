@@ -74,10 +74,9 @@ final class AssertionEvaluator {
             source = state.lastResponse().orElseThrow(() -> new TestScriptException(
                     "There is no response to check: no operation has been executed yet"));
         }
+        Operator op = ActionRules.operator(assertion);
         String warning = switch (assertion.check()) {
             case Check.ContentType c -> {
-                Operator op = operator(assertion, Operator.CONTAINS, Operator.CONTAINS, Operator.NOT_CONTAINS,
-                        Operator.EQUALS, Operator.NOT_EQUALS);
                 String actual = source.headers().first("Content-Type").orElse(null);
                 String expected = MediaTypes.expand(c.expected());
                 if (op == Operator.EQUALS || op == Operator.NOT_EQUALS) {
@@ -89,14 +88,11 @@ final class AssertionEvaluator {
                 yield null;
             }
             case Check.ResponseCode c -> {
-                Operator op = operator(assertion, Operator.EQUALS, Operator.EQUALS, Operator.NOT_EQUALS, Operator.IN,
-                        Operator.NOT_IN, Operator.GREATER_THAN, Operator.LESS_THAN);
                 Operators.apply(op, String.valueOf(response(source, "responseCode").exchange().response().status()),
                         c.codes().replace(" ", ""));
                 yield null;
             }
             case Check.Response c -> {
-                Operator op = operator(assertion, Operator.EQUALS, Operator.EQUALS, Operator.NOT_EQUALS);
                 int status = response(source, "response").exchange().response().status();
                 try {
                     Operators.apply(op, String.valueOf(status), String.valueOf(c.status()));
@@ -107,20 +103,15 @@ final class AssertionEvaluator {
                 yield null;
             }
             case Check.Resource c -> {
-                Operator op = operator(assertion, Operator.EQUALS, Operator.EQUALS, Operator.NOT_EQUALS);
                 Operators.apply(op, resourceType(source.body()), c.type());
                 yield null;
             }
             case Check.HeaderField c -> {
-                Operator op = operator(assertion, Operator.EQUALS, Operator.EQUALS, Operator.NOT_EQUALS, Operator.IN,
-                        Operator.NOT_IN, Operator.GREATER_THAN, Operator.LESS_THAN, Operator.EMPTY,
-                        Operator.NOT_EMPTY, Operator.CONTAINS, Operator.NOT_CONTAINS);
                 String actual = source.headers().first(c.name()).orElse(null);
                 Operators.apply(op, actual, expected(assertion, op));
                 yield null;
             }
             case Check.Expression c -> {
-                Operator op = operator(assertion, Operator.EVAL, Operator.values());
                 List<Object> result = evaluateFhirPath(source.body(), c.expression());
                 if (op == Operator.EVAL) {
                     Operators.apply(op, Values.single(result, "Expression '" + c.expression() + "'"), null);
@@ -133,9 +124,6 @@ final class AssertionEvaluator {
                 yield null;
             }
             case Check.Path c -> {
-                Operator op = operator(assertion, Operator.EQUALS, Operator.EQUALS, Operator.NOT_EQUALS, Operator.IN,
-                        Operator.NOT_IN, Operator.GREATER_THAN, Operator.LESS_THAN, Operator.EMPTY,
-                        Operator.NOT_EMPTY, Operator.CONTAINS, Operator.NOT_CONTAINS);
                 if (source.body().isEmpty()) {
                     throw new AssertionFailure("The body is empty, path '" + c.path() + "' cannot be evaluated");
                 }
@@ -153,12 +141,10 @@ final class AssertionEvaluator {
             }
             case Check.ValidateProfile c -> validateProfile(source, c.profileId());
             case Check.MinimumId c -> {
-                operator(assertion, Operator.EQUALS, Operator.EQUALS);
                 minimumId(source, c.fixtureId());
                 yield null;
             }
             case Check.NavigationLinks c -> {
-                operator(assertion, Operator.EQUALS, Operator.EQUALS);
                 navigationLinks(source, c.expected());
                 yield null;
             }
@@ -298,18 +284,6 @@ final class AssertionEvaluator {
         }
     }
 
-    private static Operator operator(Assertion assertion, Operator defaultOperator, Operator... allowed) {
-        Operator op = assertion.operator() != null ? assertion.operator() : defaultOperator;
-        for (Operator candidate : allowed) {
-            if (candidate == op) {
-                return op;
-            }
-        }
-        throw new TestScriptException("Operator " + op.code() + " cannot be used with "
-                + checkName(assertion.check()) + " (allowed: "
-                + java.util.Arrays.stream(allowed).map(Operator::code).collect(Collectors.joining(", ")) + ")");
-    }
-
     private static Source.Response response(Source source, String check) {
         if (source instanceof Source.Response response) {
             return response;
@@ -330,23 +304,6 @@ final class AssertionEvaluator {
 
     private static TestScriptException unsupported(String check) {
         return new TestScriptException("Assertions with " + check + " are not supported yet");
-    }
-
-    static String checkName(Check check) {
-        return switch (check) {
-            case Check.ContentType c -> "contentType";
-            case Check.Expression c -> "expression";
-            case Check.HeaderField c -> "headerField";
-            case Check.MinimumId c -> "minimumId";
-            case Check.NavigationLinks c -> "navigationLinks";
-            case Check.Path c -> "path";
-            case Check.RequestMethod c -> "requestMethod";
-            case Check.RequestUrl c -> "requestURL";
-            case Check.Resource c -> "resource";
-            case Check.Response c -> "response";
-            case Check.ResponseCode c -> "responseCode";
-            case Check.ValidateProfile c -> "validateProfileId";
-        };
     }
 
     private static String describe(Source source) {

@@ -82,7 +82,9 @@ try (InMemoryFhirServer server = InMemoryFhirServer.start("4.0.1")) {
 `toDestination`, `test(name, actions...)`. `Harness`: `resource(fixtureId, json)`, `exampleInstance(fileName, json)`
 (e.g. a required CapabilityStatement), `validator(ProfileValidator)`, `parallelism(n)`, `oauth2(OAuth2Config)`,
 `rewriteReferences(ReferenceRewriting)`, `noServer()`. A TestScript must pass `TestScriptChecks` to reach the server: an assertion needs an operation before
-it, ids must name something – otherwise the result is a Load error (that is what `Checks` tests).
+it, ids must name something, operators must fit their check, an operation must have what it needs to be built
+(`ActionRules`) – otherwise the result is a Load error (that is what `Checks` tests). `Scripts.noEncoding(op)` sets
+`encodeRequestUrl = false`.
 
 ## Test data (`testdata/`, from the PoC)
 

@@ -167,7 +167,9 @@ validator server mode, the validator servers.</figcaption>
    the same in every version), otherwise from `Example_Instances/`.
 4. Structural checks and, if enabled, validation of the TestScript itself against its FHIR version run before
    anything is sent. `TestScriptChecks` reports everything that would fail in every run, all at once: duplicate ids,
-   malformed variables, more than one server, and every reference an action makes, walked in execution order – a
+   malformed variables, more than one server, an action that breaks the `ActionRules` (an operator its check does not
+   allow or that lacks its value; an operation without method, URL or body, or with an element its type forbids),
+   and every reference an action makes, walked in execution order – a
    `sourceId`/`targetId`/`compareToSourceId`/`minimumId`/`variable.sourceId` naming nothing or a response kept only
    later, a `${name}` that is no variable and no `testrunner.*` value (also in fixture resources), a variable or
    assertion on the last response before the first operation, `validateProfileId` not in `TestScript.profile`.
@@ -192,6 +194,7 @@ Taken over from the PoC (and its README/VALIDATION-NOTES), now encoded in one pl
 | TestScript cannot be loaded or is invalid | `error` (phase `Load`) | Nothing is sent; other TestScripts continue |
 | TestScript addresses more than one server (`destination`) | `error` (phase `Load`) | Nothing is sent |
 | TestScript refers to something that cannot exist when it is used (unknown id or variable, response kept later, undeclared profile) | `error` (phase `Load`), every problem listed | Nothing is sent |
+| An action can never be executed (operator the check does not allow, operation without method, URL or body) | `error` (phase `Load`), every problem listed | Nothing is sent |
 | Server lacks a required capability (`metadata.capability`) | `skip` (Setup and tests) | Only `GET [base]/metadata` is sent |
 | Required capability cannot be checked (CapabilityStatement not among the Example Instances) | warning on the Setup | TestScript runs |
 | No FHIR server configured | `skip` | — |

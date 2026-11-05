@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static at.hl7.testing.runner.core.engine.Scripts.check;
+import static at.hl7.testing.runner.core.engine.Scripts.noEncoding;
 import static at.hl7.testing.runner.core.engine.Scripts.on;
 import static at.hl7.testing.runner.core.engine.Scripts.onRequest;
 import static at.hl7.testing.runner.core.engine.Scripts.op;
@@ -207,17 +208,21 @@ class TestScriptExecutionTest {
         }
 
         @Test
-        void operationThatCannotBeBuiltIsAnErrorAndEndsTheTest() {
-            harness.add("ts", script().test(test("t",
-                    op("read"),
-                    responseCode("200"))).build());
+        void operationThatCannotBeBuiltWithItsValuesIsAnErrorAndEndsTheTest() {
+            harness.add("ts", script()
+                            .variable(new VariableDefinition("type", "../x y", null, null, null, null, null))
+                            .test(test("t",
+                                    noEncoding(op("read", "${type}", null, null, "/1", null)),
+                                    responseCode("200")))
+                            .build());
 
             TestScriptResult result = harness.runOne();
 
             PhaseResult t = phase(result, "t");
             assertThat(t.outcome()).isEqualTo(Outcome.ERROR);
-            assertThat(t.messages().getFirst()).contains("The URL cannot be determined");
+            assertThat(t.messages().getFirst()).contains("Invalid request URL");
             assertThat(t.actions()).hasSize(1);
+            assertThat(server.requests()).isEmpty();
         }
 
         @Test
@@ -388,14 +393,6 @@ class TestScriptExecutionTest {
             assertThat(t.actions()).extracting(ActionResult::outcome)
                     .containsExactly(Outcome.PASS, Outcome.PASS, Outcome.FAIL);
             assertThat(t.messages().getFirst()).contains("missing: first, last, next");
-        }
-
-        @Test
-        void invalidOperatorForTheCheckIsAnError() {
-            TestScriptResult result = runAfterCapabilities(check(new Check.ContentType("json"), Operator.GREATER_THAN, null));
-
-            assertThat(phase(result, "t").outcome()).isEqualTo(Outcome.ERROR);
-            assertThat(phase(result, "t").messages().getFirst()).contains("greaterThan cannot be used with contentType");
         }
 
         @Test
@@ -828,6 +825,72 @@ class TestScriptExecutionTest {
                     check(new Check.MinimumId("m")))).build());
 
             assertThat(message).contains("Variable 'a'", "Variable 'b'", "minimumId 'm'");
+        }
+
+        /** D2 of docs/wiki/next-steps.md: rules that hold whatever the values are, checked before fixtures are created. */
+        @Test
+        void operatorTheCheckDoesNotAllowIsFoundBeforeTheSetup() {
+            harness.resource("p", PATIENT);
+
+            String message = loadError(script().fixture("p", true, false).test(test("t",
+                    op("capabilities"),
+                    check(new Check.ContentType("json"), Operator.GREATER_THAN, "x"),
+                    check(new Check.MinimumId("p"), Operator.CONTAINS, null))).build());
+
+            assertThat(message).contains(
+                    "Test 't', action 2: Operator greaterThan cannot be used with contentType (allowed: contains,"
+                            + " notContains, equals, notEquals)",
+                    "Test 't', action 3: Operator contains cannot be used with minimumId (allowed: equals)");
+        }
+
+        @Test
+        void operatorWithoutTheValueItNeeds() {
+            assertThat(loadError(script().test(test("t",
+                    op("capabilities"),
+                    check(new Check.HeaderField("ETag"), Operator.EQUALS, null),
+                    check(new Check.HeaderField("ETag"), Operator.NOT_EMPTY, null))).build()))
+                    .contains("Test 't', action 2: Operator equals needs a value or compareToSourceId")
+                    .doesNotContain("action 3");
+        }
+
+        @Test
+        void operationsThatCannotBeBuilt() {
+            harness.resource("p", PATIENT);
+
+            String message = loadError(script().fixture("p", true, false).test(test("t",
+                    op("create", "Patient", "p", "p", null, null),
+                    op("create", "Patient", "p", null, "/1", null),
+                    op("transaction", null, "p", null, "?x=1", null),
+                    op("custom", "Patient", null, null, null, null),
+                    op("read"),
+                    op("read", null, null, null, "/1", null),
+                    op("update", "Patient", null, null, "/1", null))).build());
+
+            assertThat(message).contains(
+                    "Test 't', action 1: create must not have a targetId",
+                    "Test 't', action 2: create must not have params",
+                    "Test 't', action 3: transaction must not have params",
+                    "Test 't', action 4: The HTTP method cannot be determined: the operation has no method and the"
+                            + " unknown type 'custom'",
+                    "Test 't', action 5: The URL cannot be determined for operation 'read': it has no resource, params,"
+                            + " url or targetId",
+                    "Test 't', action 6: Operation 'read' with params needs a resource type",
+                    "Test 't', action 7: The PUT of operation 'update' has no sourceId, so there is nothing to send");
+        }
+
+        @Test
+        void operationsWhoseValuesAreOnlyKnownWhenTheyRunAreAccepted() {
+            harness.resource("p", PATIENT)
+                    .add("ts", script().fixture("p", false, false)
+                            .variable(new VariableDefinition("fixture", "p", null, null, null, null, null))
+                            .test(test("t",
+                                    op("create", null, "${fixture}", null, null, "created"), responseCode("201"),
+                                    op("capabilities"),
+                                    check(new Check.Expression("CapabilityStatement.status.exists()"))))
+                            .build());
+
+            assertThat(harness.runOne().outcome()).isEqualTo(Outcome.PASS);
+            assertThat(server.requestLines()).containsExactly("POST /Patient", "GET /metadata");
         }
 
         @Test
