@@ -231,14 +231,19 @@ public final class TestRunner {
         loaded.readWarnings().forEach(w -> log.warn("Ignored while reading the TestScript: {}", w));
 
         Map<String, String> builtIn = builtInValues(run, index, started);
+        List<String> unsupported = TestScriptChecks.unsupportedWarnings(testScript);
+        unsupported.forEach(w -> log.warn("{}", w));
         List<String> problems = new ArrayList<>(TestScriptChecks.problems(testScript, loaded.fixtureResources(),
                 builtIn.keySet()));
         problems.addAll(validateTestScript(run, loaded));
         if (!problems.isEmpty()) {
             problems.forEach(p -> log.error("{}", p));
+            List<String> messages = new ArrayList<>();
+            messages.add("TestScript is not valid: " + String.join("; ", problems));
+            unsupported.forEach(w -> messages.add("WARNING: " + w));
             List<PhaseResult> phases = new ArrayList<>();
-            phases.add(PhaseResult.error(PhaseKind.LOAD, "Load", Duration.between(started, clock.instant()),
-                    "TestScript is not valid: " + String.join("; ", problems)));
+            phases.add(new PhaseResult(PhaseKind.LOAD, "Load", Outcome.ERROR, Duration.between(started, clock.instant()),
+                    0, List.of(), messages));
             skipAll(testScript.tests(), "Skipped: the TestScript is not valid", phases);
             return result(index, loaded, null, started, phases);
         }
@@ -261,9 +266,11 @@ public final class TestRunner {
                 server.oauth2() == null ? null : run.accessTokens(server.oauth2(), transport, clock));
         List<String> orderWarnings = TestScriptChecks.orderWarnings(testScript, loaded.fixtureResources());
         orderWarnings.forEach(w -> log.warn("{}", w));
+        List<String> warnings = new ArrayList<>(unsupported);
+        warnings.addAll(orderWarnings);
         List<PhaseResult> phases = new TestScriptExecution(loaded, http, server.base(), validator,
                 suite.resolvedProfilesDir(), suite.igs(), capabilities, builtIn,
-                run.configuration().execution().rewriteReferences(), orderWarnings).run();
+                run.configuration().execution().rewriteReferences(), warnings).run();
         return result(index, loaded, server.base(), started, phases);
     }
 

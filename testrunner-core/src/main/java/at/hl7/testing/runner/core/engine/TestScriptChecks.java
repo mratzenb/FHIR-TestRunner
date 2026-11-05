@@ -338,6 +338,28 @@ final class TestScriptChecks {
     }
 
     /**
+     * Warnings about assertions the runner cannot evaluate ({@link ActionRules#unsupported}): {@code requestMethod},
+     * {@code requestURL} and operator {@code manualEval}. Each is an {@code error} when it runs, as documented; the
+     * warning shows it before anything is sent, so the author does not learn it only after the setup changed server
+     * data. No {@code Load} error: the rest of the TestScript can still run, and a TestScript written for a test
+     * engine that supports them stays usable here.
+     *
+     * @return a description of every such assertion, naming its place
+     */
+    static List<String> unsupportedWarnings(TestScript testScript) {
+        List<String> warnings = new ArrayList<>();
+        for (Step step : Step.all(testScript)) {
+            if (step.action() instanceof Assertion assertion) {
+                String reason = ActionRules.unsupported(assertion);
+                if (reason != null) {
+                    warnings.add(step.where() + ": " + reason + "; the assertion will be an error when it runs");
+                }
+            }
+        }
+        return warnings;
+    }
+
+    /**
      * Warnings about the order in which fixtures reach the server: a fixture sent by a create or update references a
      * fixture that only a later action creates. Such a reference names a resource the server does not have yet –
      * unless it exists there already, which is why this is a warning and no error. With

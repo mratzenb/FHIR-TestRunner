@@ -64,6 +64,10 @@ final class AssertionEvaluator {
      * @return the source checked, so the caller can name its request in the log
      */
     Evaluation evaluate(Assertion assertion) {
+        String unsupported = ActionRules.unsupported(assertion);
+        if (unsupported != null) {
+            throw new TestScriptException(unsupported);
+        }
         Source source;
         if (assertion.sourceId() != null) {
             source = state.require(assertion.sourceId(), "sourceId");
@@ -148,8 +152,9 @@ final class AssertionEvaluator {
                 navigationLinks(source, c.expected());
                 yield null;
             }
-            case Check.RequestMethod c -> throw unsupported("requestMethod");
-            case Check.RequestUrl c -> throw unsupported("requestURL");
+            // never reached: ActionRules.unsupported rejected them above
+            case Check.RequestMethod c -> throw new TestScriptException(ActionRules.unsupported(assertion));
+            case Check.RequestUrl c -> throw new TestScriptException(ActionRules.unsupported(assertion));
         };
         return new Evaluation(source, warning);
     }
@@ -300,10 +305,6 @@ final class AssertionEvaluator {
         } catch (IllegalArgumentException e) {
             return null;
         }
-    }
-
-    private static TestScriptException unsupported(String check) {
-        return new TestScriptException("Assertions with " + check + " are not supported yet");
     }
 
     private static String describe(Source source) {

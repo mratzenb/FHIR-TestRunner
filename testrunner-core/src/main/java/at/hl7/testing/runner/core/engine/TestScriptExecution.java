@@ -48,7 +48,7 @@ final class TestScriptExecution {
     private final FhirHttpClient http;
     private final ExecutionState state = new ExecutionState();
     private final List<String> capabilityWarnings = new ArrayList<>();
-    private final List<String> orderWarnings;
+    private final List<String> warnings;
     private final VariableResolver variables;
     private final RequestFactory requests;
     private final AssertionEvaluator assertions;
@@ -59,11 +59,13 @@ final class TestScriptExecution {
     /**
      * @param builtIn       the values the runner provides for {@code ${testrunner.<name>}} placeholders, by name
      * @param rewriting     which references in fixture resources are rewritten to the ids the server assigned
-     * @param orderWarnings fixtures sent before a fixture they reference is created ({@link TestScriptChecks#orderWarnings})
+     * @param warnings      what the checks before sending found worth a warning, put on the Setup: assertions the
+     *                      runner cannot evaluate ({@link TestScriptChecks#unsupportedWarnings}), fixtures sent before a
+     *                      fixture they reference is created ({@link TestScriptChecks#orderWarnings})
      */
     TestScriptExecution(LoadedTestScript loaded, FhirHttpClient http, String fhirBase, ProfileValidator validator,
                         Path profilesDir, List<String> igs, CapabilityCheck capabilities, Map<String, String> builtIn,
-                        ReferenceRewriting rewriting, List<String> orderWarnings) {
+                        ReferenceRewriting rewriting, List<String> warnings) {
         this.loaded = loaded;
         this.testScript = loaded.testScript();
         this.http = http;
@@ -74,7 +76,7 @@ final class TestScriptExecution {
         this.assertions = new AssertionEvaluator(state, loaded.support().fhirPath(), validator, testScript.profiles(),
                 testScript.fhirVersion(), profilesDir, igs);
         this.fixtures = new FixtureManager(state, http, fhirBase, variables::resolve, rewriting);
-        this.orderWarnings = List.copyOf(orderWarnings);
+        this.warnings = List.copyOf(warnings);
         state.resolveFixturesWith(fixtures::resolve);
     }
 
@@ -152,7 +154,7 @@ final class TestScriptExecution {
         // content the FHIR version module had to ignore, e.g. an R5-only element in an R4 TestScript
         loaded.readWarnings().forEach(w -> phase.warning("Ignored while reading the TestScript: " + w));
         capabilityWarnings.forEach(phase::warning);
-        orderWarnings.forEach(phase::warning);
+        warnings.forEach(phase::warning);
         return phase;
     }
 

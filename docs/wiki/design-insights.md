@@ -123,7 +123,7 @@ suite"*. Its negative control had even stopped working unnoticed.
 | validation disabled | `validateProfileId` reported as warning |
 | validator crashed / timed out | `error`, or fallback to process mode |
 | element ignored by the FHIR version | warning in the Setup phase |
-| unsupported assertion (`requestMethod`, `manualEval`) | `error` |
+| unsupported assertion (`requestMethod`, `manualEval`) | `error`, announced as a warning before anything is sent |
 | required capability not checkable | warning |
 
 The negative control (`config/negative-control.yml`) must **fail**. If it passes, validation does not run.

@@ -20,8 +20,9 @@ The FHIR assert types are fixed by the specification, so this is rare. More like
 
 1. `core.model.Check` – add a record (or use the existing one).
 2. `fhir.hapi.TestScriptMapper.assertion` – read the element.
-3. `core.engine.ActionRules` – its default and allowed operators and its name. These are checked before anything
-   is sent.
+3. `core.engine.ActionRules` – its default and allowed operators, its name, and `supported` (`true` once it can be
+   evaluated; `false` gives the "not supported" warning before the run and the `error` when it runs). These are
+   checked before anything is sent.
 4. `core.engine.AssertionEvaluator` – evaluate it. Throw `AssertionFailure` for `fail`, `TestScriptException`
    for `error`.
 5. The compiler now shows every exhaustive `switch` over `Check` that needs a case (`Assertion.withValues`,

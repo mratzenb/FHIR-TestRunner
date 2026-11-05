@@ -195,6 +195,7 @@ Taken over from the PoC (and its README/VALIDATION-NOTES), now encoded in one pl
 | TestScript addresses more than one server (`destination`) | `error` (phase `Load`) | Nothing is sent |
 | TestScript refers to something that cannot exist when it is used (unknown id or variable, response kept later, undeclared profile) | `error` (phase `Load`), every problem listed | Nothing is sent |
 | An action can never be executed (operator the check does not allow, operation without method, URL or body) | `error` (phase `Load`), every problem listed | Nothing is sent |
+| Assertion the runner cannot evaluate (`requestMethod`, `requestURL`, operator `manualEval`) | warning on the Setup before anything is sent; `error` when it runs | Its phase stops; the other phases run |
 | Server lacks a required capability (`metadata.capability`) | `skip` (Setup and tests) | Only `GET [base]/metadata` is sent |
 | Required capability cannot be checked (CapabilityStatement not among the Example Instances) | warning on the Setup | TestScript runs |
 | No FHIR server configured | `skip` | — |
@@ -292,8 +293,10 @@ configured server.
   dependencies to the validator, which resolves the rest itself. The runner downloads only the package of the suite,
   and only by exact version: `#current` (CI builds) and versions without number are not resolved.
 * **Not supported assertions**: `requestMethod`/`requestURL` (they check the requests of a client under test; the
-  runner is that client itself), `manualEval`; reported as `error`, not silently ignored. `direction = request` and
-  `operation.requestId` are supported: they read the runner's own request as sent.
+  runner is that client itself), `manualEval`; reported as `error` when they run, not silently ignored, and announced
+  as a warning on the Setup before anything is sent (`TestScriptChecks.unsupportedWarnings`). No `Load` error: the
+  rest of the TestScript still runs, and a TestScript written for an engine that supports them stays usable.
+  `direction = request` and `operation.requestId` are supported: they read the runner's own request as sent.
 * **Several servers, client tests.** TestScripts addressing more than one `destination` need a test engine that
   manages several servers; the runner rejects them. It plays every `origin` itself, so TestScripts that expect another
   client to send a request (testing a client rather than a server) cannot be run.

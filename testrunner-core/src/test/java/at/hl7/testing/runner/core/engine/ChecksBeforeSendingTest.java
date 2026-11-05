@@ -222,4 +222,22 @@ class ChecksBeforeSendingTest extends EngineTestBase {
 
         assertThat(harness.runOne().outcome()).isEqualTo(Outcome.PASS);
     }
+
+    @Test
+    void unsupportedChecksAreWarningsNextToTheProblems() {
+        harness.add("ts", script().test(test("t",
+                op("capabilities"),
+                check(new Check.RequestMethod("GET"), Operator.GREATER_THAN, null),
+                check(new Check.MinimumId("nope")))).build());
+
+        TestScriptResult result = harness.runOne();
+
+        assertThat(result.phases().getFirst().messages()).as("the operator of an unsupported check is not checked")
+                .containsExactly("TestScript is not valid: Test 't', action 3: minimumId 'nope' is neither a fixture"
+                                + " nor the responseId or requestId of an operation",
+                        "WARNING: Test 't', action 2: requestMethod is not supported – it checks a request received by"
+                                + " the system under test, and the runner sends every request itself; the assertion"
+                                + " will be an error when it runs");
+        assertThat(server.requests()).isEmpty();
+    }
 }

@@ -294,8 +294,11 @@ step below is one pull request, with tests and documentation.
 2. ~~**A1 + D2.**~~ Done: `ActionRules`, used by `AssertionEvaluator`, `RequestFactory` and
    `TestScriptChecks.References.check`. Every case listed under D2 is a `Load` error naming test and action, with
    nothing sent.
-3. **Decide** how unsupported checks (`requestMethod`, `requestURL`, `manualEval`) are reported. Proposal: keep
-   `error` at run time, as documented, and add a warning on the Setup before the run so the author sees it early.
+3. ~~**Decide** how unsupported checks (`requestMethod`, `requestURL`, `manualEval`) are reported.~~ Done as
+   proposed: `error` at run time, as documented, and a warning on the Setup before anything is sent
+   (`ActionRules.unsupported`, `TestScriptChecks.unsupportedWarnings`). With `Load` problems, the warnings follow
+   them in the `Load` phase. Tests: `AssertionsTest.unsupportedChecksAreAnnouncedOnTheSetupBeforeAnythingIsSent`,
+   `ChecksBeforeSendingTest.unsupportedChecksAreWarningsNextToTheProblems`.
 4. ~~**A4.**~~ Done: `HapiServerIT` in `testrunner-app`, Testcontainers from the Spring Boot BOM,
    `hapiproject/hapi:v8.12.0-1` for R4 and R5. It runs the AT Core suites, every sample and a conditional update,
    and is skipped without Docker; CI runs it on every push.
@@ -381,7 +384,7 @@ started); selection by file name, by TestScript name and by test name.
 
 | Question | Proposal |
 |---|---|
-| Unsupported checks: `Load` error, or run-time error plus an early warning? (M1.3) | run-time error plus warning – keeps the documented outcome rules |
+| Unsupported checks: `Load` error, or run-time error plus an early warning? (M1.3) | **Decided:** run-time error plus warning – keeps the documented outcome rules |
 | Deselected tests: reported as `skip`, or left out? (M3.2) | left out, with a count in the log |
 | Typed comparisons: default, or behind a switch? (M5.2) | default, with a release note |
 | Several servers: in scope at all? (M6.1) | only when a real suite needs it |

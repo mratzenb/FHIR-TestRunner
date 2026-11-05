@@ -118,7 +118,33 @@ class AssertionsTest extends EngineTestBase {
         TestScriptResult result = runAfterCapabilities(check(new Check.RequestMethod("GET")));
 
         assertThat(phase(result, "t").outcome()).isEqualTo(Outcome.ERROR);
-        assertThat(phase(result, "t").messages().getFirst()).contains("requestMethod", "not supported");
+        assertThat(phase(result, "t").messages().getFirst()).contains("requestMethod is not supported");
+    }
+
+    /** M1.3 of docs/wiki/next-steps.md: an error when it runs, as documented, and a warning before anything is sent. */
+    @Test
+    void unsupportedChecksAreAnnouncedOnTheSetupBeforeAnythingIsSent() {
+        harness.add("ts", script()
+                .setup(op("capabilities"), responseCode("200"))
+                .test(test("client", op("capabilities"), check(new Check.RequestUrl("/metadata"))))
+                .test(test("human", op("capabilities"),
+                        check(new Check.Expression("CapabilityStatement.status"), Operator.MANUAL_EVAL, null)))
+                .test(test("server", op("capabilities"), responseCode("200")))
+                .build());
+
+        TestScriptResult result = harness.runOne();
+
+        assertThat(phase(result, "Setup").outcome()).as("a warning, no error").isEqualTo(Outcome.PASS);
+        assertThat(phase(result, "Setup").messages()).containsExactly(
+                "WARNING: Test 'client', action 2: requestURL is not supported – it checks a request received by the"
+                        + " system under test, and the runner sends every request itself; the assertion will be an"
+                        + " error when it runs",
+                "WARNING: Test 'human', action 2: Operator manualEval is not supported – it needs a human tester; the"
+                        + " assertion will be an error when it runs");
+        assertThat(phase(result, "client").outcome()).isEqualTo(Outcome.ERROR);
+        assertThat(phase(result, "human").outcome()).isEqualTo(Outcome.ERROR);
+        assertThat(phase(result, "human").messages().getFirst()).contains("manualEval is not supported");
+        assertThat(phase(result, "server").outcome()).as("the rest of the TestScript runs").isEqualTo(Outcome.PASS);
     }
 
     @Test

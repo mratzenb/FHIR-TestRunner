@@ -52,6 +52,7 @@ The MDC key `testScript` (`TestRunner.MDC_TEST_SCRIPT`) = `<NN>_<file base name>
 | Server lacks a required `metadata.capability` | Setup + tests `skip`, differences listed | only `GET [base]/metadata` sent; no fixtures, no teardown |
 | Required capability not checkable (statement not in Example Instances, no CapabilityStatement from server) | warning on Setup | TestScript runs |
 | Content the version ignores (detection warnings, e.g. R5-only element in R4) | warning on the `Setup` phase (always present) | outcome unchanged |
+| Assertion the runner cannot evaluate (`requestMethod`, `requestURL`, `manualEval`) | warning on the Setup before the run, `error` when it runs | its phase stops |
 | No FHIR server configured | `skip` | – |
 
 Precedence: `error > fail > skip > pass` (`report.Outcome.and`, enum order `PASS, SKIP, FAIL, ERROR`).
@@ -95,8 +96,14 @@ One `Check` per assertion (FHIR invariants tst-5/tst-6, enforced when mapping): 
 (source contains every element/value of the fixture, id ignored; `content.FhirElement.notContainedIn`, same rules as
 the capability check, all differences listed), `NavigationLinks` (Bundle has `first`, `last` and `next` links;
 `false` expects them incomplete; non-Bundle ⇒ fail). Both only allow operator `equals` (the default).
-**Not supported, reported as `error`**: `RequestMethod`, `RequestUrl` (would test a client; the runner is the
-client), operator `manualEval`.
+**Not supported, reported as `error` when they run**: `RequestMethod`, `RequestUrl` (would test a client; the runner
+is the client), operator `manualEval`. `ActionRules.supported(check)` (sealed switch) and
+`ActionRules.unsupported(assertion)` (the reason, or `null`) decide; `AssertionEvaluator.evaluate` throws that
+reason first. Before anything is sent, `TestScriptChecks.unsupportedWarnings` (in `TestRunner.execute`, logged
+WARN) turns each into a **warning on the Setup**, `Test 'x', action 2: requestURL is not supported – …; the
+assertion will be an error when it runs` (decision M1.3: no `Load` error, the rest of the TestScript runs). With
+`Load` problems the warnings follow them in the `Load` phase. `ActionRules.problems` skips the operator check of an
+unsupported assertion.
 
 * Source: `sourceId` (fixture, response or **request** – `Source.Request`, kept by `operation.requestId` via
   `ExecutionState.exchanged`) else the last response, or the last request with `direction = request`
@@ -113,10 +120,11 @@ client), operator `manualEval`.
 
 **Adding a check**: a nested record in the sealed interface `core.model.Check` (the unsupported checks are records
 there too) → read it in `TestScriptMapper.assertion` (`testrunner-fhir-versions`) → its operators and name in
-`ActionRules.defaultOperator`/`allowedOperators`/`checkName` → a
+`ActionRules.defaultOperator`/`allowedOperators`/`checkName`/`supported` → a
 `case` in the `switch` of `AssertionEvaluator.evaluate` (the sealed switches will not compile without them) →
 `core.engine.Describe.assertion` if it needs a readable description → tests in `AssertionsTest` and, for the rules,
-`ChecksBeforeSendingTest` (via `Harness`/`Scripts`) and, if a sample uses it, `EndToEndIT`.
+`ChecksBeforeSendingTest` (via `Harness`/`Scripts`) and, if a sample uses it, `EndToEndIT`. Making
+`requestMethod`/`requestURL` work means `supported` → `true` and a real case in `evaluate`.
 
 ## Fixtures (`FixtureManager`) and variables (`VariableResolver`)
 
@@ -142,8 +150,8 @@ there too) → read it in `TestScriptMapper.assertion` (`testrunner-fhir-version
   Kahn), references to autocreated fixtures rewritten; `ALL` = also `FixtureManager.sentByOperation` after a
   successful create/update (`createsResource`) with a fixture `sourceId`: server id from `Location`, else returned
   resource, else update URL → `state.serverAssigned(Type/writtenId, Type/serverId)`. Actions are never reordered.
-* **Order warnings**: `TestScriptChecks.orderWarnings` (in `TestRunner.execute`, logged WARN, added to the Setup by
-  `TestScriptExecution.setupRecorder`): a create/update sending a non-autocreate fixture whose references name a
+* **Order warnings**: `TestScriptChecks.orderWarnings` (in `TestRunner.execute`, logged WARN, passed with the
+  unsupported-assertion warnings as `warnings` and added to the Setup by `TestScriptExecution.setupRecorder`): a create/update sending a non-autocreate fixture whose references name a
   fixture first created by a later create/update ⇒ warning naming both actions; never an error (server may have it).
 
 ## Required capabilities (`CapabilityCheck`) and destinations
