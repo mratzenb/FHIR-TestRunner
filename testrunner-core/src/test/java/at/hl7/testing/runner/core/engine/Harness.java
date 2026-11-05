@@ -46,6 +46,8 @@ final class Harness {
     private Duration timeout;
     private Duration testScriptTimeout;
     private Boolean failFast;
+    private boolean validateTestScripts;
+    private List<String> formats = List.of("junit", "summary", "json");
     private RunControl control = new RunControl();
     private final Map<String, Error> failing = new LinkedHashMap<>();
     private final List<RunListener> listeners = new java.util.ArrayList<>();
@@ -133,6 +135,18 @@ final class Harness {
         return this;
     }
 
+    /** {@code validation.validate-test-scripts}: the validator set with {@link #validator} checks every TestScript. */
+    Harness validateTestScripts() {
+        this.validateTestScripts = true;
+        return this;
+    }
+
+    /** {@code reporting.formats}; default junit, summary and json. */
+    Harness formats(String... formats) {
+        this.formats = List.of(formats);
+        return this;
+    }
+
     Harness oauth2(OAuth2Config oauth2) {
         this.oauth2 = oauth2;
         return this;
@@ -144,6 +158,19 @@ final class Harness {
     }
 
     RunResult run() {
+        return call(TestRunner::run);
+    }
+
+    /** Checks the TestScripts instead of running them ({@link TestRunner#check}). */
+    RunResult check() {
+        return call(TestRunner::check);
+    }
+
+    private interface Call {
+        RunResult apply(TestRunner runner, RunConfiguration configuration, RunControl control);
+    }
+
+    private RunResult call(Call call) {
         List<SuiteConfig> suites = new java.util.ArrayList<>();
         if (serialSuite) {
             suites.add(new SuiteConfig(null, "R4", dir.resolve("serial"), null, Path.of("../suite/Example_Instances"),
@@ -153,8 +180,8 @@ final class Harness {
         RunConfiguration configuration = new RunConfiguration(FhirServerConfig.of(fhirBase).withOAuth2(oauth2), suites,
                 HttpConfig.defaults(),
                 new ExecutionConfig(parallelism, rewriting, timeout, testScriptTimeout, failFast),
-                ValidationConfig.disabled(),
-                new ReportingConfig(dir.resolve("results"), List.of("junit", "summary", "json"), true, false, null, null),
+                validateTestScripts ? ValidationConfig.defaults() : ValidationConfig.disabled(),
+                new ReportingConfig(dir.resolve("results"), formats, true, false, null, null),
                 null);
         try (JdkHttpTransport transport = new JdkHttpTransport(HttpConfig.defaults())) {
             FhirVersionRegistry versions = new FhirVersionRegistry(List.of(new StubVersionSupport(body -> {
@@ -166,7 +193,7 @@ final class Harness {
             })));
             TestRunner runner = new TestRunner(versions, transport, validator, TestRunners.defaultReportWriters(versions),
                     listeners, Clock.systemDefaultZone());
-            return runner.run(configuration, control);
+            return call.apply(runner, configuration, control);
         }
     }
 

@@ -21,6 +21,9 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
 
 # without profile validation
 java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml --novalidator
+
+# only check the TestScripts: load, check, validate them – no FHIR server needed, nothing is sent
+java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml --check
 ```
 
 A local HAPI server: `docker run -p 8080:8080 -e hapi.fhir.fhir_version=R4 hapiproject/hapi:v8.12.0-1`.
@@ -29,7 +32,8 @@ Writing a TestScript of your own: start with the walk-through in [docs/wiki/samp
 
 Results go to `target/testrunner-results/run_<timestamp>/` (`junit.xml`, `summary.txt`, `result.json`, a FHIR
 `TestReport` per TestScript in `testreports/`, `testrunner.log`, `communication/`). Exit code: 0 passed, 1 failed/errors, 2 invalid configuration, 3 everything skipped (nothing tested;
-`testrunner.exit-on-skip`).
+`testrunner.exit-on-skip`). A check (`--check`) writes `check_<timestamp>/` without TestReports and communication;
+exit code 1 means a TestScript has problems.
 
 ## Project layout
 

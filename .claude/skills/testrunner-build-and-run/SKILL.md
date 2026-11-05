@@ -60,6 +60,7 @@ Testcontainers' version comes from the Spring Boot BOM (`testcontainers-junit-ju
 java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml
 #   --testrunner.validation.mode=process   one validator process per validation (default: server)
 #   --novalidator                          no profile validation
+#   --check                                load + check the TestScripts only, no server, nothing sent
 #   --testrunner.<property>=<value>        any property, see testrunner-configuration
 ```
 

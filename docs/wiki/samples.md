@@ -186,6 +186,17 @@ ERROR  Mistakes (TestScript-mistakes.json)
 | 3 | an update without a body | add `"sourceId": "patient"` |
 | 4 | a typo in a fixture id | `"sourceId": "patient"`, and declare the fixture |
 
+No server is needed to find these. `--check` loads and checks the TestScripts and stops before the first request;
+the summary lists the same problems, in `check_<timestamp>/`:
+
+```sh
+java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --check --novalidator \
+  --testrunner.suites[0].base-dir=docs/wiki/samples/mistakes --testrunner.suites[0].fhir-version=R4
+```
+
+Run it on every change of a suite, e.g. in the CI job of an IG before it is published. A check of
+[`first-suite`](samples/first-suite) exits with 0.
+
 The full list of what is checked before sending:
 [How a run works › Checks before sending](run-lifecycle.md#6-checks-before-sending). What is **not** checked there,
 because it depends on values only known while running: a variable that finds nothing, a server that answers

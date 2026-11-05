@@ -21,6 +21,10 @@ testrunner-results/run_2026-10-21_20-58-01-838/
          └─ error.txt        instead of response.http if no response came back
 ```
 
+A check (`--check`) writes `check_<timestamp>/` with `testrunner.log`, `junit.xml`, `summary.txt` and `result.json`
+only: it sends nothing, so there is no `communication/`, and no `testreports/`, since a TestReport would say the
+TestScripts were executed.
+
 ## Request ids tie everything together
 
 Every request gets a **run-wide** id, `REQ-0001`, `REQ-0002`, … (an `AtomicInteger` in the `RunContext`, so ids

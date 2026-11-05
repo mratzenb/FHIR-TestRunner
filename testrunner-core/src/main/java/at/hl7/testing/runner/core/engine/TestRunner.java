@@ -38,6 +38,9 @@ import java.util.function.Function;
 /**
  * Runs the TestScripts of a {@link RunConfiguration} and writes the reports. The entry point of the engine.
  *
+ * <p>{@link #check} does everything a run does before it sends anything – discovery, loading, the checks before
+ * sending, the validation of the TestScripts – and reports that, without a FHIR server.
+ *
  * <p>Stateless between runs and thread-safe: everything about a run lives in its {@link RunContext}. The
  * collaborators are passed in, so the runner works without any framework; the Spring Boot auto-configuration
  * merely wires them.
@@ -48,6 +51,14 @@ public final class TestRunner {
     public static final String MDC_TEST_SCRIPT = "testScript";
 
     private static final Logger log = LoggerFactory.getLogger(TestRunner.class);
+
+    /** What a call of the runner does with the TestScripts. */
+    private enum Mode {
+        /** Run them against the server. */
+        RUN,
+        /** Load and check them, send nothing. */
+        CHECK
+    }
 
     private final FhirVersionRegistry versions;
     private final ProfileValidator validator;
@@ -101,17 +112,48 @@ public final class TestRunner {
      */
     public RunResult run(RunConfiguration configuration, RunControl control) {
         try {
-            return start(configuration, control);
+            return start(configuration, control, Mode.RUN);
         } finally {
             control.finish();
         }
     }
 
-    private RunResult start(RunConfiguration configuration, RunControl control) {
+    /**
+     * Checks the configured TestScripts without sending anything: discovers and loads them, applies the checks that
+     * run before anything is sent and, if {@code validation.validate-test-scripts} is on, validates each TestScript.
+     * Needs no FHIR server.
+     *
+     * <p>Every TestScript gets one phase, {@code Load}: {@code pass} with the warnings, or {@code error} with every
+     * problem, as in a run. The reports are written as for a run, into a folder {@code check_<timestamp>}, except the
+     * FHIR TestReports: nothing was tested.
+     *
+     * @throws ConfigurationException if the configuration cannot be used; nothing is checked then
+     */
+    public RunResult check(RunConfiguration configuration) {
+        return check(configuration, new RunControl());
+    }
+
+    /**
+     * {@link #check(RunConfiguration)} under a {@link RunControl}. The run timeout applies; the TestScript timeout and
+     * fail-fast do not, since every TestScript is checked.
+     *
+     * @param control controls this check only; a new one is needed for every call
+     */
+    public RunResult check(RunConfiguration configuration, RunControl control) {
+        try {
+            return start(configuration, control, Mode.CHECK);
+        } finally {
+            control.finish();
+        }
+    }
+
+    private RunResult start(RunConfiguration configuration, RunControl control, Mode mode) {
         List<String> problems = new ArrayList<>(configuration.problems());
         problems.addAll(configuration.unsupportedVersions(versions.versions()));
         problems.addAll(configuration.unknownFormats(reports.formats()));
-        problems.addAll(validator.configurationProblems());
+        if (mode == Mode.RUN || configuration.validation().validateTestScripts()) {
+            problems.addAll(validator.configurationProblems());
+        }
         if (problems.isEmpty()) {
             try {
                 configuration = configuration.withSuites(packages.apply(configuration).resolve(configuration.suites()));
@@ -123,7 +165,7 @@ public final class TestRunner {
         if (!problems.isEmpty()) {
             throw new ConfigurationException(problems);
         }
-        RunContext run = RunContext.start(configuration, clock.instant());
+        RunContext run = RunContext.start(configuration, clock.instant(), mode == Mode.CHECK ? "check" : "run");
         try {
             Files.createDirectories(run.runDirectory());
         } catch (IOException e) {
@@ -133,19 +175,20 @@ public final class TestRunner {
         Duration timeout = configuration.execution().timeout();
         control.begin(clock, timeout == null ? null : run.started().plus(timeout),
                 "the run timeout of " + (timeout == null ? "" : RunControl.describe(timeout)) + " has passed",
-                () -> publish(run, progress, "the run was aborted before it ended"));
+                () -> publish(run, progress, mode, "the run was aborted before it ended"));
         RunInfo info = run.info();
         notify(listener -> listener.runStarted(info));
         Throwable failure = null;
         try {
             List<TestScriptSource> sources = TestScriptDiscovery.discover(configuration.suites());
             progress.found(sources);
-            logStart(run, sources);
+            logStart(run, mode, sources);
             CapabilityCheck capabilities = new CapabilityCheck();
             scheduler.runAll(run, sources, control,
                     (index, source) -> {
                         progress.started(index);
-                        TestScriptResult result = runOne(run, control, index, sources.size(), source, capabilities);
+                        TestScriptResult result = runOne(run, control, mode, index, sources.size(), source,
+                                capabilities);
                         progress.finished(result);
                         return result;
                     },
@@ -162,7 +205,8 @@ public final class TestRunner {
             failure = e;
         }
         // without a failure every TestScript has a result, and the reason is never used
-        RunResult result = publish(run, progress, failure == null ? "the run ended" : "the run failed: " + failure);
+        RunResult result = publish(run, progress, mode,
+                failure == null ? "the run ended" : "the run failed: " + failure);
         switch (failure) {
             case null -> {
                 return result;
@@ -180,7 +224,7 @@ public final class TestRunner {
      *
      * @param reason why a TestScript has no result, for its message
      */
-    private RunResult publish(RunContext run, RunProgress progress, String reason) {
+    private RunResult publish(RunContext run, RunProgress progress, Mode mode, String reason) {
         return progress.publishOnce(() -> {
             List<TestScriptResult> results = new ArrayList<>();
             List<TestScriptSource> sources = progress.sources();
@@ -190,7 +234,7 @@ public final class TestRunner {
                         progress.isStarted(index), reason));
             }
             RunResult published = reports.publish(run, new RunResult(run.runId(), run.runDirectory(), run.started(),
-                    Duration.between(run.started(), clock.instant()), results, Map.of()));
+                    Duration.between(run.started(), clock.instant()), results, Map.of()), mode == Mode.CHECK);
             notify(listener -> listener.runFinished(run.info(), published));
             return published;
         });
@@ -229,8 +273,8 @@ public final class TestRunner {
         return result;
     }
 
-    /** Runs one TestScript; never throws, every problem ends up in the result. */
-    private TestScriptResult runOne(RunContext run, RunControl control, int index, int total,
+    /** Runs or checks one TestScript; never throws, every problem ends up in the result. */
+    private TestScriptResult runOne(RunContext run, RunControl control, Mode mode, int index, int total,
                                     TestScriptSource source, CapabilityCheck capabilities) {
         String label = "%02d_%s".formatted(index, source.baseName());
         Instant started = clock.instant();
@@ -240,7 +284,7 @@ public final class TestRunner {
             TestScriptResult result;
             try {
                 LoadedTestScript loaded = new TestScriptLoader(versions).load(source);
-                result = execute(run, control, index, label, loaded, started, capabilities);
+                result = execute(run, control, mode, index, label, loaded, started, capabilities);
             } catch (TestScriptFormatException | ValidatorUnavailableException e) {
                 log.error("TestScript {} could not be loaded: {}", source.file().getFileName(), e.getMessage());
                 var version = e instanceof TestScriptFormatException format ? format.fhirVersion() : null;
@@ -256,7 +300,7 @@ public final class TestRunner {
                                 Duration.between(started, clock.instant()), "Unexpected error: " + e)));
             }
             logFinished(result);
-            if (run.configuration().execution().failFast()
+            if (mode == Mode.RUN && run.configuration().execution().failFast()
                     && (result.outcome() == Outcome.FAIL || result.outcome() == Outcome.ERROR)) {
                 control.stopStarting("fail-fast: TestScript " + label + " ended with " + result.outcome());
             }
@@ -268,7 +312,7 @@ public final class TestRunner {
         }
     }
 
-    private TestScriptResult execute(RunContext run, RunControl control, int index, String label,
+    private TestScriptResult execute(RunContext run, RunControl control, Mode mode, int index, String label,
                                      LoadedTestScript loaded, Instant started, CapabilityCheck capabilities) {
         var testScript = loaded.testScript();
         var suite = loaded.source().suite();
@@ -288,12 +332,18 @@ public final class TestRunner {
             problems.forEach(p -> log.error("{}", p));
             List<String> messages = new ArrayList<>();
             messages.add("TestScript is not valid: " + String.join("; ", problems));
+            readWarnings(loaded).forEach(w -> messages.add("WARNING: " + w));
             unsupported.forEach(w -> messages.add("WARNING: " + w));
             List<PhaseResult> phases = new ArrayList<>();
             phases.add(new PhaseResult(PhaseKind.LOAD, "Load", Outcome.ERROR, Duration.between(started, clock.instant()),
                     0, List.of(), messages));
-            skipAll(testScript.tests(), "Skipped: the TestScript is not valid", phases);
+            if (mode == Mode.RUN) {
+                skipAll(testScript.tests(), "Skipped: the TestScript is not valid", phases);
+            }
             return result(index, loaded, null, started, phases);
+        }
+        if (mode == Mode.CHECK) {
+            return checked(index, loaded, started, unsupported);
         }
 
         FhirServerConfig server = run.configuration().fhirServerOf(suite);
@@ -316,6 +366,28 @@ public final class TestRunner {
         List<PhaseResult> phases = new TestScriptExecution(loaded,
                 executions.create(run, label, suite, server, capabilities, builtIn, warnings, deadline)).run();
         return result(index, loaded, server.base(), started, phases);
+    }
+
+    /**
+     * The result of a TestScript without problems in check mode: phase {@code Load} passed, with every warning a run
+     * would give before sending anything.
+     */
+    private TestScriptResult checked(int index, LoadedTestScript loaded, Instant started, List<String> unsupported) {
+        List<String> warnings = new ArrayList<>(readWarnings(loaded));
+        warnings.addAll(unsupported);
+        List<String> orderWarnings = TestScriptChecks.orderWarnings(loaded.testScript(), loaded.fixtureResources());
+        orderWarnings.forEach(w -> log.warn("{}", w));
+        warnings.addAll(orderWarnings);
+        log.info("TestScript '{}' has no problems ({} test(s); check mode, nothing sent)",
+                loaded.testScript().displayName(), loaded.testScript().tests().size());
+        return result(index, loaded, null, started, List.of(new PhaseResult(PhaseKind.LOAD, "Load", Outcome.PASS,
+                Duration.between(started, clock.instant()), 0, List.of(),
+                warnings.stream().map(w -> "WARNING: " + w).toList())));
+    }
+
+    /** What the FHIR version module ignored while reading the TestScript, as warnings. */
+    private static List<String> readWarnings(LoadedTestScript loaded) {
+        return loaded.readWarnings().stream().map(w -> "Ignored while reading the TestScript: " + w).toList();
     }
 
     /** Validates the TestScript itself against the base specification of its version. */
@@ -349,10 +421,16 @@ public final class TestRunner {
         tests.forEach(t -> phases.add(PhaseResult.skipped(PhaseKind.TEST, t.name(), t.assertionCount(), reason)));
     }
 
-    private void logStart(RunContext run, List<TestScriptSource> sources) {
+    private void logStart(RunContext run, Mode mode, List<TestScriptSource> sources) {
         RunConfiguration c = run.configuration();
         log.info("FHIR TestScript Runner - {}", run.runId());
-        log.info("  FHIR server:        {}", c.fhirServer().base() == null ? "- (TestScripts will be skipped)" : c.fhirServer().base());
+        if (mode == Mode.CHECK) {
+            log.info("  Mode:               check - the TestScripts are loaded and checked, nothing is sent");
+        }
+        if (mode == Mode.RUN) {
+            log.info("  FHIR server:        {}", c.fhirServer().base() == null ? "- (TestScripts will be skipped)"
+                    : c.fhirServer().base());
+        }
         if (c.fhirServer().oauth2() != null) {
             log.info("  OAuth2:             client {} at {}", c.fhirServer().oauth2().clientId(),
                     c.fhirServer().oauth2().tokenUrl());
@@ -362,13 +440,16 @@ public final class TestRunner {
         log.info("  Parallelism:        {}", c.execution().parallelism());
         log.info("  Rewrite references: {}", c.execution().rewriteReferences().name().toLowerCase(java.util.Locale.ROOT));
         log.info("  Profile validation: {}", validator.description());
-        log.info("  Communication logs: {}", c.reporting().communicationLog() ? run.communicationDirectory() : "disabled");
+        if (mode == Mode.RUN) {
+            log.info("  Communication logs: {}", c.reporting().communicationLog() ? run.communicationDirectory()
+                    : "disabled");
+        }
         c.suites().forEach(s -> log.info("  Suite '{}': {}{} (FHIR {})", s.name(),
                 s.packageId() == null ? "" : "package " + s.packageId() + " in ", s.baseDir().toAbsolutePath(),
                 s.fhirVersion()));
         c.suites().stream().filter(s -> !s.igs().isEmpty())
                 .forEach(s -> log.info("  Suite '{}' validates with IGs {}", s.name(), s.igs()));
-        log.info("{} TestScript(s) to run", sources.size());
+        log.info("{} TestScript(s) to {}", sources.size(), mode == Mode.CHECK ? "check" : "run");
         for (int i = 0; i < sources.size(); i++) {
             log.info("  {}. {}", i + 1, sources.get(i).file());
         }
