@@ -102,7 +102,7 @@ promise.
 | A6 | Wide positional records: `Operation` has 17 components | medium | M |
 | A7 | Assertion values are compared as text | medium | M |
 | A8 | Request and response bodies are `String`s | medium | M |
-| A9 | The public API of the core is undefined; `RunContext` hands mutable run state to listeners | medium | S |
+| A9 | The public API of the core is undefined; `RunContext` hands mutable run state to listeners (done, M2.5) | medium | S |
 | A10 | Package download: new `HttpClient` per download, no proxy, no integrity check | low | S |
 | A11 | `TestRunner` filters configuration problems by property-name prefix (done, M2.2) | low | S |
 | A12 | A body is parsed again for every assertion and variable | low | S |
@@ -196,6 +196,8 @@ FHIRPath already returns typed values. Today `Values.text` throws the types away
 memory and in the communication log.
 
 ### A9 – Public API
+
+**Status:** done in M2.5.
 
 The core has no `module-info` and no list of supported types. Everything public is API by accident. In particular,
 `RunListener` receives `RunContext`. That is a public record with the run's `AtomicInteger` request counter and the
@@ -334,13 +336,19 @@ step below is one pull request, with tests and documentation.
    stops the run when the context closes on Ctrl-C or SIGTERM (before the transport is destroyed) and waits
    `testrunner.shutdown-grace` (30 s), else `RunControl.reportNow()`. A throwing listener no longer stops the run.
    Tests: `RunControlTest`, `RunCommandTest`, `ShutdownIT` (the app in its own JVM, killed with SIGTERM).
-5. **A9.** `RunListener` gets a read-only `RunInfo`. This breaks the listener API; `RunLogFileListener` is the only
-   implementation. Add an ArchUnit rule naming the packages other code may use.
+5. ~~**A9.**~~ Done: `RunListener` gets a read-only `RunInfo` (run id, start, configuration, run folder);
+   `RunContext` is package-private. `ArchitectureTest.otherModulesUseOnlyThePublicApiOfTheCore` names the public API:
+   the packages `model`, `config`, `spi`, `report` and a list of types from `engine` and `http`; `content` and
+   `source` are internal. This breaks the listener API (`RunContext` → `RunInfo` in the method signatures).
 
-*Tests:* a delay option for `InMemoryFhirServer`; tests for each timeout, fail-fast, and a `ReportWriter` or listener
-that throws.
-*Docs:* [configuration.md](../configuration.md), an ADR "Run control" (or an update of ADR-0008), skills
-`testrunner-execution-engine` and `testrunner-configuration`.
+*Tests:* ~~a delay option for `InMemoryFhirServer`; tests for each timeout, fail-fast, and a `ReportWriter` or
+listener that throws.~~ Done: `InMemoryFhirServer.delay`, `RunControlTest`, `ShutdownIT`; a throwing `ReportWriter`
+was already covered.
+*Docs:* ~~[configuration.md](../configuration.md), an ADR "Run control", skills `testrunner-execution-engine` and
+`testrunner-configuration`.~~ Done: [ADR-0013](../adr/0013-run-control.md), configuration.md › Run control, the wiki
+pages and skills.
+*Done when:* a run with a slow server ends within its timeouts with every TestScript reported, a killed run leaves
+`junit.xml`, and no module outside the core uses more than its public API. All three are tested.
 
 ### M3 – Author workflow (S–M)
 

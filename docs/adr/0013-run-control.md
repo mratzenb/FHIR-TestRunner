@@ -65,4 +65,4 @@ Three things must hold whatever stops a run:
 * With `parallelism > 1`, fail-fast lets the TestScripts that are running finish: more than one failure may be reported.
 * The run summary and the reports name why a run ended early; the exit code follows the outcomes as before (1 for an
   `error`, 3 if everything was skipped).
-* `RunControl` is part of the public API of the core.
+* `RunControl` is part of the public API of the core (`ArchitectureTest.CORE_API_TYPES`).

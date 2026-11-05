@@ -1,6 +1,6 @@
 package at.hl7.testing.runner.autoconfigure;
 
-import at.hl7.testing.runner.core.engine.RunContext;
+import at.hl7.testing.runner.core.engine.RunInfo;
 import at.hl7.testing.runner.core.engine.RunListener;
 import at.hl7.testing.runner.core.report.RunResult;
 import ch.qos.logback.classic.Level;
@@ -33,7 +33,7 @@ public class RunLogFileListener implements RunListener {
     private final Map<String, Attached> appenders = new ConcurrentHashMap<>();
 
     @Override
-    public void runStarted(RunContext run) {
+    public void runStarted(RunInfo run) {
         if (!run.configuration().reporting().logFile()
                 || !(LoggerFactory.getILoggerFactory() instanceof LoggerContext context)) {
             return;
@@ -68,7 +68,7 @@ public class RunLogFileListener implements RunListener {
     }
 
     @Override
-    public void runFinished(RunContext run, RunResult result) {
+    public void runFinished(RunInfo run, RunResult result) {
         Attached attached = appenders.remove(run.runId());
         if (attached != null) {
             attached.logger().detachAppender(attached.appender());

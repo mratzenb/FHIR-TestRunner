@@ -167,7 +167,7 @@ class RunControlTest extends EngineTestBase {
         List<RunResult> reported = new ArrayList<>();
         harness.listener(new RunListener() {
             @Override
-            public void runFinished(RunContext run, RunResult result) {
+            public void runFinished(RunInfo run, RunResult result) {
                 reported.add(result);
             }
         });
@@ -192,7 +192,7 @@ class RunControlTest extends EngineTestBase {
         List<RunResult> reported = new java.util.concurrent.CopyOnWriteArrayList<>();
         harness.control(control).listener(new RunListener() {
             @Override
-            public void runFinished(RunContext run, RunResult result) {
+            public void runFinished(RunInfo run, RunResult result) {
                 reported.add(result);
             }
         });
@@ -225,7 +225,7 @@ class RunControlTest extends EngineTestBase {
                 .add("b", script().test(test("t", op("capabilities"))).build())
                 .listener(new RunListener() {
                     @Override
-                    public void testScriptFinished(RunContext run, TestScriptResult result) {
+                    public void testScriptFinished(RunInfo run, TestScriptResult result) {
                         throw new IllegalStateException("broken listener");
                     }
                 });

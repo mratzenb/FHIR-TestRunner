@@ -10,7 +10,8 @@ State has an owner with a clear lifetime:
 
 | State | Owner | Lifetime |
 |---|---|---|
-| Run id, run folder, request counter, configuration | `RunContext` (record) | one run |
+| Run id, run folder, request counter, OAuth2 tokens, configuration | `RunContext` (package-private record; listeners get the values as `RunInfo`) | one run |
+| Why a run stops (cancel, timeout, fail-fast) | `RunControl`, one per run, passed in by the caller | one run |
 | CapabilityStatement of each server (`metadata.capability` checks) | `CapabilityCheck`, created per run by `TestRunner` and passed down | one run |
 | Fixtures, kept responses, last response | `ExecutionState` | one TestScript execution, one thread |
 | Communication folder of a TestScript | `CommunicationLog` | one TestScript execution |
@@ -26,4 +27,5 @@ and cleared per TestScript by the thread that runs it.
 ## Consequences
 * Parallel TestScripts need no locking beyond the `AtomicInteger` request counter.
 * Tests need no reset logic; each test builds what it uses.
-* Results are values: report writers and listeners cannot corrupt them.
+* Results are values: report writers and listeners cannot corrupt them. Listeners get `RunInfo`, not `RunContext`:
+  they cannot change the request counter or the tokens of a run (enforced by `ArchitectureTest`).

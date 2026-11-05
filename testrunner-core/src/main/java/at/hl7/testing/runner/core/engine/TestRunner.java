@@ -134,7 +134,8 @@ public final class TestRunner {
         control.begin(clock, timeout == null ? null : run.started().plus(timeout),
                 "the run timeout of " + (timeout == null ? "" : RunControl.describe(timeout)) + " has passed",
                 () -> publish(run, progress, "the run was aborted before it ended"));
-        notify(listener -> listener.runStarted(run));
+        RunInfo info = run.info();
+        notify(listener -> listener.runStarted(info));
         Throwable failure = null;
         try {
             List<TestScriptSource> sources = TestScriptDiscovery.discover(configuration.suites());
@@ -190,7 +191,7 @@ public final class TestRunner {
             }
             RunResult published = reports.publish(run, new RunResult(run.runId(), run.runDirectory(), run.started(),
                     Duration.between(run.started(), clock.instant()), results, Map.of()));
-            notify(listener -> listener.runFinished(run, published));
+            notify(listener -> listener.runFinished(run.info(), published));
             return published;
         });
     }
@@ -224,7 +225,7 @@ public final class TestRunner {
         TestScriptResult result = new TestScriptResult(index, source.suite().name(), source.baseName(),
                 source.file().toString(), source.file(), null, null, clock.instant(), Duration.ZERO,
                 List.of(PhaseResult.skipped(PhaseKind.LOAD, "Load", 0, "Not started: " + reason)));
-        notify(listener -> listener.testScriptFinished(run, result));
+        notify(listener -> listener.testScriptFinished(run.info(), result));
         return result;
     }
 
@@ -260,7 +261,7 @@ public final class TestRunner {
                 control.stopStarting("fail-fast: TestScript " + label + " ended with " + result.outcome());
             }
             TestScriptResult finished = result;
-            notify(listener -> listener.testScriptFinished(run, finished));
+            notify(listener -> listener.testScriptFinished(run.info(), finished));
             return result;
         } finally {
             MDC.remove(MDC_TEST_SCRIPT);

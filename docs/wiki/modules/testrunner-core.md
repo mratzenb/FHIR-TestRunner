@@ -40,7 +40,7 @@ flowchart BT
 | `content` | Version-independent work on JSON/XML resources | `ResourceContent` (type, id, references), `FhirElement` (`minimumId` comparison), `PathEvaluator` (JSONPath/XPath) |
 | `http` | The HTTP layer, OAuth2 tokens and the communication log | `FhirHttpClient`, `HttpTransport` (port), `JdkHttpTransport`, `AccessTokens`, `CommunicationLog`, `FhirRequest`/`FhirResponse`/`Exchange` |
 | `source` | Finding and loading TestScripts | `TestScriptDiscovery`, `TestScriptLoader`, `ExampleInstanceResolver`, `PackageSuites` |
-| `engine` | Running a TestScript | `TestRunner`, `TestRunners`, `RunContext`, `RunScheduler`, `ExecutionFactory`, `ReportPublisher`, `TestScriptExecution`, `ExecutionState`, `TestScriptChecks`, `ActionRules`, `AssertionEvaluator`, `RequestFactory`, `VariableResolver`, `FixtureManager`, `CapabilityCheck` |
+| `engine` | Running a TestScript | `TestRunner`, `TestRunners`, `RunControl`, `RunInfo`, `RunContext`, `RunScheduler`, `ExecutionFactory`, `ReportPublisher`, `TestScriptExecution`, `ExecutionState`, `TestScriptChecks`, `ActionRules`, `AssertionEvaluator`, `RequestFactory`, `VariableResolver`, `FixtureManager`, `CapabilityCheck` |
 | `report` | Results and report writers | `Outcome`, `ActionResult`, `PhaseResult`, `TestScriptResult`, `RunResult`, `ReportWriter` (port) and its four implementations |
 
 ## The model
@@ -117,8 +117,21 @@ the rest:
 | `ExecutionFactory` | what one execution gets from its run, as an `ExecutionEnvironment`: the `FhirHttpClient` with its communication log, default headers and OAuth2 token, and the `${testrunner.…}` values |
 | `ReportPublisher` | writes the reports in the configured formats and logs the summary |
 
-Only a few engine classes are public: `TestRunner`, `TestRunners`, `RunContext`, `RunListener`, `Source` and the
-exceptions. The rest is package-private. They are details of how a TestScript is executed.
+### The public API
+
+What other modules and an application embedding the runner may use. `ArchitectureTest.otherModulesUseOnlyThePublicApiOfTheCore`
+enforces it; everything else may change without notice.
+
+| Package | Public for other modules |
+|---|---|
+| `model`, `config`, `spi`, `report` | everything: the model the version modules fill, the configuration, the ports, the results |
+| `engine` | `TestRunner`, `TestRunners`, `RunControl`, `RunListener`, `RunInfo`, `ConfigurationException` |
+| `http` | `HttpTransport`, `JdkHttpTransport`, `FhirRequest`, `FhirResponse`, `HttpHeaders` – for a transport of your own |
+| `content`, `source` | nothing |
+
+`RunContext` – the run's request counter and OAuth2 tokens – is package-private. Listeners get a `RunInfo` with values
+only ([ADR-0004](../../adr/0004-no-global-state.md)). A type that is `public` only so that another core package can
+use it is not API. To use one from outside, add it to the list in `ArchitectureTest` on purpose, and to this table.
 
 The step-by-step flow is on [How a run works](../run-lifecycle.md). The exact rules are in
 [architecture.md](../../architecture.md#execution-semantics). How `${…}` placeholders are resolved is on
