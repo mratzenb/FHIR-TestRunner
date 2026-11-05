@@ -98,10 +98,6 @@ public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> su
             problems.add("testrunner.reporting.log-file-level: unknown level '" + reporting.logFileLevel()
                     + "', known: " + LEVELS);
         }
-        if (validation.enabled() && validation.validatorJar() == null) {
-            problems.add("testrunner.validation.validator-jar is not set; set it to the location of validator_cli.jar"
-                    + " or disable validation with testrunner.validation.enabled=false");
-        }
         return problems;
     }
 

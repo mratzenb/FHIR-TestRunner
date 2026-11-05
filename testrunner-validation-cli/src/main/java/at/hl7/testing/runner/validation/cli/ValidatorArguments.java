@@ -45,6 +45,18 @@ final class ValidatorArguments {
         return arguments;
     }
 
+    /**
+     * Problems in the configuration that keep every run from starting ({@code ProfileValidator.configurationProblems}):
+     * the validator jar is not set.
+     */
+    static List<String> configurationProblems(ValidationConfig config) {
+        if (config.validatorJar() == null) {
+            return List.of("testrunner.validation.validator-jar is not set; set it to the location of"
+                    + " validator_cli.jar or disable validation with testrunner.validation.enabled=false");
+        }
+        return List.of();
+    }
+
     /** Problems that keep the validator from starting at all; empty if it looks usable. */
     static List<String> problems(ValidationConfig config) {
         List<String> problems = new ArrayList<>();

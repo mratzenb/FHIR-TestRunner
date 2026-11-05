@@ -27,7 +27,7 @@ never loaded into the runner's JVM.
 | `ValidatorCliProfileValidator` | Process mode. Writes the resource to a temp folder, runs the validator, reads the result from `-output`. |
 | `ValidatorServerProfileValidator` | Server mode. Keeps one `ValidatorServer` per key. Falls back to process mode when a server fails. `AutoCloseable`. |
 | `ValidatorServer` | One validator server process: start on a free port on `127.0.0.1`, wait until ready, validate, stop. |
-| `ValidatorArguments` | Builds the arguments shared by both modes: `-version`, `-tx`, `-locale`, `-ig …`, extra arguments. |
+| `ValidatorArguments` | Builds the arguments shared by both modes: `-version`, `-tx`, `-locale`, `-ig …`, extra arguments. Also the problems: `configurationProblems` (no `validator-jar`, the run does not start) and `problems` (jar or java missing, each validation is an error). |
 | `OperationOutcomeReader` | Reads the validator's OperationOutcome into a `ValidationResult`. |
 | `ProcessRunner` | Runs a process with a timeout; replaceable in tests. |
 

@@ -43,9 +43,11 @@ sequenceDiagram
 
 `TestRunner` first collects **all** problems at once:
 
-* `RunConfiguration.problems()` – missing suites, missing folders, invalid levels, no validator jar.
+* `RunConfiguration.problems()` – missing suites, missing folders, invalid levels.
 * `unsupportedVersions()` – a suite pins a FHIR version that no module on the classpath supports.
 * `unknownFormats()` – a report format that no `ReportWriter` provides.
+* `ProfileValidator.configurationProblems()` – the validator's own settings, e.g. no validator jar. The adapter
+  knows its properties; with validation off, the validator is `DISABLED` and reports none.
 
 Then suites with a `package-id` are resolved by `PackageSuites`. It finds the package in the FHIR package cache,
 or downloads it. The suite then points to the unpacked folder.

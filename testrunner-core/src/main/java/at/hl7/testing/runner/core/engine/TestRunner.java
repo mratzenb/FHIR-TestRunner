@@ -88,9 +88,7 @@ public final class TestRunner {
         List<String> problems = new ArrayList<>(configuration.problems());
         problems.addAll(configuration.unsupportedVersions(versions.versions()));
         problems.addAll(configuration.unknownFormats(reports.formats()));
-        if (validator == ProfileValidator.DISABLED) {
-            problems.removeIf(p -> p.startsWith("testrunner.validation.validator-jar"));
-        }
+        problems.addAll(validator.configurationProblems());
         if (problems.isEmpty()) {
             try {
                 configuration = configuration.withSuites(packages.apply(configuration).resolve(configuration.suites()));

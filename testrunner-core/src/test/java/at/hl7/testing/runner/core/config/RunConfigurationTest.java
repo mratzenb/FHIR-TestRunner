@@ -32,9 +32,10 @@ class RunConfigurationTest {
                 null, ExecutionConfig.parallel(0), null,
                 new ReportingConfig(null, List.of("pdf"), null, null, "LOUD", null), null);
 
-        assertThat(config.problems()).hasSize(5).anyMatch(p -> p.contains("does not exist"))
+        assertThat(config.problems()).hasSize(4).anyMatch(p -> p.contains("does not exist"))
                 .anyMatch(p -> p.contains("R7")).anyMatch(p -> p.contains("parallelism"))
-                .anyMatch(p -> p.contains("LOUD")).anyMatch(p -> p.contains("validator-jar"));
+                .anyMatch(p -> p.contains("LOUD"))
+                .as("the validator reports its own configuration problems").noneMatch(p -> p.contains("validator-jar"));
         assertThat(config.unknownFormats(Set.of("junit", "json"))).singleElement().asString().contains("'pdf'");
     }
 

@@ -104,7 +104,7 @@ promise.
 | A8 | Request and response bodies are `String`s | medium | M |
 | A9 | The public API of the core is undefined; `RunContext` hands mutable run state to listeners | medium | S |
 | A10 | Package download: new `HttpClient` per download, no proxy, no integrity check | low | S |
-| A11 | `TestRunner` filters configuration problems by property-name prefix | low | S |
+| A11 | `TestRunner` filters configuration problems by property-name prefix (done, M2.2) | low | S |
 | A12 | A body is parsed again for every assertion and variable | low | S |
 
 Effort: S ≤ 1 day, M 2–5 days, L more than a week.
@@ -209,6 +209,8 @@ the TLS settings that apply to the FHIR server, and it does not verify the tarba
 TestScripts are sent to servers, so the integrity of the package matters.
 
 ### A11 and A12 – Small things
+
+**Status:** A11 done in M2.2.
 
 * `TestRunner.run` removes problems whose text starts with `testrunner.validation.validator-jar` when validation is
   off. The engine knows an adapter's property name and matches on message text. Let the validator adapter report its
@@ -317,8 +319,9 @@ step below is one pull request, with tests and documentation.
 1. ~~**A5.**~~ Done: `RunScheduler` (serial suites, thread pool), `ExecutionFactory` (client, communication log,
    headers, OAuth2, `${testrunner.…}` values) and `ReportPublisher` (reports, summary) came out of `TestRunner`;
    `TestScriptExecution` takes an `ExecutionEnvironment` record. No behaviour change, no test changed.
-2. **A11.** Move the validator-jar exception out of `TestRunner`: `ProfileValidator` (or `ProfileValidators`)
-   reports its own configuration problems.
+2. ~~**A11.**~~ Done: `ProfileValidator.configurationProblems()` (default none). The validator-cli adapters report
+   a missing `validator-jar`; `RunConfiguration.problems()` no longer knows the property and `TestRunner` no longer
+   filters messages. Test: `TestRunnerTest.configurationProblemOfTheValidatorStopsTheRunBeforeAnythingIsSent`.
 3. **A2 + F3.** `ExecutionConfig.timeout`, `testScriptTimeout` and `failFast`, with defaults that keep today's
    behaviour (none, none, false). A per-run cancellation flag lives in `RunContext` – run state, not global state.
    `TestScriptExecution` checks it between actions. `RunScheduler` turns everything that did not run into `skip`
