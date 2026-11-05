@@ -118,7 +118,7 @@ otherwise the report leaves it out.
 
 | Job | When | What |
 |---|---|---|
-| `verify` | every push to `main`, every pull request | `mvn -B verify` on Temurin 25, including `HapiServerIT` (the runner has Docker). The coverage report is attached as `coverage`. If the build fails, the surefire and failsafe reports are attached as `test-reports`. |
+| `verify` | every push to `main`, every pull request | `mvn -B verify` on Temurin 25, including `HapiServerIT` (the runner has Docker). The coverage report is attached as `coverage`, the SBOM as `sbom`. If the build fails, the surefire and failsafe reports are attached as `test-reports`. |
 | `real-validator` | nightly (03:17 UTC) and on demand (*Run workflow*) | `RealValidatorIT` with the real validator, both modes. The negative control must fail. |
 
 The real validator is pinned (`VALIDATOR_VERSION`, now 7.0.2, the version the docs were verified with). The job
@@ -134,6 +134,19 @@ VALIDATOR_JAR=/tmp/validator_cli.jar mvn -B verify -pl testrunner-app -am \
 ```
 
 A failed nightly run is a signal about the validator or the packages, not about a commit.
+
+### Dependency updates and the SBOM
+
+[Dependabot](../../.github/dependabot.yml) opens pull requests every Monday for new versions of the Maven
+dependencies, the Maven plugins and the GitHub Actions. Spring Boot, HAPI FHIR and the Maven plugins each come as one
+grouped pull request. Major versions of Spring Boot and HAPI FHIR are left out: they are decisions of their own. The
+`verify` job tests each pull request like any other. A HAPI FHIR update should also raise the image tag in
+`HapiServerIT` to the matching `hapiproject/hapi` release.
+
+`mvn package` writes the software bill of materials of the executable jar to `testrunner-app/target/bom.json` and
+`bom.xml` (CycloneDX 1.6): every library the jar ships, with version, hashes and license, test libraries excluded.
+Feed it to a scanner such as Dependency-Track or `grype sbom:testrunner-app/target/bom.json`. In offline mode
+(`mvn -o`) the plugin skips the SBOM.
 
 ## Test data
 
@@ -168,6 +181,7 @@ More: skill `.claude/skills/testrunner-testing`, [ADR-0009](../adr/0009-testing.
 | `-Xlint:all,-processing,-serial`, `--limit-modules java.se` | compiler plugin in the root `pom.xml` |
 | A compiler warning fails the build (`failOnWarning`) | compiler plugin in the root `pom.xml` |
 | Coverage of unit and integration tests, as a report | JaCoCo `prepare-agent` in the root `pom.xml`, `report-aggregate` in `testrunner-app` |
+| SBOM of the executable jar | CycloneDX `makeBom` in `testrunner-app` |
 | Test doubles only in test scope | enforcer `bannedDependencies` |
 
 → [ADR-0010](../adr/0010-build.md)

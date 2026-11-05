@@ -1,0 +1,30 @@
+# Pull requests for new versions of the Maven dependencies and plugins and of the GitHub Actions; CI checks each.
+# Versions live in properties of the root pom.xml (ADR-0010), so a pull request usually changes one property.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # one pull request per family: Spring Boot and HAPI FHIR bring many artefacts with one version property
+      spring-boot:
+        patterns: ["org.springframework.boot:*"]
+      hapi-fhir:
+        patterns: ["ca.uhn.hapi.fhir:*"]
+      maven-plugins:
+        patterns: ["org.apache.maven.plugins:*", "org.jacoco:*", "org.cyclonedx:*"]
+    ignore:
+      # a major Spring Boot or HAPI FHIR version is a decision of its own, not a routine update
+      - dependency-name: "org.springframework.boot:*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "ca.uhn.hapi.fhir:*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday

@@ -40,7 +40,10 @@ Testcontainers' version comes from the Spring Boot BOM (`testcontainers-junit-ju
 
 * Job `verify`: push to `main` and every pull request → `mvn -B -ntp verify` on Temurin 25 (`setup-java` with
   `cache: maven`); `ubuntu-latest` has Docker, so `HapiServerIT` runs there; the coverage report is uploaded as
-  artefact `coverage`, on failure the surefire/failsafe reports as `test-reports`.
+  artefact `coverage`, the SBOM as `sbom`, on failure the surefire/failsafe reports as `test-reports`.
+* `.github/dependabot.yml`: weekly (Monday) PRs for Maven dependencies/plugins (groups `spring-boot`, `hapi-fhir`,
+  `maven-plugins`; major versions of Spring Boot and HAPI ignored) and GitHub Actions. A HAPI update should also
+  raise `HapiServerIT.IMAGE`.
 * Job `real-validator`: nightly (`cron 17 3 * * *`) and `workflow_dispatch` only → downloads the pinned
   `validator_cli.jar` (`env.VALIDATOR_VERSION`, 7.0.2 = the version `docs/validation.md` was verified with), caches it
   and `~/.fhir/packages` (`actions/cache`, key `validator-<version>`), runs only `RealValidatorIT` (the command
@@ -79,6 +82,11 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
   `testrunner-app/target/site/jacoco-aggregate/index.html` (+ `jacoco.xml`, `jacoco.csv`). Report only, no gate.
   `report-aggregate` covers only **direct** dependencies of the app, which is why the app POM names `testrunner-core`
   and `testrunner-fhir-hapi` itself; a new module must be a direct dependency of the app too.
+* SBOM (CycloneDX, `cyclonedx-maven-plugin.version`): `makeBom` in `testrunner-app` at `package` →
+  `testrunner-app/target/bom.json`/`bom.xml`, runtime libraries only (`includeTestScope=false`). Skipped in offline
+  mode (`-o`): "Goal makeBom requires online mode".
+* Imported BOMs manage dependencies only, never plugins: every plugin version is a property in the root POM, even if
+  the Spring Boot BOM's own `pluginManagement` names it (CycloneDX does; it does not reach importers).
 * Compiler: `release 25`, `-parameters`, `-Xlint:all,-processing,-serial`, `--limit-modules java.se`,
   `failOnWarning` (`-Werror`: any warning fails the build; fix it, or `@SuppressWarnings` with a reason).
 * Project modules are in the parent's `dependencyManagement`. `testrunner-test-support` is there with
