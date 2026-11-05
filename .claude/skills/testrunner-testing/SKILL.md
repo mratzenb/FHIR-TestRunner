@@ -35,6 +35,7 @@ Only Java SE + Jetty: no `com.sun.net.httpserver` (the compiler rejects it).
   CapabilityStatement, which announces read/vread/update/delete/history/create/search-type for Patient and
   Organization and transaction/batch), `baseUrl()`, `close()` (AutoCloseable). Supports create (201 + Location/ETag), read, vread,
   update, delete, history, crude search (all values contained in the JSON; `_`-params ignored), conditional delete,
+  conditional update (`PUT [type]?query`: 201 no match, 200 one match, 400 other body id, 412 several matches),
   `metadata`, batch/transaction (empty response Bundle), XML create (id rewritten, not stored). Hooks:
   `on(method, path, Answer.json(status, body))` fixes an answer; `requests()` (method, path, query, headers, body;
   `header(name)`), `requestLines()` (`"POST /Patient"`), `resource("Patient/1")`.

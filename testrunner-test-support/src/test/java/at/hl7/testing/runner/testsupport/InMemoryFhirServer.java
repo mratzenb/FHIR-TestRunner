@@ -31,7 +31,8 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li>{@code POST [type]} stores a JSON resource under a new id (201 + Location); XML bodies get an id but are
  *       not stored</li>
- *   <li>{@code PUT [type]/[id]} stores (200 if it existed, else 201)</li>
+ *   <li>{@code PUT [type]/[id]} stores (200 if it existed, else 201); {@code PUT [type]?[search]} is a conditional
+ *       update of a JSON resource (201 for no match, 200 for one, 412 for several)</li>
  *   <li>{@code GET [type]/[id]}, {@code GET [type]/[id]/_history(/[vid])}, {@code DELETE [type]/[id]}</li>
  *   <li>{@code GET [type]?name=value} returns a searchset Bundle of the stored resources of the type whose JSON
  *       contains every value (a crude stand-in for real search); {@code DELETE [type]?..} deletes them</li>
@@ -201,6 +202,9 @@ public final class InMemoryFhirServer implements AutoCloseable {
         if (method.equals("POST") && parts.size() == 1) {
             return store(parts.getFirst(), String.valueOf(nextId.getAndIncrement()), body, headers, 201);
         }
+        if (method.equals("PUT") && parts.size() == 1 && query != null) {
+            return conditionalUpdate(parts.getFirst(), query, body, headers);
+        }
         if (parts.size() >= 2) {
             String key = parts.get(0) + "/" + parts.get(1);
             switch (method) {
@@ -271,6 +275,33 @@ public final class InMemoryFhirServer implements AutoCloseable {
         history.computeIfAbsent(key, k -> Collections.synchronizedList(new ArrayList<>())).add(resource.deepCopy());
         return new Answer(status, resource.toString(), Map.of("Content-Type", FHIR_JSON,
                 "Location", location(type, id, String.valueOf(version)), "ETag", "W/\"" + version + "\""));
+    }
+
+    /**
+     * {@code PUT [type]?[search]} by the rules of the FHIR specification: no match creates the resource (under the id
+     * of the body, if it has one), one match updates it unless the body names another id (400), several matches are
+     * 412.
+     */
+    private Answer conditionalUpdate(String type, String query, String body, Map<String, List<String>> headers) {
+        List<ObjectNode> matches = matching(type, query);
+        if (matches.size() > 1) {
+            return Answer.json(412, outcome("multiple-matches", matches.size() + " resources match " + query));
+        }
+        String bodyId;
+        try {
+            bodyId = JSON.readTree(body).path("id").asText(null);
+        } catch (IOException e) {
+            return Answer.json(400, outcome("invalid", "The body is no JSON resource"));
+        }
+        if (matches.isEmpty()) {
+            return store(type, bodyId != null ? bodyId : String.valueOf(nextId.getAndIncrement()), body, headers, 201);
+        }
+        String id = matches.getFirst().path("id").asText();
+        if (bodyId != null && !bodyId.equals(id)) {
+            return Answer.json(400, outcome("invalid", "The body has the id " + bodyId + ", but " + query
+                    + " matches " + type + "/" + id));
+        }
+        return store(type, id, body, headers, 200);
     }
 
     /** Stored resources of a type whose JSON contains the value of every search parameter not starting with '_'. */

@@ -66,6 +66,8 @@ and wrong", `TestScriptException` for "cannot be evaluated".
   `[base]/metadata` for capabilities, `[base]/[type]/[id](/_history(/[vid]))` from `targetId`, `[base]/[type]`.
 * Body from `sourceId` (fixture, kept response or kept request). `responseId` keeps the response, `requestId` the
   request as sent (placeholders resolved), for later `sourceId`/variables.
+* `update` to an instance URL `[base]/[type]/[id]` (type = the body's resource type) sets the body's id to `[id]`;
+  any other URL, e.g. a conditional update `[base]/[type]?[search]`, sends the body unchanged (`instanceId`).
 * Every text value of an operation or assertion may contain `${variable}` (`withValues`), as in the PoC.
 
 **Adding an operation type** – only needed for a default method or URL; an unknown code already runs as `OTHER`
