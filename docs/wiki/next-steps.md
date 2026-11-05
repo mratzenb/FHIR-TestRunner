@@ -95,7 +95,7 @@ promise.
 | Id | Finding | Impact | Effort |
 |---|---|---|---|
 | A1 | Validation rules are spread over `AssertionEvaluator`, `RequestFactory` and `TestScriptChecks` | high – cause of D2 | M |
-| A2 | A run cannot be bounded, cancelled or partially reported | high – CI | M |
+| A2 | A run cannot be bounded, cancelled or partially reported (done, M2.3/M2.4) | high – CI | M |
 | A3 | No CI pipeline; build gates only run locally | medium | S |
 | A4 | No test against a real FHIR server | medium | M |
 | A5 | `TestRunner` does too much; `TestScriptExecution` takes 10 constructor parameters (done, M2.1) | medium | M |
@@ -130,8 +130,7 @@ that should never fire.
 
 ### A2 – Run control
 
-**Status:** limits done in M2.3 ([ADR-0013](../adr/0013-run-control.md)); reports after an exception or Ctrl-C in
-M2.4.
+**Status:** done – limits in M2.3, reports after an exception or Ctrl-C in M2.4 ([ADR-0013](../adr/0013-run-control.md)).
 
 * No run timeout, no per-TestScript timeout, no fail-fast. A server that answers slowly holds the run for
   `request-timeout` × requests.
@@ -228,7 +227,7 @@ TestScripts are sent to servers, so the integrity of the package matters.
 |---|---|---|---|---|
 | F1 | **Check mode**: load and check TestScripts without a server | high | S | A1 |
 | F2 | **Select what runs**: by TestScript and test name; list mode | high | S | – |
-| F3 | **Run control**: run and TestScript timeouts, fail-fast, reports after Ctrl-C | high | M | A2, A5 |
+| F3 | **Run control**: run and TestScript timeouts, fail-fast, reports after Ctrl-C (done, M2.3/M2.4) | high | M | A2, A5 |
 | F4 | **Container image** and a compose file with HAPI FHIR | medium | S | – |
 | F5 | **HTML report** linking into `communication/` | medium | M | – |
 | F6 | **Typed comparisons** for dates, numbers and booleans | medium | M | A7 |
@@ -330,9 +329,11 @@ step below is one pull request, with tests and documentation.
    `TestRunner.run(configuration, control)` rather than kept in `RunContext`, so that a caller can hold it before the
    run starts. A `Deadline` is checked before every setup and test action; the teardown always runs. Stopped:
    `error`; not started: `skip`, both with the reason. Tests: `RunControlTest`, with `InMemoryFhirServer.delay`.
-4. **Reports always.** `TestRunner.run` writes the reports for all finished TestScripts in a `finally`; unfinished
-   ones are `error` ("run aborted: …"). In the app, a shutdown hook cancels the run and waits a short, configurable
-   time, so Ctrl-C and a CI kill still leave `junit.xml`.
+4. ~~**Reports always.**~~ Done: `TestRunner.run` writes the reports once whatever ends the run (`RunProgress`); a
+   TestScript without a result is `error` "Did not end: …" or `skip` "Not started: …". In the app, `RunCommand`
+   stops the run when the context closes on Ctrl-C or SIGTERM (before the transport is destroyed) and waits
+   `testrunner.shutdown-grace` (30 s), else `RunControl.reportNow()`. A throwing listener no longer stops the run.
+   Tests: `RunControlTest`, `RunCommandTest`, `ShutdownIT` (the app in its own JVM, killed with SIGTERM).
 5. **A9.** `RunListener` gets a read-only `RunInfo`. This breaks the listener API; `RunLogFileListener` is the only
    implementation. Add an ArchUnit rule naming the packages other code may use.
 

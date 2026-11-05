@@ -63,6 +63,7 @@ testrunner:
   packages: {cache-dir: ~/.fhir/packages, registry: https://packages.fhir.org}   # PackagesConfig
   run-on-startup: true                       # app only (RunCommand); false = wire without running
   exit-on-skip: all                          # app only (RunCommand.ExitOnSkip, bound via Binder): all | any | never
+  shutdown-grace: 30s                        # app only (RunCommand, Binder): wait on Ctrl-C/SIGTERM before reportNow
 ```
 
 Sources, highest first: command line → system properties → env vars (`TESTRUNNER_FHIRSERVER_BASEURL`) → `--config`
@@ -108,7 +109,9 @@ Spring closes it (stops validator servers). Registered in
 | `TestRunner` | wired from the above | wire yourself |
 
 `testrunner-app`: `TestRunnerApplication` (main, argument shortcuts, `web-application-type: none`), `RunCommand`
-(`ApplicationRunner` + `ExitCodeGenerator`, conditional on `run-on-startup`), `ValidatorCheck` (start-up warning).
+(`ApplicationRunner` + `ExitCodeGenerator` + `ApplicationListener<ContextClosedEvent>`, conditional on
+`run-on-startup`; runs with a `RunControl` and on context close – Ctrl-C/SIGTERM, before beans are destroyed –
+`stop(control, shutdownGrace)`: cancel, `awaitFinished`, else `reportNow`), `ValidatorCheck` (start-up warning).
 
 ## Library use (no Spring)
 

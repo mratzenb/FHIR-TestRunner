@@ -8,6 +8,7 @@ import at.hl7.testing.runner.core.report.TestScriptResult;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 import static at.hl7.testing.runner.core.engine.Scripts.op;
@@ -155,6 +156,93 @@ class RunControlTest extends EngineTestBase {
                 .containsExactly("Stopped before the next action: the runner was stopped");
         assertThat(server.requests()).extracting(r -> r.query()).containsExactly("t=a-1", "t=a-teardown");
         assertThat(run.reportFiles()).as("reports are written").containsKeys("junit", "summary", "json");
+    }
+
+    /** M2.4: whatever ends a run, the reports are written. */
+    @Test
+    void anUnexpectedErrorStillWritesTheReportsWithTheResultsSoFar() {
+        harness.add("a", script().test(test("t", op("capabilities"), responseCode("200"))).build())
+                .add("b", script().test(test("t", op("capabilities"))).build())
+                .failingOn("b", new StackOverflowError("a bug in a version module"));
+        List<RunResult> reported = new ArrayList<>();
+        harness.listener(new RunListener() {
+            @Override
+            public void runFinished(RunContext run, RunResult result) {
+                reported.add(result);
+            }
+        });
+
+        assertThatThrownBy(harness::run).isInstanceOf(StackOverflowError.class);
+
+        assertThat(reported).singleElement().satisfies(run -> {
+            assertThat(run.testScripts()).extracting(TestScriptResult::outcome).containsExactly(Outcome.PASS, Outcome.ERROR);
+            assertThat(run.testScripts().get(1).phases().getFirst().messages().getFirst())
+                    .isEqualTo("Did not end: the run failed: java.lang.StackOverflowError: a bug in a version module");
+            assertThat(run.reportFiles()).containsKeys("junit", "summary", "json");
+            assertThat(run.reportFiles().get("junit")).content().contains("<testsuite name=\"TS\"", "errors=\"1\"");
+        });
+    }
+
+    @Test
+    void reportNowWritesTheReportsWhileTheRunIsStillGoingAndOnlyOnce() throws Exception {
+        server.delay(SLOW);
+        slowTestScript("a");
+        slowTestScript("b");
+        RunControl control = new RunControl();
+        List<RunResult> reported = new java.util.concurrent.CopyOnWriteArrayList<>();
+        harness.control(control).listener(new RunListener() {
+            @Override
+            public void runFinished(RunContext run, RunResult result) {
+                reported.add(result);
+            }
+        });
+        Thread shutdown = Thread.ofPlatform().start(() -> {
+            while (server.requests().isEmpty()) {
+                Thread.onSpinWait();
+            }
+            control.cancel("the runner was stopped");
+            control.reportNow();
+        });
+
+        RunResult run = harness.run();
+        shutdown.join();
+
+        assertThat(control.isFinished()).isTrue();
+        assertThat(reported).as("written once, by reportNow").singleElement().isSameAs(run);
+        assertThat(run.testScripts()).extracting(TestScriptResult::outcome).containsExactly(Outcome.ERROR, Outcome.SKIP);
+        assertThat(run.testScripts().getFirst().phases().getFirst().messages())
+                .containsExactly("Did not end: the run was aborted before it ended");
+        assertThat(run.testScripts().get(1).phases().getFirst().messages())
+                .containsExactly("Not started: the run was aborted before it ended");
+        assertThat(server.requests()).extracting(r -> r.query())
+                .as("the run went on and cleaned up after the reports were written")
+                .containsExactly("t=a-1", "t=a-teardown");
+    }
+
+    @Test
+    void aListenerThatThrowsDoesNotStopTheRun() {
+        harness.add("a", script().test(test("t", op("capabilities"))).build())
+                .add("b", script().test(test("t", op("capabilities"))).build())
+                .listener(new RunListener() {
+                    @Override
+                    public void testScriptFinished(RunContext run, TestScriptResult result) {
+                        throw new IllegalStateException("broken listener");
+                    }
+                });
+
+        RunResult run = harness.run();
+
+        assertThat(run.testScripts()).extracting(TestScriptResult::outcome).containsExactly(Outcome.PASS, Outcome.PASS);
+        assertThat(run.reportFiles()).containsKeys("junit", "summary", "json");
+    }
+
+    @Test
+    void finishedAlsoWhenTheConfigurationIsInvalid() {
+        RunControl control = new RunControl();
+        harness.noServer().parallelism(0).control(control);
+
+        assertThatThrownBy(harness::run).isInstanceOf(ConfigurationException.class);
+        assertThat(control.isFinished()).as("a shutdown hook waiting for the run returns at once").isTrue();
     }
 
     @Test

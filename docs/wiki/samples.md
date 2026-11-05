@@ -304,7 +304,9 @@ java -jar testrunner-app-exec.jar --testrunner.exit-on-skip=any \
 
 A TestScript that takes longer than 2 minutes is stopped before its next action and is an `error`; its teardown still
 runs. With `fail-fast`, the first `fail` or `error` keeps the rest from starting – they are `skip`, so the job ends
-early with exit code 1. More: [configuration.md › Run control](../configuration.md#run-control).
+early with exit code 1. If the CI system kills the job anyway, the runner gets SIGTERM, tears down and writes
+`junit.xml` within `testrunner.shutdown-grace` (30 s). Keep `execution.timeout` below the job timeout, so that the
+runner ends on its own. More: [configuration.md › Run control](../configuration.md#run-control).
 
 Exit codes: 0 pass, 1 fail or error, 2 invalid configuration, 3 skipped. `exit-on-skip=any` makes a single skipped
 TestScript fail the job, see [Troubleshooting › Exit codes](troubleshooting.md#exit-codes). `junit.xml` in the run

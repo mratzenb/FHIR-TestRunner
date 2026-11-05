@@ -109,6 +109,8 @@ testrunner:
   run-on-startup: true                     # app only: false to wire everything without running (tests, embedding)
   exit-on-skip: all                        # app only: when skipped TestScripts give exit code 3 instead of 0:
                                            # all (default, nothing was tested) | any (a skip, no failure) | never
+  shutdown-grace: 30s                      # app only: on Ctrl-C or kill, how long to wait for the run to tear
+                                           # down and write its reports before writing them with what is known
 ```
 
 ### Rewriting references in fixtures (runner-specific)
@@ -142,11 +144,19 @@ TestScript timeout of 2m has passed"); its remaining tests are `skip`, and its *
 so the server is left clean. A TestScript that did not start is `skip` with the reason ("Not started: fail-fast:
 TestScript 02_… ended with FAIL"). Why: [ADR-0013](adr/0013-run-control.md).
 
+**Reports are always written** once a run has started – also after an unexpected exception, and on Ctrl-C or a
+kill (SIGTERM). The app then stops the run as above and waits up to `testrunner.shutdown-grace` (default `30s`) for
+the teardowns and the reports. If the run does not end in time, the reports are written with what is known: a
+TestScript still running is `error` "Did not end: the run was aborted before it ended", one not started `skip`. In
+CI, set `shutdown-grace` below the time the CI system waits between SIGTERM and SIGKILL. `kill -9` cannot be handled.
+
 Embedded, a run is stopped from another thread with a `RunControl`:
 
 ```java
 RunControl control = new RunControl();
-// e.g. in a shutdown hook or a UI: control.cancel("stopped by the user");
+// e.g. in a shutdown hook or a UI:
+//   control.cancel("stopped by the user");
+//   if (!control.awaitFinished(Duration.ofSeconds(30))) control.reportNow();
 RunResult result = runner.run(configuration, control);
 ```
 

@@ -37,7 +37,7 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
    `VariableResolver`, `RequestFactory`, `AssertionEvaluator`, `FixtureManager`, `PhaseRecorder`.
 6. Every request goes through `http.FhirHttpClient` (request id, log line, communication folder).
 7. `TestScriptResult`s → `RunResult` (in discovery order) → `ReportPublisher` (`ReportWriter`s, summary log) →
-   `RunListener.runFinished`.
+   `RunListener.runFinished` – exactly once per started run, whatever ends it (see Run control).
 
 The MDC key `testScript` (`TestRunner.MDC_TEST_SCRIPT`) = `<NN>_<file base name>` while a TestScript runs.
 
@@ -187,8 +187,17 @@ reuse ⇒ `IllegalStateException`): `cancel(reason)` (public, first reason wins)
 execution, in `ExecutionEnvironment`) = `RunControl.abortReason()` or the TestScript's own deadline. Checked
 **between actions only**, nothing is interrupted; `TestScriptExecution.runActions(…, stoppable)` – teardown is
 `stoppable = false`. Messages: "Stopped before the next action: the TestScript timeout of 2m has passed",
-"Skipped: …", "Not started: fail-fast: TestScript 02_b ended with FAIL". Tests: `RunControlTest` (uses
-`InMemoryFhirServer.delay` and `Harness.limits`/`control`).
+"Skipped: …", "Not started: fail-fast: TestScript 02_b ended with FAIL".
+
+**Reports always (M2.4).** `TestRunner.run(configuration, control)` → `start` in a `try/finally` that calls
+`control.finish()` (also on a `ConfigurationException`, so `awaitFinished` returns). `RunProgress` records found /
+started / finished TestScripts; `publish(run, progress, reason)` writes reports + `runFinished` **once**
+(`publishOnce`): at the end, after any `RuntimeException`/`Error` (logged, published, rethrown), or from
+`RunControl.reportNow()` (shutdown that cannot wait). A TestScript without a result: started ⇒ `error` "Did not end:
+<reason>", else `skip` "Not started: <reason>" (`unfinished`). Listener calls go through `notify`: a throwing listener
+is logged, never stops the run. App: `RunCommand` (`ContextClosedEvent`) → `stop(control, testrunner.shutdown-grace)`.
+Tests: `RunControlTest` (uses `InMemoryFhirServer.delay`, `Harness.limits`/`control`/`failingOn`/`listener`),
+`RunCommandTest.stop…`, `ShutdownIT` (app in its own JVM, SIGTERM via `Process.destroy`).
 
 ## Parallelism (ADR-0008)
 
