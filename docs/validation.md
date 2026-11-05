@@ -167,6 +167,8 @@ It is still a cardinality rule, not a terminology rule (terminology is off by de
   ```
   Verified with validator 6.10.4 and 7.0.2: create and update pass, the negative control fails with the
   socialSecurityNumber error, in both modes. Timings: [ADR-0011](adr/0011-validator-server-mode.md).
+  CI runs it every night with the pinned validator 7.0.2 (job `real-validator` of `.github/workflows/build.yml`), so
+  a negative control that stops failing is noticed within a day, not at the next manual run.
 
 ## What is not validated
 

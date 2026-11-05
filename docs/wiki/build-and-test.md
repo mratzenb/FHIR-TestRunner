@@ -66,6 +66,29 @@ flowchart TB
 
 `RealValidatorIT` is skipped without `VALIDATOR_JAR`. A skip in the summary is expected.
 
+## Continuous integration
+
+[`.github/workflows/build.yml`](../../.github/workflows/build.yml) runs on GitHub Actions:
+
+| Job | When | What |
+|---|---|---|
+| `verify` | every push to `main`, every pull request | `mvn -B verify` on Temurin 25. If it fails, the surefire and failsafe reports are attached to the run as `test-reports`. |
+| `real-validator` | nightly (03:17 UTC) and on demand (*Run workflow*) | `RealValidatorIT` with the real validator, both modes. The negative control must fail. |
+
+The real validator is pinned (`VALIDATOR_VERSION`, now 7.0.2, the version the docs were verified with). The job
+caches it and the FHIR packages, so only the first run downloads them. Raise the version deliberately, after
+checking the negative control locally:
+
+```sh
+curl -L -o /tmp/validator_cli.jar \
+  https://github.com/hapifhir/org.hl7.fhir.core/releases/download/7.0.4/validator_cli.jar
+VALIDATOR_JAR=/tmp/validator_cli.jar mvn -B verify -pl testrunner-app -am \
+  -Dtest=NoSuchTest -Dsurefire.failIfNoSpecifiedTests=false \
+  -Dit.test=RealValidatorIT -Dfailsafe.failIfNoSpecifiedTests=false
+```
+
+A failed nightly run is a signal about the validator or the packages, not about a commit.
+
 ## Test data
 
 `testdata/` holds the TestScripts, Example Instances and profiles from the Python PoC:
