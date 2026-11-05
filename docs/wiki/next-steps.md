@@ -64,7 +64,11 @@ stores a resource with the id `Patient`. Either way the TestScript fails for a r
 
 ### D2 – Operator and operation mistakes are found after requests were sent
 
-**What happens.** An assertion with an operator its check does not allow, such as `contentType` with `greaterThan`,
+**Status:** fixed together with A1. `ActionRules` holds the rules; `TestScriptChecks` applies them before anything
+is sent. Tests: `TestScriptExecutionTest.Checks` (`operatorTheCheckDoesNotAllowIsFoundBeforeTheSetup`,
+`operatorWithoutTheValueItNeeds`, `operationsThatCannotBeBuilt`, `operationsWhoseValuesAreOnlyKnownWhenTheyRunAreAccepted`).
+
+**What happened.** An assertion with an operator its check does not allow, such as `contentType` with `greaterThan`,
 becomes an `error` only when the assertion runs. By then the setup has created fixtures and earlier operations have
 changed server data. The probe showed Setup `pass`, one request sent, Test `error`.
 
@@ -102,6 +106,9 @@ promise.
 Effort: S ≤ 1 day, M 2–5 days, L more than a week.
 
 ### A1 – One place for the rules
+
+**Status:** done, as `core.engine.ActionRules`. The run-time checks stay in `AssertionEvaluator` and
+`RequestFactory` for values that are only known when an action runs.
 
 The allowed operators of each check exist only as arguments of `AssertionEvaluator.operator(...)`. The shape rules
 of operations exist only in `RequestFactory.check`, `method` and `url`. `TestScriptChecks` cannot reuse them, so it
@@ -278,10 +285,9 @@ step below is one pull request, with tests and documentation.
 1. ~~**D1.**~~ Done: in `RequestFactory.create`, the body id is set only for an instance URL
    (`ResourceContent.parseLocation`, the type equals the body's resource type). `InMemoryFhirServer` answers
    conditional updates.
-2. **A1 + D2.** Add `ActionRules` (see A1). Use it in `AssertionEvaluator.operator`, `RequestFactory` and
-   `TestScriptChecks.References.check`.
-   *Tests:* for each case listed under D2: phase `Load` is `error`, the message names test and action, and
-   `server.requests()` is empty.
+2. ~~**A1 + D2.**~~ Done: `ActionRules`, used by `AssertionEvaluator`, `RequestFactory` and
+   `TestScriptChecks.References.check`. Every case listed under D2 is a `Load` error naming test and action, with
+   nothing sent.
 3. **Decide** how unsupported checks (`requestMethod`, `requestURL`, `manualEval`) are reported. Proposal: keep
    `error` at run time, as documented, and add a warning on the Setup before the run so the author sees it early.
 4. **A4.** `HapiServerIT` in `testrunner-app` with Testcontainers (version from the Spring Boot BOM) and a pinned

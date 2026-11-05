@@ -40,7 +40,7 @@ flowchart BT
 | `content` | Version-independent work on JSON/XML resources | `ResourceContent` (type, id, references), `FhirElement` (`minimumId` comparison), `PathEvaluator` (JSONPath/XPath) |
 | `http` | The HTTP layer, OAuth2 tokens and the communication log | `FhirHttpClient`, `HttpTransport` (port), `JdkHttpTransport`, `AccessTokens`, `CommunicationLog`, `FhirRequest`/`FhirResponse`/`Exchange` |
 | `source` | Finding and loading TestScripts | `TestScriptDiscovery`, `TestScriptLoader`, `ExampleInstanceResolver`, `PackageSuites` |
-| `engine` | Running a TestScript | `TestRunner`, `TestRunners`, `RunContext`, `TestScriptExecution`, `ExecutionState`, `AssertionEvaluator`, `RequestFactory`, `VariableResolver`, `FixtureManager`, `CapabilityCheck` |
+| `engine` | Running a TestScript | `TestRunner`, `TestRunners`, `RunContext`, `TestScriptExecution`, `ExecutionState`, `TestScriptChecks`, `ActionRules`, `AssertionEvaluator`, `RequestFactory`, `VariableResolver`, `FixtureManager`, `CapabilityCheck` |
 | `report` | Results and report writers | `Outcome`, `ActionResult`, `PhaseResult`, `TestScriptResult`, `RunResult`, `ReportWriter` (port) and its four implementations |
 
 ## The model

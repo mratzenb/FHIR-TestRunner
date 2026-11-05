@@ -19,7 +19,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Builds the HTTP request of an operation whose variables have been resolved.
+ * Builds the HTTP request of an operation whose variables have been resolved. What an operation needs to be built at
+ * all is decided by {@link ActionRules}.
  *
  * <p>URL, in order of precedence:
  * <ol>
@@ -40,9 +41,13 @@ final class RequestFactory {
     }
 
     FhirRequest create(Operation operation) {
-        check(operation);
-        HttpMethod method = method(operation);
-        Body body = body(operation, method);
+        List<String> problems = ActionRules.problems(operation);
+        if (!problems.isEmpty()) {
+            // reported before the run by TestScriptChecks already; repeated for callers that skip those checks
+            throw new TestScriptException(String.join("; ", problems));
+        }
+        HttpMethod method = ActionRules.method(operation);
+        Body body = body(operation);
         String url = url(operation, body);
         if (operation.encodeRequestUrl()) {
             url = UrlEncoding.encode(url);
@@ -58,61 +63,23 @@ final class RequestFactory {
         return new FhirRequest(method, uri(url), headers(operation, body), body == null ? null : body.text());
     }
 
-    private static void check(Operation operation) {
-        OperationType type = operation.type();
-        if (type == null) {
-            return;
-        }
-        if (operation.targetId() != null && (type == OperationType.SEARCH || type == OperationType.CREATE)) {
-            throw new TestScriptException(type.name().toLowerCase() + " must not have a targetId");
-        }
-        if (operation.params() != null && (type == OperationType.CREATE || type == OperationType.TRANSACTION
-                || type == OperationType.BATCH)) {
-            throw new TestScriptException(type.name().toLowerCase() + " must not have params");
-        }
+    private Body body(Operation operation) {
+        return operation.sourceId() == null ? null : state.require(operation.sourceId(), "sourceId").body();
     }
 
-    private static HttpMethod method(Operation operation) {
-        if (operation.method() != null) {
-            return operation.method();
-        }
-        if (operation.type() == null || operation.type().defaultMethod() == null) {
-            throw new TestScriptException("The HTTP method cannot be determined: the operation has no method and "
-                    + (operation.type() == null ? "no type" : "the unknown type '" + operation.typeCode() + "'"));
-        }
-        return operation.type().defaultMethod();
-    }
-
-    private Body body(Operation operation, HttpMethod method) {
-        if (operation.sourceId() == null) {
-            if (method.sendsBody() && operation.type() != OperationType.SEARCH
-                    && operation.type() != OperationType.OPERATION && operation.type() != OperationType.CAPABILITIES) {
-                throw new TestScriptException("The " + method + " of operation '" + typeName(operation)
-                        + "' has no sourceId, so there is nothing to send");
-            }
-            return null;
-        }
-        return state.require(operation.sourceId(), "sourceId").body();
-    }
-
+    /** The URL; {@link ActionRules#problems(Operation)} ensures there is enough to build one, unless from the body. */
     private String url(Operation operation, Body body) {
         if (operation.url() != null) {
             return operation.url();
         }
         if (operation.params() != null) {
             String params = operation.params();
-            if (operation.resource() == null && needsResource(operation.type())) {
-                throw new TestScriptException("Operation '" + typeName(operation) + "' with params needs a resource type");
-            }
             if (!params.startsWith("/") && !params.startsWith("?")) {
                 params = "/" + params;
             }
             return base + (operation.resource() != null ? "/" + operation.resource() : "") + params;
         }
         OperationType type = operation.type();
-        if (type == null) {
-            throw new TestScriptException("The URL cannot be determined: the operation has no url, params or type");
-        }
         if (type == OperationType.TRANSACTION || type == OperationType.BATCH) {
             return base;
         }
@@ -123,12 +90,13 @@ final class RequestFactory {
             return targetUrl(operation);
         }
         String resource = operation.resource();
-        if (resource == null && body != null) {
+        if (resource == null && body != null && body.format() != ContentFormat.OTHER) {
             resource = ResourceContent.resourceType(body);
         }
         if (resource == null) {
-            throw new TestScriptException("The URL cannot be determined for operation '" + typeName(operation)
-                    + "': it has no resource, params, url or targetId");
+            throw new TestScriptException("The URL cannot be determined for operation '"
+                    + ActionRules.typeName(operation) + "': it has no resource, params, url or targetId, and sourceId '"
+                    + operation.sourceId() + "' is no FHIR resource");
         }
         if (type == OperationType.HISTORY) {
             return base + "/" + resource + "/_history";
@@ -215,11 +183,6 @@ final class RequestFactory {
         }
     }
 
-    private static boolean needsResource(OperationType type) {
-        return type == OperationType.READ || type == OperationType.VREAD || type == OperationType.UPDATE
-                || type == OperationType.DELETE || type == OperationType.PATCH;
-    }
-
     /**
      * The id of an instance URL {@code [base]/[type]/[id]} of a resource of {@code type}; {@code null} for any other
      * URL, e.g. {@code [base]/[type]?[search]}, or if {@code type} is {@code null}.
@@ -237,9 +200,5 @@ final class RequestFactory {
         }
         value = value.replace("\"", "");
         return value.isEmpty() ? null : value;
-    }
-
-    private static String typeName(Operation operation) {
-        return operation.typeCode() != null ? operation.typeCode() : "operation";
     }
 }

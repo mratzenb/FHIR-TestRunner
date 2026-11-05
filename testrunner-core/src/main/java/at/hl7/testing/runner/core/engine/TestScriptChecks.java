@@ -73,8 +73,9 @@ final class TestScriptChecks {
     }
 
     /**
-     * Checks every id and name the actions refer to, walking them in the order they run (setup, tests, teardown):
-     * the sources ({@code sourceId}, {@code targetId}, {@code compareToSourceId}, {@code minimumId},
+     * Checks every action, walking them in the order they run (setup, tests, teardown): the {@link ActionRules} (an
+     * operation that cannot be built, an operator its check does not allow), and every id and name the action refers
+     * to – the sources ({@code sourceId}, {@code targetId}, {@code compareToSourceId}, {@code minimumId},
      * {@code variable.sourceId}), the {@code ${…}} placeholders – also those in fixture resources – and
      * {@code validateProfileId}.
      *
@@ -145,11 +146,13 @@ final class TestScriptChecks {
             switch (step.action()) {
                 case Operation operation -> {
                     operation.withValues(collectInto(used));
+                    ActionRules.problems(operation).forEach(p -> problems.add(where + ": " + p));
                     source(where, "sourceId", operation.sourceId(), used);
                     source(where, "targetId", operation.targetId(), used);
                 }
                 case Assertion assertion -> {
                     assertion.withValues(collectInto(used));
+                    ActionRules.problems(assertion).forEach(p -> problems.add(where + ": " + p));
                     if (assertion.sourceId() == null && !operationBefore) {
                         problems.add(where + ": the assertion has no sourceId and no operation runs before it, so"
                                 + " there is no " + (AssertionEvaluator.onRequest(assertion) ? "request" : "response")

@@ -21,7 +21,8 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
 4. Before anything is sent: `TestScriptChecks.problems(testScript, fixtureResources, builtInNames)` (unique
    fixture/responseId/requestId ids; a variable has at most one of expression/path/headerField, and at least one of
    them or a `defaultValue`; at most one server addressed via `TestScript.destination`/`operation.destination`;
-   `References` walks setup → tests → teardown in order: every `sourceId`/`targetId`/`compareToSourceId`/`minimumId`
+   `References` walks setup → tests → teardown in order: `ActionRules.problems(operation|assertion)` (see below),
+   every `sourceId`/`targetId`/`compareToSourceId`/`minimumId`
    names a fixture with resource or a responseId kept **before** (else "is not there yet"), `targetId` fixture needs
    autocreate, every `${name}` (also in fixture resources, collected via `withValues`/`replaceText` +
    `VariableResolver.placeholders`) is defined, a used variable's source exists at that point, no last-response
@@ -66,16 +67,22 @@ and wrong", `TestScriptException` for "cannot be evaluated".
   `[base]/metadata` for capabilities, `[base]/[type]/[id](/_history(/[vid]))` from `targetId`, `[base]/[type]`.
 * Body from `sourceId` (fixture, kept response or kept request). `responseId` keeps the response, `requestId` the
   request as sent (placeholders resolved), for later `sourceId`/variables.
+* What an operation needs whatever its values are is in `ActionRules.problems(operation)`: no `targetId` on
+  search/create, no `params` on create/transaction/batch, a method (explicit or the type's default), a `sourceId`
+  for POST/PUT/PATCH except search/operation/capabilities, enough for a URL (`url`, or `params` + resource for
+  read/vread/update/delete/patch, or type with fixed URL/`targetId`/`resource`/`sourceId`). Checked before the run
+  (`TestScriptChecks` ⇒ Load error, nothing sent) and again in `RequestFactory.create`.
 * `update` to an instance URL `[base]/[type]/[id]` (type = the body's resource type) sets the body's id to `[id]`;
   any other URL, e.g. a conditional update `[base]/[type]?[search]`, sends the body unchanged (`instanceId`).
 * Every text value of an operation or assertion may contain `${variable}` (`withValues`), as in the PoC.
 
 **Adding an operation type** – only needed for a default method or URL; an unknown code already runs as `OTHER`
 with explicit `method` and `url`/`params`. A constant in `OperationType` → its R4 and R5 codes in `fromCode` → a
-case in `defaultMethod()` (exhaustive switch, will not compile without it) → `RequestFactory`, only where the type
-differs: `check` (forbidden `targetId`/`params`), `body` (may send without `sourceId`, like search/operation/
-capabilities), `url` (fixed URL like transaction/batch/capabilities, suffix like history), `targetUrl` (suffix after
-`[type]/[id]`, like vread/history), `needsResource` (needs a resource type with `params`) → `TestScriptMapper`
+case in `defaultMethod()` (exhaustive switch, will not compile without it) → `ActionRules`, only where the type
+differs: `problems` (forbidden `targetId`/`params`), `sendsWithoutSource` (may send without `sourceId`, like
+search/operation/capabilities), `fixedUrl` (like transaction/batch/capabilities), `needsResource` (needs a resource
+type with `params`) → `RequestFactory`: `url` (fixed URL, suffix like history), `targetUrl` (suffix after
+`[type]/[id]`, like vread/history) → `TestScriptMapper`
 needs nothing (it calls `fromCode`) → tests in `TestScriptExecutionTest.Operations` asserting
 `server.requestLines()`, extending `InMemoryFhirServer` if it must answer the new request; if a sample uses it,
 `R4SupportTest.mapsEveryOperationTypeOfTheSampleScript` and `EndToEndIT`.
@@ -95,16 +102,19 @@ client), operator `manualEval`.
   `ExecutionState.exchanged`) else the last response, or the last request with `direction = request`
   (`AssertionEvaluator.onRequest`); none ⇒ error. A request has headers and body but no status: `response`/
   `responseCode` on it ⇒ error; `targetId` naming a requestId ⇒ Load error (`TestScriptChecks`).
-* `operator(assertion, default, allowed...)` fixes default and allowed operators per check; `Operators.apply` does
-  the comparison (`equals`, `notEquals`, `in`, `notIn`, `greaterThan`, `lessThan`, `empty`, `notEmpty`, `contains`,
+* `ActionRules.defaultOperator(check)`/`allowedOperators(check)` (sealed switches) fix default and allowed operators
+  per check; `ActionRules.operator(assertion)` picks the operator or throws. An operator outside the list, or one
+  that `Operators.needsValue` without `value`/`compareToSourceId` on headerField/path/expression, is a **Load** error
+  (`ActionRules.problems(assertion)` from `TestScriptChecks`). `Operators.apply` does the comparison (`equals`, `notEquals`, `in`, `notIn`, `greaterThan`, `lessThan`, `empty`, `notEmpty`, `contains`,
   `notContains`, `eval`).
 * Expected value: `value`, or `compareToSourceId` + `compareToSourceExpression`/`compareToSourcePath`.
 * `validateProfileId` must name an id in `TestScript.profile` (else error listing declared ids); see
   `testrunner-validation`.
 
 **Adding a check**: a nested record in the sealed interface `core.model.Check` (the unsupported checks are records
-there too) → read it in `TestScriptMapper.assertion` (`testrunner-fhir-versions`) → a
-`case` in the `switch` of `AssertionEvaluator.evaluate` (the sealed switch will not compile without it) →
+there too) → read it in `TestScriptMapper.assertion` (`testrunner-fhir-versions`) → its operators and name in
+`ActionRules.defaultOperator`/`allowedOperators`/`checkName` → a
+`case` in the `switch` of `AssertionEvaluator.evaluate` (the sealed switches will not compile without them) →
 `core.engine.Describe.assertion` if it needs a readable description → tests in `TestScriptExecutionTest` (via `Harness`/`Scripts`)
 and, if a sample uses it, `EndToEndIT`.
 
@@ -165,7 +175,8 @@ TestScripts one after the other first, then the rest in the pool.
 
 ## Where to look
 
-`TestScriptExecution` (rules), `AssertionEvaluator` (checks), `RequestFactory` (URLs/headers/body),
+`TestScriptExecution` (rules), `ActionRules` (what an action needs, before and during the run),
+`AssertionEvaluator` (checks), `RequestFactory` (URLs/headers/body),
 `FixtureManager`, `VariableResolver`, `TestScriptChecks`, `CapabilityCheck`, `TestRunner` (orchestration, logging of
 config/summary).
 Docs: `docs/architecture.md` › Runtime view, Execution semantics, Open points; ADR-0004, ADR-0008.

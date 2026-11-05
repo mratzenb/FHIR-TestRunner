@@ -100,7 +100,8 @@ If loading fails, the TestScript gets an `error` in the phase `Load`. Nothing is
 ## 6. Checks before sending
 
 * `TestScriptChecks` – unique fixture/response/request ids, well-formed variables, at most one destination.
-  It also walks the actions in the order they run and checks every reference. See below.
+  It also walks the actions in the order they run, applies the `ActionRules` to each and checks every reference. See
+  below.
 * Validation of the TestScript itself against its FHIR version, if `validate-test-scripts` is on.
 * No FHIR server configured → every test is `skip`.
 
@@ -121,6 +122,20 @@ What the reference check finds:
 | a variable or assertion on the last response, before any operation | `Test 't', action 1: the assertion has no sourceId and no operation runs before it …` |
 | `headerField` on a fixture | `variable 'etag' reads header ETag, but 'p' is a fixture, not a response` |
 | an undeclared profile | `validateProfileId 'q' is not declared in TestScript.profile (declared: [p])` |
+
+What the action rules (`ActionRules`) find:
+
+| Problem | Example message |
+|---|---|
+| an operator the check does not allow | `Test 't', action 2: Operator greaterThan cannot be used with contentType (allowed: contains, notContains, equals, notEquals)` |
+| an operator that needs a value, without `value` or `compareToSourceId` | `Operator equals needs a value or compareToSourceId` |
+| an element the operation type forbids | `create must not have a targetId`, `transaction must not have params` |
+| no method | `The HTTP method cannot be determined: the operation has no method and the unknown type 'custom'` |
+| nothing to send | `The PUT of operation 'update' has no sourceId, so there is nothing to send` |
+| no URL | `The URL cannot be determined for operation 'read': it has no resource, params, url or targetId` |
+
+The same rules are applied again when an action runs. With values only known then (`resource: ${type}`) an action
+can still fail at run time, e.g. on an invalid URL.
 
 Only what fails in **every** run is reported. A response kept in an earlier test counts as there, even if that test
 might stop early. An id or profile that is itself a placeholder (`sourceId: ${which}`) is checked when it is used.
@@ -199,6 +214,7 @@ Limits:
 |---|---|
 | `ExecutionState` | fixtures (as written), responses kept by `responseId`, requests kept by `requestId`, the last response and request |
 | `VariableResolver` | replaces `${name}` with the variable's current value, evaluated each time it is used – see [Variables and placeholders](variables.md) |
+| `ActionRules` | what an operation or assertion needs whatever its values are: allowed operators, the elements an operation can be built from; used by the three helpers around it |
 | `RequestFactory` | builds URL, headers and body of an operation |
 | `AssertionEvaluator` | evaluates one assertion (one `Check` type each) |
 | `FixtureManager` | registers fixtures; autocreate in dependency order; resolves a fixture at each use; autodelete in reverse order – see [Fixtures](fixtures.md) |

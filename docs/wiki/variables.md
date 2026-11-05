@@ -278,7 +278,8 @@ The sample `testdata/samples/Test_Scripts/TestScript-testscript-patient-update-a
 2. Before the update, `params` becomes `/1007`. `RequestFactory` builds `[base]/[resource][params]` =
    `[base]/Patient/1007`.
 3. `encodeRequestUrl` (default `true`) percent-encodes the URL after the replacement.
-4. For an update, `RequestFactory` sets the id of the body to the last URL segment, `1007`.
+4. For an update of `[base]/[type]/[id]`, `RequestFactory` sets the id of the body to that id, `1007`. A
+   conditional update (`params: "?identifier=…"`) sends the body as it is.
 5. The server gets `PUT [base]/Patient/1007`. The log has `Variable ${patientResourceId} = '1007'`.
 
 A variable on a response (as in `TestScriptExecutionTest.Operations`):
