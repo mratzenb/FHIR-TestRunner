@@ -25,7 +25,7 @@ Offline (`-o`) works only once all dependencies and plugins are in the local rep
 | Everything: compile, unit tests (surefire `*Test`), ITs (failsafe `*IT`) | `mvn -B verify` (< 1 min, no FHIR server, no network) |
 | Jar without tests | `mvn -B -DskipTests package` |
 | One module and what it needs | `mvn -B -pl testrunner-validation-cli -am test` |
-| One test class | `mvn -B -pl testrunner-core -am test -Dtest=TestScriptExecutionTest -Dsurefire.failIfNoSpecifiedTests=false` |
+| One test class | `mvn -B -pl testrunner-core -am test -Dtest=OperationsTest -Dsurefire.failIfNoSpecifiedTests=false` |
 | One IT only | `mvn -B -pl testrunner-app -am verify -Dtest=NoSuchTest -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=EndToEndIT -Dfailsafe.failIfNoSpecifiedTests=false` |
 | With the real HL7 validator (`RealValidatorIT`, both modes, ~1 min) | `VALIDATOR_JAR=/path/to/validator_cli.jar mvn -B verify` (a validator 7.0.2 ships with the PoC: `../HL7-AT-TestFhiry-TestRunner/data_r4/validator_cli.jar`) |
 

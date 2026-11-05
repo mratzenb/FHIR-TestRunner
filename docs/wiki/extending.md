@@ -26,7 +26,7 @@ The FHIR assert types are fixed by the specification, so this is rare. More like
    for `error`.
 5. The compiler now shows every exhaustive `switch` over `Check` that needs a case (`Assertion.withValues`,
    `ActionRules`, `Describe`).
-6. Tests in `TestScriptExecutionTest` (nested class `Assertions`; a wrong operator in `Checks`).
+6. Tests in `AssertionsTest`; a wrong operator in `ChecksBeforeSendingTest`.
 
 ## Add a report format
 

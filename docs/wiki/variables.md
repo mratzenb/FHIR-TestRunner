@@ -168,7 +168,7 @@ placeholders are replaced once, at that moment. After that, every use sees the c
   (`Fixture initialization failed: Fixture 'p': …`); the tests are skipped and the teardown runs.
 * A body without `${` is neither parsed nor rewritten.
 
-Example (from `TestScriptExecutionTest.FixtureValues`):
+Example (from `PlaceholdersTest`):
 
 ```json
 {
@@ -282,7 +282,7 @@ The sample `testdata/samples/Test_Scripts/TestScript-testscript-patient-update-a
    conditional update (`params: "?identifier=…"`) sends the body as it is.
 5. The server gets `PUT [base]/Patient/1007`. The log has `Variable ${patientResourceId} = '1007'`.
 
-A variable on a response (as in `TestScriptExecutionTest.Operations`):
+A variable on a response (as in `OperationsTest`):
 
 ```json
 "variable": [{ "name": "pid", "expression": "Patient.id", "sourceId": "created" }],
@@ -317,8 +317,8 @@ e.g. `1`, and the read becomes `GET [base]/Patient/1`. The same read before the 
 | `core.engine.Values.single` | exactly one value, as text |
 | `fhir.hapi.TestScriptMapper.variable` | reads `TestScript.variable`, for R4 and R5 |
 
-Tests: `TestScriptExecutionTest` (`createKeepsTheResponseForLaterOperationsAndVariables`,
-`variablesWithDefaultValueAndHeaderField`, nested classes `FixtureValues` and `Checks`) and
+Tests: `OperationsTest.createKeepsTheResponseForLaterOperationsAndVariables`, `PlaceholdersTest` (also
+`variablesWithDefaultValueAndHeaderField`), `ChecksBeforeSendingTest` and
 `ResourceContentTest.replacesTextValuesButNotNamesOrStructure`.
 
 The reference is [architecture.md › Execution semantics](../architecture.md#execution-semantics).

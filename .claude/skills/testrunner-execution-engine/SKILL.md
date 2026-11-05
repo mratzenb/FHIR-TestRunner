@@ -83,7 +83,7 @@ differs: `problems` (forbidden `targetId`/`params`), `sendsWithoutSource` (may s
 search/operation/capabilities), `fixedUrl` (like transaction/batch/capabilities), `needsResource` (needs a resource
 type with `params`) → `RequestFactory`: `url` (fixed URL, suffix like history), `targetUrl` (suffix after
 `[type]/[id]`, like vread/history) → `TestScriptMapper`
-needs nothing (it calls `fromCode`) → tests in `TestScriptExecutionTest.Operations` asserting
+needs nothing (it calls `fromCode`) → tests in `OperationsTest` asserting
 `server.requestLines()`, extending `InMemoryFhirServer` if it must answer the new request; if a sample uses it,
 `R4SupportTest.mapsEveryOperationTypeOfTheSampleScript` and `EndToEndIT`.
 
@@ -115,8 +115,8 @@ client), operator `manualEval`.
 there too) → read it in `TestScriptMapper.assertion` (`testrunner-fhir-versions`) → its operators and name in
 `ActionRules.defaultOperator`/`allowedOperators`/`checkName` → a
 `case` in the `switch` of `AssertionEvaluator.evaluate` (the sealed switches will not compile without them) →
-`core.engine.Describe.assertion` if it needs a readable description → tests in `TestScriptExecutionTest` (via `Harness`/`Scripts`)
-and, if a sample uses it, `EndToEndIT`.
+`core.engine.Describe.assertion` if it needs a readable description → tests in `AssertionsTest` and, for the rules,
+`ChecksBeforeSendingTest` (via `Harness`/`Scripts`) and, if a sample uses it, `EndToEndIT`.
 
 ## Fixtures (`FixtureManager`) and variables (`VariableResolver`)
 

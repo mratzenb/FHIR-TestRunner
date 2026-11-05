@@ -13,7 +13,7 @@ is skipped.
 
 | Level | Class | Covers |
 |---|---|---|
-| Unit, engine (`testrunner-core`) | `core/engine/TestScriptExecutionTest` (nested classes per area: `Fixtures`, `Operations`, `Assertions`, `Capabilities`, `ReferenceRewriting`, `Requests`, `Checks` – Load errors before anything is sent –, `Phases`, `FixtureValues`) | phase rules, operations, assertions, fixtures, capabilities, variables, kept requests, pre-run checks, OAuth2, communication log – through the real `TestRunner` with `Harness` |
+| Unit, engine (`testrunner-core`, `core/engine/`, all extend `EngineTestBase`) | `FixturesTest` (autocreate/autodelete), `OperationsTest`, `AssertionsTest` (checks, fail vs. error), `CapabilitiesTest`, `ReferenceRewritingTest`, `KeptRequestsTest` (`requestId`, `direction = request`), `ChecksBeforeSendingTest` (Load errors before anything is sent), `PhasesTest`, `PlaceholdersTest` (variables, placeholders in fixtures, `${testrunner.…}`), `TestRunnerTest` (serial suites, parallel runs, package suites), `RunFolderTest` (communication log, masking, reports), `OAuth2Test` | the engine through the real `TestRunner` with `Harness` |
 | Unit, core (`testrunner-core`) | `RunConfigurationTest`, `AccessTokensTest` (OAuth2 token fetch/renewal with a `MutableClock`), `PathEvaluatorTest`, `ResourceContentTest`, `FhirElementTest`, `UrlEncodingTest`, `CommunicationLogTest`, `ExampleInstanceResolverTest`, `PackageSuitesTest` (cache, download of a hand-built `.tgz` incl. pax long names, concurrent download, path traversal), `TestReportWriterTest` | config defaults/problems, content helpers (`FhirElement`: JSON/XML alike, exact decimals, `minimumId` containment rules), log format |
 | Version modules (`testrunner-fhir-r4`, `-r5`) | `R4SupportTest`, `R5SupportTest` | every sample TestScript of the version maps exactly; detection cases |
 | Validator (`testrunner-validation-cli`) | `ValidatorCliProfileValidatorTest`, `ValidatorServerProfileValidatorTest` | process handling, arguments, server lifecycle, fallback, parallel use |
@@ -76,16 +76,26 @@ dependencies into that POM in compile scope. A double used by one module only st
 
 ## Core engine tests – `Harness` and `Scripts` (`testrunner-core/src/test/java/at/hl7/testing/runner/core/engine/`)
 
-`StubVersionSupport` hands prepared models to the real `TestRunner` (no HAPI in core tests). Pattern:
+`StubVersionSupport` hands prepared models to the real `TestRunner` (no HAPI in core tests). An engine test class
+extends `EngineTestBase`: a fresh `InMemoryFhirServer` (`server`) and `Harness` (`harness`) per test in a `@TempDir`
+(`dir`), the resources `PATIENT` and `ORGANIZATION`, and `phase(result, name)`. Add a test to the class of its
+concern; a new concern gets a class of its own. Pattern inside such a class:
 
 ```java
-try (InMemoryFhirServer server = InMemoryFhirServer.start("4.0.1")) {
-    Harness harness = new Harness(dir, server.baseUrl());
-    harness.resource("patient", PATIENT)                       // Example_Instances file of fixture "patient"
-           .add("ts", script().fixture("patient", true, false)
-                   .test(test("t", op("read", "Patient", null, "patient", null, null), responseCode("200")))
-                   .build());
-    TestScriptResult result = harness.runOne();                // or run() for the RunResult
+class FixturesTest extends EngineTestBase {
+
+    @Test
+    void autocreatesDependenciesFirstAndRewritesReferences() {
+        harness.resource("patient", PATIENT)                   // Example_Instances file of fixture "patient"
+                .add("ts", script().fixture("patient", true, false)
+                        .test(test("t", op("read", "Patient", null, "patient", null, null), responseCode("200")))
+                        .build());
+
+        TestScriptResult result = harness.runOne();            // or run() for the RunResult
+
+        assertThat(phase(result, "t").outcome()).isEqualTo(Outcome.PASS);
+        assertThat(server.requestLines()).startsWith("POST /Patient");
+    }
 }
 ```
 
@@ -96,7 +106,7 @@ try (InMemoryFhirServer server = InMemoryFhirServer.start("4.0.1")) {
 (e.g. a required CapabilityStatement), `validator(ProfileValidator)`, `parallelism(n)`, `oauth2(OAuth2Config)`,
 `rewriteReferences(ReferenceRewriting)`, `noServer()`. A TestScript must pass `TestScriptChecks` to reach the server: an assertion needs an operation before
 it, ids must name something, operators must fit their check, an operation must have what it needs to be built
-(`ActionRules`) – otherwise the result is a Load error (that is what `Checks` tests). `Scripts.noEncoding(op)` sets
+(`ActionRules`) – otherwise the result is a Load error (that is what `ChecksBeforeSendingTest` tests). `Scripts.noEncoding(op)` sets
 `encodeRequestUrl = false`.
 
 ## Test data (`testdata/`, from the PoC)

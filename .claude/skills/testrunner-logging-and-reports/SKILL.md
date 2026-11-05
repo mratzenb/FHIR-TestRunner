@@ -73,7 +73,7 @@ switches the files off; ids stay.
 * Listeners: implement `RunListener` (`runStarted`, `testScriptFinished` – may be called concurrently –,
   `runFinished`).
 
-Tests: `CommunicationLogTest`, `TestScriptExecutionTest.communicationLogHasOneFolderPerRequest`,
-`TestScriptExecutionTest.communicationLogMasksCredentialsByDefault`, `TestReportWriterTest`
+Tests: `CommunicationLogTest`, `RunFolderTest` (`communicationLogHasOneFolderPerRequest`,
+`communicationLogMasksCredentialsByDefault`), `TestReportWriterTest`
 (content mapping), `R4SupportTest`/`R5SupportTest.writesAValid…TestReport…` (HAPI parses it back),
 `EndToEndIT.communicationLogsAndReportsAreWrittenPerRun`, `EndToEndIT.writesAFhirTestReportPerTestScriptInItsVersion`.
