@@ -24,6 +24,10 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
 
 # only check the TestScripts: load, check, validate them – no FHIR server needed, nothing is sent
 java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml --check
+
+# run only some TestScripts (file name, TestScript.name or url) and tests (name); --list shows what would run
+java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml \
+  --testscript='*update*' --test=UpdatePatient --list
 ```
 
 A local HAPI server: `docker run -p 8080:8080 -e hapi.fhir.fhir_version=R4 hapiproject/hapi:v8.12.0-1`.

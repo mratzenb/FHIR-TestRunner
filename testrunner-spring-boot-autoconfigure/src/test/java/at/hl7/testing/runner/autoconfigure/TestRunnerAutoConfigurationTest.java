@@ -61,7 +61,9 @@ class TestRunnerAutoConfigurationTest {
                 "testrunner.validation.validator-jar=/opt/validator_cli.jar",
                 "testrunner.reporting.formats=junit,json",
                 "testrunner.reporting.output-dir=/tmp/results",
-                "testrunner.reporting.redact-headers=Authorization,X-Api-Key")
+                "testrunner.reporting.redact-headers=Authorization,X-Api-Key",
+                "testrunner.select.test-scripts=*patient*,TestScriptOrg",
+                "testrunner.select.tests[0]=read-*")
                 .run(context -> {
                     RunConfiguration config = context.getBean(RunConfiguration.class);
                     assertThat(config.fhirServer().base()).isEqualTo("http://server/fhir");
@@ -95,6 +97,8 @@ class TestRunnerAutoConfigurationTest {
                     assertThat(config.reporting().formats()).containsExactly("junit", "json");
                     assertThat(config.reporting().outputDir()).isEqualTo(Path.of("/tmp/results"));
                     assertThat(config.reporting().redactHeaders()).containsExactly("Authorization", "X-Api-Key");
+                    assertThat(config.select().testScripts()).containsExactly("*patient*", "TestScriptOrg");
+                    assertThat(config.select().tests()).containsExactly("read-*");
                 });
     }
 
@@ -157,7 +161,7 @@ class TestRunnerAutoConfigurationTest {
     @Test
     void everyBeanBacksOffForTheApplicationsOwn() {
         HttpTransport transport = request -> new FhirResponse(200, "OK", "HTTP/1.1", null, "");
-        RunConfiguration own = new RunConfiguration(null, null, null, null, null, null, null);
+        RunConfiguration own = new RunConfiguration(null, null, null, null, null, null, null, null);
         contexts.withBean(HttpTransport.class, () -> transport)
                 .withBean(RunConfiguration.class, () -> own)
                 .withBean(ProfileValidator.class, () -> ProfileValidator.DISABLED)

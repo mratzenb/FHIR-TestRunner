@@ -7,6 +7,7 @@ import at.hl7.testing.runner.core.config.OAuth2Config;
 import at.hl7.testing.runner.core.config.ReferenceRewriting;
 import at.hl7.testing.runner.core.config.ReportingConfig;
 import at.hl7.testing.runner.core.config.RunConfiguration;
+import at.hl7.testing.runner.core.config.SelectConfig;
 import at.hl7.testing.runner.core.config.SuiteConfig;
 import at.hl7.testing.runner.core.config.ValidationConfig;
 import at.hl7.testing.runner.core.http.JdkHttpTransport;
@@ -48,7 +49,8 @@ final class Harness {
     private Boolean failFast;
     private boolean validateTestScripts;
     private List<String> formats = List.of("junit", "summary", "json");
-    private RunControl control = new RunControl();
+    private SelectConfig select;
+    private RunControl control;
     private final Map<String, Error> failing = new LinkedHashMap<>();
     private final List<RunListener> listeners = new java.util.ArrayList<>();
 
@@ -118,7 +120,7 @@ final class Harness {
         return this;
     }
 
-    /** The control of the next run, e.g. to cancel it from another thread. */
+    /** The control of the next run, e.g. to cancel it from another thread; default a new one per run. */
     Harness control(RunControl control) {
         this.control = control;
         return this;
@@ -138,6 +140,12 @@ final class Harness {
     /** {@code validation.validate-test-scripts}: the validator set with {@link #validator} checks every TestScript. */
     Harness validateTestScripts() {
         this.validateTestScripts = true;
+        return this;
+    }
+
+    /** {@code select.test-scripts} and {@code select.tests}; {@code null} for all. */
+    Harness select(List<String> testScripts, List<String> tests) {
+        this.select = new SelectConfig(testScripts, tests);
         return this;
     }
 
@@ -161,6 +169,16 @@ final class Harness {
         return call(TestRunner::run);
     }
 
+    /** What a run would run ({@link TestRunner#list}). */
+    List<TestRunner.Listed> list() {
+        List<List<TestRunner.Listed>> listed = new java.util.ArrayList<>();
+        call((runner, configuration, control) -> {
+            listed.add(runner.list(configuration));
+            return null;
+        });
+        return listed.getFirst();
+    }
+
     /** Checks the TestScripts instead of running them ({@link TestRunner#check}). */
     RunResult check() {
         return call(TestRunner::check);
@@ -182,7 +200,7 @@ final class Harness {
                 new ExecutionConfig(parallelism, rewriting, timeout, testScriptTimeout, failFast),
                 validateTestScripts ? ValidationConfig.defaults() : ValidationConfig.disabled(),
                 new ReportingConfig(dir.resolve("results"), formats, true, false, null, null),
-                null);
+                null, select);
         try (JdkHttpTransport transport = new JdkHttpTransport(HttpConfig.defaults())) {
             FhirVersionRegistry versions = new FhirVersionRegistry(List.of(new StubVersionSupport(body -> {
                 Error error = failing.get(body.text().trim());
@@ -193,7 +211,9 @@ final class Harness {
             })));
             TestRunner runner = new TestRunner(versions, transport, validator, TestRunners.defaultReportWriters(versions),
                     listeners, Clock.systemDefaultZone());
-            return call.apply(runner, configuration, control);
+            RunControl next = control != null ? control : new RunControl();
+            control = null;
+            return call.apply(runner, configuration, next);
         }
     }
 

@@ -29,4 +29,10 @@ public record LoadedTestScript(TestScriptSource source, Body original, TestScrip
         capabilities = Map.copyOf(capabilities);
         readWarnings = List.copyOf(readWarnings);
     }
+
+    /** A copy with another model, e.g. with only the selected tests. */
+    public LoadedTestScript withTestScript(TestScript newTestScript) {
+        return new LoadedTestScript(source, original, newTestScript, support, fixtureResources, capabilities,
+                readWarnings);
+    }
 }

@@ -228,7 +228,7 @@ TestScripts are sent to servers, so the integrity of the package matters.
 | Id | Feature | Value | Effort | Depends on |
 |---|---|---|---|---|
 | F1 | **Check mode**: load and check TestScripts without a server (done, M3.1) | high | S | A1 |
-| F2 | **Select what runs**: by TestScript and test name; list mode | high | S | – |
+| F2 | **Select what runs**: by TestScript and test name; list mode (done, M3.2) | high | S | – |
 | F3 | **Run control**: run and TestScript timeouts, fail-fast, reports after Ctrl-C (done, M2.3/M2.4) | high | M | A2, A5 |
 | F4 | **Container image** and a compose file with HAPI FHIR | medium | S | – |
 | F5 | **HTML report** linking into `communication/` | medium | M | – |
@@ -359,13 +359,20 @@ pages and skills.
    TestReports for a check, a run folder `check_<timestamp>`, the validator only needed when it validates the
    TestScripts, fail-fast and the TestScript timeout do not apply. Tests: `CheckModeTest`,
    `EndToEndIT.checkModeNeedsNoServerAndExitsWithOneForBrokenTestScripts`, `wikiSamplesAreCheckedWithoutAServer`.
-2. **F2.** `testrunner.select.testscripts` and `testrunner.select.tests` (globs), with the CLI short forms
-   `--testscript` and `--test`, plus `--list`. Proposal: deselected tests are not run and not reported, and the log
-   says how many were left out.
+2. ~~**F2.**~~ Done as proposed: `testrunner.select.test-scripts` and `testrunner.select.tests` (globs, `SelectConfig`
+   in `RunConfiguration`; `core.engine.Selection`), with the CLI short forms `--testscript` and `--test`, plus
+   `--list` (`TestRunner.list`, printed by `RunCommand`). Deselected tests are not run and not reported, and the log
+   says how many were left out. Setup and teardown always run; a selected test needing a response of a test left
+   out is a `Load` error naming that test. [ADR-0014](../adr/0014-author-workflow.md). Tests: `SelectionTest`,
+   `RunCommandTest.listShowsTheTestScriptsWithTheirSelectedTestsAndTheCounts`, `EndToEndIT`
+   (`selectedTestScriptsAndTestsRunTheOthersAreLeftOut`, `listPrintsWhatWouldRunAndSendsNothing`,
+   `wikiSampleTestsAreSelectedByName`).
 
-*Tests:* `EndToEndIT` – `--check` on `testdata` exits 1 for the broken script and sends nothing (no server is
-started); selection by file name, by TestScript name and by test name.
-*Docs:* README quick start, [configuration.md](../configuration.md), [Troubleshooting](troubleshooting.md).
+*Tests:* ~~`EndToEndIT` – `--check` on `testdata` exits 1 for the broken script and sends nothing (no server is
+started); selection by file name, by TestScript name and by test name.~~ Done, see above.
+*Docs:* ~~README quick start, [configuration.md](../configuration.md), [Troubleshooting](troubleshooting.md).~~ Done,
+also [ADR-0014](../adr/0014-author-workflow.md), [How a run works](run-lifecycle.md), [Samples](samples.md), the module
+pages and the skills.
 
 ### M4 – Distribution and reporting (M)
 
@@ -407,7 +414,7 @@ started); selection by file name, by TestScript name and by test name.
 | Question | Proposal |
 |---|---|
 | Unsupported checks: `Load` error, or run-time error plus an early warning? (M1.3) | **Decided:** run-time error plus warning – keeps the documented outcome rules |
-| Deselected tests: reported as `skip`, or left out? (M3.2) | left out, with a count in the log |
+| Deselected tests: reported as `skip`, or left out? (M3.2) | **Decided:** left out, with a count in the log ([ADR-0014](../adr/0014-author-workflow.md)) |
 | Typed comparisons: default, or behind a switch? (M5.2) | default, with a release note |
 | Several servers: in scope at all? (M6.1) | only when a real suite needs it |
 | Container image: published, and where? (M4.1) | build in CI now, decide on publishing later |

@@ -79,6 +79,10 @@ configured, or the server lacks a required capability. `testrunner.exit-on-skip`
 | Capability requirement reported as warning | the required CapabilityStatement is not in Example Instances | add it, or accept that it is not checked |
 | No `testrunner.log` | logging backend is not Logback, or `reporting.log-file=false` | the console log and `communication/` still work |
 | A `check_<timestamp>` folder without `testreports/` and `communication/` | the run was started with `--check` | intended: a check sends nothing, and a TestReport would claim an execution |
+| Fewer TestScripts or tests than expected, nothing `skip` | `testrunner.select` (`--testscript`, `--test`) leaves them out | the log says "Selected 2 of 9 TestScript(s) …; 7 left out"; `--list` shows what runs |
+| Exit code 1, "No TestScript is selected" in the log, an empty report | no TestScript matches the selection | check the patterns with `--list`; they match the whole text: `read` does not match `read-patient`, `read*` does |
+| `error` in phase `Load`: "… which is kept by Test 'x', action 1, a test that is not selected" | a selected test uses a response or request of a test left out | add that test: `--test=x,y` |
+| `zsh: no matches found: --testrunner.suites[0]…` | zsh reads `[0]` as a file pattern | quote the argument: `'--testrunner.suites[0].base-dir=…'` |
 | `HapiServerIT`: `Skipped: 3`, log says "Could not find a valid Docker environment" | Docker is not running, or on macOS Testcontainers does not find the socket of Rancher Desktop or Colima | start Docker; on macOS set `DOCKER_HOST` and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE`, see [Build and test › Docker on macOS](build-and-test.md#docker-on-macos) |
 | `/bin/mvn: no such file` (on the original dev machine) | the shell's `mvn` function needs `M2_HOME` | call Maven by its full path, see skill `testrunner-build-and-run` |
 

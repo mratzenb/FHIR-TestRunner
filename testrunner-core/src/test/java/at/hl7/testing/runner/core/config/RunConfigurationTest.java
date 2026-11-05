@@ -16,7 +16,7 @@ class RunConfigurationTest {
 
     @Test
     void defaultsApplyToAbsentValues() {
-        RunConfiguration config = new RunConfiguration(null, null, null, null, null, null, null);
+        RunConfiguration config = new RunConfiguration(null, null, null, null, null, null, null, null);
         assertThat(config.execution().parallelism()).isEqualTo(1);
         assertThat(config.execution().rewriteReferences()).isEqualTo(ReferenceRewriting.AUTOCREATE);
         assertThat(config.execution().timeout()).as("no limit").isNull();
@@ -27,13 +27,14 @@ class RunConfigurationTest {
         assertThat(config.http().followRedirects()).isTrue();
         assertThat(config.reporting().redactHeaders())
                 .containsExactly("Authorization", "Proxy-Authorization", "Cookie", "Set-Cookie");
+        assertThat(config.select().selectsAll()).as("everything runs").isTrue();
     }
 
     @Test
     void timeoutsMustBePositive(@TempDir Path dir) throws Exception {
         Files.createDirectories(dir.resolve("Test_Scripts"));
         RunConfiguration config = new RunConfiguration(null, List.of(SuiteConfig.of(dir, "R4")), null,
-                ExecutionConfig.defaults().withLimits(Duration.ZERO, Duration.ofSeconds(-1), true), null, null, null);
+                ExecutionConfig.defaults().withLimits(Duration.ZERO, Duration.ofSeconds(-1), true), null, null, null, null);
 
         assertThat(config.problems()).containsExactly(
                 "testrunner.execution.timeout must be positive, is PT0S; leave it out for no limit",
@@ -45,7 +46,7 @@ class RunConfigurationTest {
         RunConfiguration config = new RunConfiguration(null,
                 List.of(new SuiteConfig(null, "R7", dir.resolve("missing"), null, null, null, null, null, null, null, null)),
                 null, ExecutionConfig.parallel(0), null,
-                new ReportingConfig(null, List.of("pdf"), null, null, "LOUD", null), null);
+                new ReportingConfig(null, List.of("pdf"), null, null, "LOUD", null), null, null);
 
         assertThat(config.problems()).hasSize(4).anyMatch(p -> p.contains("does not exist"))
                 .anyMatch(p -> p.contains("R7")).anyMatch(p -> p.contains("parallelism"))
@@ -60,7 +61,7 @@ class RunConfigurationTest {
         FhirServerConfig server = new FhirServerConfig(java.net.URI.create("http://s/fhir"),
                 java.util.Map.of("authorization", "Bearer x"), new OAuth2Config(null, " ", null, null, null));
         RunConfiguration config = new RunConfiguration(server, List.of(SuiteConfig.of(dir, "R4")), null, null,
-                ValidationConfig.disabled(), null, null);
+                ValidationConfig.disabled(), null, null, null);
 
         assertThat(config.problems()).containsExactly(
                 "testrunner.fhir-server.oauth2.token-url is not set",
@@ -74,7 +75,7 @@ class RunConfigurationTest {
     void namesTheMissingVersionModule(@TempDir Path dir) throws Exception {
         Files.createDirectories(dir.resolve("Test_Scripts"));
         RunConfiguration config = new RunConfiguration(null, List.of(SuiteConfig.of(dir, "R6")), null, null,
-                ValidationConfig.disabled(), null, null);
+                ValidationConfig.disabled(), null, null, null);
 
         assertThat(config.problems()).isEmpty();
         assertThat(config.unsupportedVersions(Set.of(FhirVersion.R4, FhirVersion.R5)))
@@ -88,9 +89,9 @@ class RunConfigurationTest {
         SuiteConfig auto = new SuiteConfig(null, null, dir, null, null, null, igs, null, null, null, null);
         SuiteConfig pinned = new SuiteConfig(null, "R4", dir, null, null, null, igs, null, null, null, null);
 
-        assertThat(new RunConfiguration(null, List.of(auto), null, null, ValidationConfig.disabled(), null, null).problems())
+        assertThat(new RunConfiguration(null, List.of(auto), null, null, ValidationConfig.disabled(), null, null, null).problems())
                 .singleElement().asString().contains("testrunner.suites[0].igs", "fhir-version");
-        assertThat(new RunConfiguration(null, List.of(pinned), null, null, ValidationConfig.disabled(), null, null).problems())
+        assertThat(new RunConfiguration(null, List.of(pinned), null, null, ValidationConfig.disabled(), null, null, null).problems())
                 .isEmpty();
         assertThat(SuiteConfig.of(dir, null).igs()).isEmpty();
     }
@@ -103,15 +104,15 @@ class RunConfigurationTest {
                 "hl7.at.fhir.core.r4#dev");
 
         assertThat(fromPackage.name()).isEqualTo("hl7.at.fhir.core.r4#dev");
-        assertThat(new RunConfiguration(null, List.of(fromPackage), null, null, ValidationConfig.disabled(), null, null)
+        assertThat(new RunConfiguration(null, List.of(fromPackage), null, null, ValidationConfig.disabled(), null, null, null)
                 .problems()).isEmpty();
-        assertThat(new RunConfiguration(null, List.of(both), null, null, ValidationConfig.disabled(), null, null).problems())
+        assertThat(new RunConfiguration(null, List.of(both), null, null, ValidationConfig.disabled(), null, null, null).problems())
                 .singleElement().asString().contains("both base-dir and package-id");
         SuiteConfig unknownVersion = new SuiteConfig(null, "R7", null, null, null, null, null, null, null, null,
                 "hl7.at.fhir.core.r4#dev");
-        assertThat(new RunConfiguration(null, List.of(unknownVersion), null, null, ValidationConfig.disabled(), null, null)
+        assertThat(new RunConfiguration(null, List.of(unknownVersion), null, null, ValidationConfig.disabled(), null, null, null)
                 .problems()).singleElement().asString().contains("testrunner.suites[0].fhir-version", "R7");
-        assertThat(new RunConfiguration(null, null, null, null, null, null, null).packages().cacheDir())
+        assertThat(new RunConfiguration(null, null, null, null, null, null, null, null).packages().cacheDir())
                 .isEqualTo(Path.of(System.getProperty("user.home"), ".fhir", "packages"));
     }
 
@@ -121,7 +122,7 @@ class RunConfigurationTest {
                 FhirServerConfig.of("http://own/fhir/"), null, null);
         SuiteConfig shared = SuiteConfig.of(dir, null);
         RunConfiguration config = new RunConfiguration(FhirServerConfig.of("http://shared/fhir"), List.of(own, shared),
-                null, null, null, null, null);
+                null, null, null, null, null, null);
 
         assertThat(config.fhirServerOf(own).base()).isEqualTo("http://own/fhir");
         assertThat(config.fhirServerOf(shared).base()).isEqualTo("http://shared/fhir");

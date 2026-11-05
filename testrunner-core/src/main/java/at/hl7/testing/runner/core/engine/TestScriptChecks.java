@@ -42,6 +42,15 @@ final class TestScriptChecks {
      * @return a description of every problem, empty if the TestScript can be run
      */
     static List<String> problems(TestScript testScript, Map<String, Body> fixtureResources, Set<String> builtIn) {
+        return problems(testScript, fixtureResources, builtIn, Map.of());
+    }
+
+    /**
+     * @param leftOut where each responseId and requestId is kept by a test that is not selected
+     *                ({@code testrunner.select.tests}, see {@link #keptBy}), to say so when a selected action needs it
+     */
+    static List<String> problems(TestScript testScript, Map<String, Body> fixtureResources, Set<String> builtIn,
+                                 Map<String, String> leftOut) {
         List<String> problems = new ArrayList<>();
         Map<String, String> ids = new HashMap<>();
         for (FixtureDefinition fixture : testScript.fixtures()) {
@@ -68,8 +77,27 @@ final class TestScriptChecks {
                 problems.add("Variable '" + variable.name() + "' has neither expression, path, headerField nor defaultValue");
             }
         }
-        problems.addAll(new References(testScript, fixtureResources, builtIn).problems());
+        problems.addAll(new References(testScript, fixtureResources, builtIn, leftOut).problems());
         return problems;
+    }
+
+    /** Where each responseId and requestId of these tests is kept, e.g. {@code Test 'create', action 1}. */
+    static Map<String, String> keptBy(List<TestDefinition> tests) {
+        Map<String, String> kept = new HashMap<>();
+        for (TestDefinition test : tests) {
+            for (int i = 0; i < test.actions().size(); i++) {
+                if (test.actions().get(i) instanceof Operation operation) {
+                    String where = "Test '" + test.name() + "', action " + (i + 1);
+                    if (operation.responseId() != null) {
+                        kept.putIfAbsent(operation.responseId(), where);
+                    }
+                    if (operation.requestId() != null) {
+                        kept.putIfAbsent(operation.requestId(), where);
+                    }
+                }
+            }
+        }
+        return kept;
     }
 
     /**
@@ -87,6 +115,7 @@ final class TestScriptChecks {
         private final TestScript testScript;
         private final Map<String, Body> fixtureResources;
         private final Set<String> builtIn;
+        private final Map<String, String> leftOut;
         private final Map<String, VariableDefinition> variables = new HashMap<>();
         private final Set<String> fixtureIds = new HashSet<>();
         private final Set<String> autocreated = new HashSet<>();
@@ -101,10 +130,12 @@ final class TestScriptChecks {
         private final Set<String> kept = new HashSet<>();
         private boolean operationBefore;
 
-        References(TestScript testScript, Map<String, Body> fixtureResources, Set<String> builtIn) {
+        References(TestScript testScript, Map<String, Body> fixtureResources, Set<String> builtIn,
+                   Map<String, String> leftOut) {
             this.testScript = testScript;
             this.fixtureResources = fixtureResources;
             this.builtIn = builtIn;
+            this.leftOut = leftOut;
             testScript.variables().forEach(v -> variables.putIfAbsent(v.name(), v));
             for (FixtureDefinition fixture : testScript.fixtures()) {
                 fixtureIds.add(fixture.id());
@@ -203,7 +234,7 @@ final class TestScriptChecks {
                     problems.add(where + ": targetId '" + id + "' is a requestId; use the responseId of that"
                             + " operation to address what it created");
                 }
-            } else {
+            } else if (!leftOut.containsKey(id) || reported.add("left out " + id)) {
                 problems.add(where + ": " + kind + " " + unknown(id));
             }
         }
@@ -239,6 +270,10 @@ final class TestScriptChecks {
                         List<String> fromFixture = new ArrayList<>();
                         usedFixture(source, where, fromFixture);
                         todo.addAll(fromFixture);
+                    }
+                } else if (leftOut.containsKey(source)) {
+                    if (reported.add("left out " + source)) {
+                        problems.add(prefix + "'" + source + "', " + keptByLeftOut(source));
                     }
                 } else if (!keptIds.containsKey(source)) {
                     problems.add(prefix + "sourceId " + unknown(source));
@@ -280,8 +315,19 @@ final class TestScriptChecks {
         }
 
         private String unknown(String id) {
-            return fixtureIds.contains(id) ? "'" + id + "' is a fixture without resource"
-                    : "'" + id + "' is neither a fixture nor the responseId or requestId of an operation";
+            if (fixtureIds.contains(id)) {
+                return "'" + id + "' is a fixture without resource";
+            }
+            if (leftOut.containsKey(id)) {
+                return "'" + id + "', " + keptByLeftOut(id);
+            }
+            return "'" + id + "' is neither a fixture nor the responseId or requestId of an operation";
+        }
+
+        /** Why an id kept by a test that is not selected is missing, and what to do. */
+        private String keptByLeftOut(String id) {
+            return "which is kept by " + leftOut.get(id) + ", a test that is not selected (testrunner.select.tests);"
+                    + " select that test too";
         }
 
         private List<Step> steps() {

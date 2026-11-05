@@ -61,6 +61,9 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
 #   --testrunner.validation.mode=process   one validator process per validation (default: server)
 #   --novalidator                          no profile validation
 #   --check                                load + check the TestScripts only, no server, nothing sent
+#   --testscript='*update*' --test=Read    only these TestScripts (file name, name, url) / tests (name), globs
+#   --list                                 print what would run (with the selection), send and write nothing
+#   zsh: quote '--testrunner.suites[0].base-dir=…' – unquoted [0] is a glob ("no matches found")
 #   --testrunner.<property>=<value>        any property, see testrunner-configuration
 ```
 

@@ -12,7 +12,7 @@ architecture rules, since it is the only module that sees everything.
 | Class | Job |
 |---|---|
 | `TestRunnerApplication` | `main`. Translates the short options, starts Spring Boot, exits with the exit code. |
-| `RunCommand` | `ApplicationRunner`: runs (or with `--check` only checks) the configured TestScripts once, turns the outcome into the exit code. |
+| `RunCommand` | `ApplicationRunner`: runs (or with `--check` only checks, with `--list` only lists) the configured TestScripts once, turns the outcome into the exit code. |
 | `ValidatorCheck` | Warns at start-up when validation is on but the jar or Java is missing. |
 
 ## From command line to exit code
@@ -25,11 +25,11 @@ sequenceDiagram
     participant R as RunCommand
     participant T as TestRunner
     U->>M: java -jar …-exec.jar --config=dev-r4.yml
-    M->>M: translate: --config → spring.config.additional-location<br/>--novalidator → testrunner.validation.enabled=false<br/>--check → testrunner.mode=check
+    M->>M: translate: --config → spring.config.additional-location<br/>--novalidator → testrunner.validation.enabled=false<br/>--check / --list → testrunner.mode<br/>--testscript / --test → testrunner.select.*
     M->>S: SpringApplication.run
     S->>S: auto-configuration binds testrunner.*, wires beans
     S->>R: run(args)
-    R->>T: run(RunConfiguration), or check(…) in check mode
+    R->>T: run(RunConfiguration), check(…) or list(…)
     T-->>R: RunResult
     R-->>S: exit code 0 / 1 / 2 / 3
     S-->>M: context closed (validator servers stopped)
@@ -47,6 +47,9 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
 | `--config=<file>` | `--spring.config.additional-location=file:<file>` |
 | `--novalidator` | `--testrunner.validation.enabled=false` |
 | `--check` | `--testrunner.mode=check`: load and check the TestScripts, send nothing ([Check mode](../../configuration.md#check-mode)) |
+| `--list` | `--testrunner.mode=list`: print what would run, send and write nothing |
+| `--testscript=<glob>` | `--testrunner.select.test-scripts[i]=<glob>`: run only matching TestScripts (file name, name, url); repeatable or comma-separated |
+| `--test=<glob>` | `--testrunner.select.tests[i]=<glob>`: run only matching tests ([Selecting what runs](../../configuration.md#selecting-what-runs)) |
 | `--testrunner.<property>=<value>` | any single property |
 
 All properties: [configuration.md](../../configuration.md#reference).
@@ -60,7 +63,7 @@ All properties: [configuration.md](../../configuration.md#reference).
 | Code | When |
 |---|---|
 | 0 | passed |
-| 1 | at least one `fail` or `error`; with `--check`: a TestScript has problems |
+| 1 | at least one `fail` or `error`; with `--check`: a TestScript has problems; with `--list`: a TestScript cannot be read |
 | 2 | invalid configuration (`ConfigurationException`) |
 | 3 | skipped TestScripts, none failed – as `testrunner.exit-on-skip` says |
 
@@ -92,8 +95,8 @@ The build produces two artefacts ([ADR-0010](../../adr/0010-build.md)):
 | Test | Kind | Covers |
 |---|---|---|
 | `TestRunnerApplicationTest` | unit | translation of the short options |
-| `RunCommandTest` | unit | exit codes for every `exit-on-skip` value |
-| `EndToEndIT` | failsafe | the whole app on the sample TestScripts, with an in-memory FHIR server and the fake validator; `--check` on the samples without a server |
+| `RunCommandTest` | unit | exit codes for every `exit-on-skip` value, the text of `--list` |
+| `EndToEndIT` | failsafe | the whole app on the sample TestScripts, with an in-memory FHIR server and the fake validator; `--check` on the samples without a server; selection by file name, name and test; `--list` |
 | `RealValidatorIT` | failsafe, opt-in | AT Core R4 suite incl. the negative control with the **real** validator, both modes. Runs only with `VALIDATOR_JAR` set. |
 | `HapiServerIT` | failsafe, needs Docker | AT Core R4 and R5 and every sample against a **real** HAPI FHIR server (Testcontainers, `hapiproject/hapi:v8.12.0-1`). Skipped without Docker. |
 | `ArchitectureTest` | unit (ArchUnit) | the module boundaries |

@@ -21,10 +21,11 @@ import java.util.Set;
  * @param validation profile validation settings
  * @param reporting  result and log settings
  * @param packages   where suites read from FHIR packages come from
+ * @param select     which of the TestScripts and tests of the suites run; default all
  */
 public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> suites, HttpConfig http,
                                ExecutionConfig execution, ValidationConfig validation, ReportingConfig reporting,
-                               PackagesConfig packages) {
+                               PackagesConfig packages, SelectConfig select) {
 
     private static final Set<String> LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR");
 
@@ -36,11 +37,17 @@ public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> su
         validation = validation == null ? ValidationConfig.defaults() : validation;
         reporting = reporting == null ? ReportingConfig.defaults() : reporting;
         packages = packages == null ? PackagesConfig.defaults() : packages;
+        select = select == null ? SelectConfig.all() : select;
     }
 
     /** A copy with other suites, e.g. those of packages resolved to folders. */
     public RunConfiguration withSuites(List<SuiteConfig> newSuites) {
-        return new RunConfiguration(fhirServer, newSuites, http, execution, validation, reporting, packages);
+        return new RunConfiguration(fhirServer, newSuites, http, execution, validation, reporting, packages, select);
+    }
+
+    /** A copy that runs only the TestScripts and tests {@code newSelect} selects. */
+    public RunConfiguration withSelect(SelectConfig newSelect) {
+        return new RunConfiguration(fhirServer, suites, http, execution, validation, reporting, packages, newSelect);
     }
 
     /** The FHIR server of a suite: its own if configured, otherwise the one of the run. */
@@ -96,6 +103,7 @@ public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> su
         }
         positive("testrunner.execution.timeout", execution.timeout(), problems);
         positive("testrunner.execution.test-script-timeout", execution.testScriptTimeout(), problems);
+        problems.addAll(select.problems("testrunner.select"));
         if (!LEVELS.contains(reporting.logFileLevel())) {
             problems.add("testrunner.reporting.log-file-level: unknown level '" + reporting.logFileLevel()
                     + "', known: " + LEVELS);
