@@ -1,6 +1,5 @@
 package at.hl7.testing.runner.core.engine;
 
-import at.hl7.testing.runner.core.config.ReferenceRewriting;
 import at.hl7.testing.runner.core.http.Exchange;
 import at.hl7.testing.runner.core.http.FhirHttpClient;
 import at.hl7.testing.runner.core.http.FhirRequest;
@@ -14,15 +13,12 @@ import at.hl7.testing.runner.core.report.Outcome;
 import at.hl7.testing.runner.core.report.PhaseKind;
 import at.hl7.testing.runner.core.report.PhaseResult;
 import at.hl7.testing.runner.core.source.LoadedTestScript;
-import at.hl7.testing.runner.core.spi.ProfileValidator;
 import at.hl7.testing.runner.core.spi.ValidatorUnavailableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Executes one TestScript: setup, every test, teardown. One instance per execution; it owns all state of that
@@ -57,26 +53,21 @@ final class TestScriptExecution {
     private final String fhirBase;
 
     /**
-     * @param builtIn       the values the runner provides for {@code ${testrunner.<name>}} placeholders, by name
-     * @param rewriting     which references in fixture resources are rewritten to the ids the server assigned
-     * @param warnings      what the checks before sending found worth a warning, put on the Setup: assertions the
-     *                      runner cannot evaluate ({@link TestScriptChecks#unsupportedWarnings}), fixtures sent before a
-     *                      fixture they reference is created ({@link TestScriptChecks#orderWarnings})
+     * @param environment what the execution gets from its run, built by {@link ExecutionFactory}
      */
-    TestScriptExecution(LoadedTestScript loaded, FhirHttpClient http, String fhirBase, ProfileValidator validator,
-                        Path profilesDir, List<String> igs, CapabilityCheck capabilities, Map<String, String> builtIn,
-                        ReferenceRewriting rewriting, List<String> warnings) {
+    TestScriptExecution(LoadedTestScript loaded, ExecutionEnvironment environment) {
         this.loaded = loaded;
         this.testScript = loaded.testScript();
-        this.http = http;
-        this.fhirBase = fhirBase;
-        this.capabilities = capabilities;
-        this.variables = new VariableResolver(testScript.variables(), builtIn, state, loaded.support().fhirPath());
+        this.http = environment.http();
+        this.fhirBase = environment.fhirBase();
+        this.capabilities = environment.capabilities();
+        this.variables = new VariableResolver(testScript.variables(), environment.builtIn(), state,
+                loaded.support().fhirPath());
         this.requests = new RequestFactory(fhirBase, state);
-        this.assertions = new AssertionEvaluator(state, loaded.support().fhirPath(), validator, testScript.profiles(),
-                testScript.fhirVersion(), profilesDir, igs);
-        this.fixtures = new FixtureManager(state, http, fhirBase, variables::resolve, rewriting);
-        this.warnings = List.copyOf(warnings);
+        this.assertions = new AssertionEvaluator(state, loaded.support().fhirPath(), environment.validator(),
+                testScript.profiles(), testScript.fhirVersion(), environment.profilesDir(), environment.igs());
+        this.fixtures = new FixtureManager(state, http, fhirBase, variables::resolve, environment.rewriting());
+        this.warnings = environment.warnings();
         state.resolveFixturesWith(fixtures::resolve);
     }
 

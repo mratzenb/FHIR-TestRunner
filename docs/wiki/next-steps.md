@@ -98,7 +98,7 @@ promise.
 | A2 | A run cannot be bounded, cancelled or partially reported | high – CI | M |
 | A3 | No CI pipeline; build gates only run locally | medium | S |
 | A4 | No test against a real FHIR server | medium | M |
-| A5 | `TestRunner` does too much; `TestScriptExecution` takes 10 constructor parameters | medium | M |
+| A5 | `TestRunner` does too much; `TestScriptExecution` takes 10 constructor parameters (done, M2.1) | medium | M |
 | A6 | Wide positional records: `Operation` has 17 components | medium | M |
 | A7 | Assertion values are compared as text | medium | M |
 | A8 | Request and response bodies are `String`s | medium | M |
@@ -155,6 +155,8 @@ checked. Two smaller points:
 * ADR-0009 still says "~115 tests".
 
 ### A5 – Orchestration
+
+**Status:** done in M2.1.
 
 `TestRunner` (376 lines) does seven jobs: configuration problems, package resolution, the run folder, discovery,
 serial and parallel scheduling, the wiring of each TestScript (communication log, headers, OAuth2, built-in values),
@@ -312,9 +314,9 @@ step below is one pull request, with tests and documentation.
 
 ### M2 – Run control (M)
 
-1. **A5.** Extract `RunScheduler`, `ExecutionFactory` and `ReportPublisher` from `TestRunner`. Replace the
-   constructor parameters of `TestScriptExecution` with an `ExecutionEnvironment` record. Pure refactoring: no
-   behaviour change, no test change apart from the wiring.
+1. ~~**A5.**~~ Done: `RunScheduler` (serial suites, thread pool), `ExecutionFactory` (client, communication log,
+   headers, OAuth2, `${testrunner.…}` values) and `ReportPublisher` (reports, summary) came out of `TestRunner`;
+   `TestScriptExecution` takes an `ExecutionEnvironment` record. No behaviour change, no test changed.
 2. **A11.** Move the validator-jar exception out of `TestRunner`: `ProfileValidator` (or `ProfileValidators`)
    reports its own configuration problems.
 3. **A2 + F3.** `ExecutionConfig.timeout`, `testScriptTimeout` and `failFast`, with defaults that keep today's

@@ -173,12 +173,14 @@ validator server mode, the validator servers.</figcaption>
    `sourceId`/`targetId`/`compareToSourceId`/`minimumId`/`variable.sourceId` naming nothing or a response kept only
    later, a `${name}` that is no variable and no `testrunner.*` value (also in fixture resources), a variable or
    assertion on the last response before the first operation, `validateProfileId` not in `TestScript.profile`.
-5. `TestScriptExecution` runs setup, tests and teardown. It owns an `ExecutionState` (fixtures, responses kept
-   by `responseId`, last response) and the helpers that work on it: `VariableResolver`, `RequestFactory`,
-   `AssertionEvaluator`, `FixtureManager`.
+5. `TestScriptExecution` runs setup, tests and teardown. `ExecutionFactory` gives it an `ExecutionEnvironment`:
+   the `FhirHttpClient` for its server, the validator, the suite's profiles and IGs, the `${testrunner.…}` values.
+   It owns an `ExecutionState` (fixtures, responses kept by `responseId`, last response) and the helpers that work
+   on it: `VariableResolver`, `RequestFactory`, `AssertionEvaluator`, `FixtureManager`. `RunScheduler` decides which
+   TestScripts run at the same time.
 6. Every request goes through `FhirHttpClient`: request id, one log line, one folder in `communication/`.
-7. The `TestScriptResult`s are combined into a `RunResult`, which the configured `ReportWriter`s write into
-   the run folder.
+7. The `TestScriptResult`s are combined into a `RunResult`, which `ReportPublisher` has the configured
+   `ReportWriter`s write into the run folder.
 
 ## Execution semantics
 

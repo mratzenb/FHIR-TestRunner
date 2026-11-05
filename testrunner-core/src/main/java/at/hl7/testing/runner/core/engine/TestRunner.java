@@ -2,9 +2,6 @@ package at.hl7.testing.runner.core.engine;
 
 import at.hl7.testing.runner.core.config.FhirServerConfig;
 import at.hl7.testing.runner.core.config.RunConfiguration;
-import at.hl7.testing.runner.core.http.CommunicationLog;
-import at.hl7.testing.runner.core.http.FhirHttpClient;
-import at.hl7.testing.runner.core.http.HttpHeaders;
 import at.hl7.testing.runner.core.http.HttpTransport;
 import at.hl7.testing.runner.core.model.TestDefinition;
 import at.hl7.testing.runner.core.report.Outcome;
@@ -33,18 +30,9 @@ import java.nio.file.Files;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.function.Function;
 
 /**
@@ -62,12 +50,13 @@ public final class TestRunner {
     private static final Logger log = LoggerFactory.getLogger(TestRunner.class);
 
     private final FhirVersionRegistry versions;
-    private final HttpTransport transport;
     private final ProfileValidator validator;
-    private final List<ReportWriter> reportWriters;
     private final List<RunListener> listeners;
     private final Clock clock;
     private final Function<RunConfiguration, PackageSuites> packages;
+    private final RunScheduler scheduler = new RunScheduler();
+    private final ExecutionFactory executions;
+    private final ReportPublisher reports;
 
     public TestRunner(FhirVersionRegistry versions, HttpTransport transport, ProfileValidator validator,
                       List<ReportWriter> reportWriters, List<RunListener> listeners, Clock clock) {
@@ -81,12 +70,12 @@ public final class TestRunner {
                       List<ReportWriter> reportWriters, List<RunListener> listeners, Clock clock,
                       Function<RunConfiguration, PackageSuites> packages) {
         this.versions = versions;
-        this.transport = transport;
         this.validator = validator;
-        this.reportWriters = List.copyOf(reportWriters);
         this.listeners = List.copyOf(listeners);
         this.clock = clock;
         this.packages = packages;
+        this.executions = new ExecutionFactory(transport, validator, clock);
+        this.reports = new ReportPublisher(reportWriters);
     }
 
     /**
@@ -98,8 +87,7 @@ public final class TestRunner {
     public RunResult run(RunConfiguration configuration) {
         List<String> problems = new ArrayList<>(configuration.problems());
         problems.addAll(configuration.unsupportedVersions(versions.versions()));
-        problems.addAll(configuration.unknownFormats(reportWriters.stream().map(ReportWriter::format)
-                .collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new))));
+        problems.addAll(configuration.unknownFormats(reports.formats()));
         if (validator == ProfileValidator.DISABLED) {
             problems.removeIf(p -> p.startsWith("testrunner.validation.validator-jar"));
         }
@@ -124,11 +112,11 @@ public final class TestRunner {
         try {
             List<TestScriptSource> sources = TestScriptDiscovery.discover(configuration.suites());
             logStart(run, sources);
-            List<TestScriptResult> results = runAll(run, sources, new CapabilityCheck());
-            RunResult result = new RunResult(run.runId(), run.runDirectory(), run.started(),
-                    Duration.between(run.started(), clock.instant()), results, Map.of());
-            result = result.withReportFiles(writeReports(run, result));
-            logSummary(result);
+            CapabilityCheck capabilities = new CapabilityCheck();
+            List<TestScriptResult> results = scheduler.runAll(run, sources,
+                    (index, source) -> runOne(run, index, sources.size(), source, capabilities));
+            RunResult result = reports.publish(run, new RunResult(run.runId(), run.runDirectory(), run.started(),
+                    Duration.between(run.started(), clock.instant()), results, Map.of()));
             RunResult finished = result;
             listeners.forEach(l -> l.runFinished(run, finished));
             return result;
@@ -138,50 +126,6 @@ public final class TestRunner {
                     Duration.between(run.started(), clock.instant()), List.of(), Map.of());
             listeners.forEach(l -> l.runFinished(run, failed));
             throw e;
-        }
-    }
-
-    /**
-     * Runs the TestScripts, in parallel if configured. The TestScripts of suites with {@code parallel = false} run
-     * first, one after the other, while nothing else runs; then the others. The results keep the discovery order.
-     */
-    private List<TestScriptResult> runAll(RunContext run, List<TestScriptSource> sources, CapabilityCheck capabilities) {
-        List<Integer> serial = new ArrayList<>();
-        List<Integer> parallel = new ArrayList<>();
-        for (int i = 0; i < sources.size(); i++) {
-            (sources.get(i).suite().parallel() ? parallel : serial).add(i);
-        }
-        int parallelism = Math.min(run.configuration().execution().parallelism(), Math.max(1, parallel.size()));
-        TestScriptResult[] results = new TestScriptResult[sources.size()];
-        if (parallelism == 1) {
-            for (int i = 0; i < sources.size(); i++) {
-                results[i] = runOne(run, i + 1, sources.size(), sources.get(i), capabilities);
-            }
-            return List.of(results);
-        }
-        if (!serial.isEmpty()) {
-            log.info("Running {} TestScript(s) of suites with parallel=false one after the other first", serial.size());
-        }
-        for (int i : serial) {
-            results[i] = runOne(run, i + 1, sources.size(), sources.get(i), capabilities);
-        }
-        log.info("Running {} TestScripts with parallelism {}", parallel.size(), parallelism);
-        try (ExecutorService executor = Executors.newFixedThreadPool(parallelism,
-                Thread.ofPlatform().name("testscript-", 1).factory())) {
-            Map<Integer, Future<TestScriptResult>> futures = new LinkedHashMap<>();
-            for (int i : parallel) {
-                TestScriptSource source = sources.get(i);
-                futures.put(i, executor.submit(() -> runOne(run, i + 1, sources.size(), source, capabilities)));
-            }
-            for (var future : futures.entrySet()) {
-                results[future.getKey()] = future.getValue().get();
-            }
-            return List.of(results);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while running the TestScripts", e);
-        } catch (ExecutionException e) {
-            throw new IllegalStateException("A TestScript execution failed unexpectedly", e.getCause());
         }
     }
 
@@ -230,7 +174,7 @@ public final class TestRunner {
                 testScript.variables().size(), testScript.profiles().size(), testScript.tests().size());
         loaded.readWarnings().forEach(w -> log.warn("Ignored while reading the TestScript: {}", w));
 
-        Map<String, String> builtIn = builtInValues(run, index, started);
+        Map<String, String> builtIn = ExecutionFactory.builtInValues(run, index, started);
         List<String> unsupported = TestScriptChecks.unsupportedWarnings(testScript);
         unsupported.forEach(w -> log.warn("{}", w));
         List<String> problems = new ArrayList<>(TestScriptChecks.problems(testScript, loaded.fixtureResources(),
@@ -257,36 +201,13 @@ public final class TestRunner {
             return result(index, loaded, null, started, phases);
         }
 
-        CommunicationLog communication = (run.configuration().reporting().communicationLog()
-                ? CommunicationLog.toFolder(run.communicationDirectory(), label, server.base())
-                : CommunicationLog.none()).redacting(run.configuration().reporting().redactHeaders());
-        HttpHeaders defaultHeaders = HttpHeaders.of(server.headers().entrySet().stream()
-                .collect(LinkedHashMap::new, (m, e) -> m.put(e.getKey(), List.of(e.getValue())), Map::putAll));
-        FhirHttpClient http = new FhirHttpClient(transport, run.requestCounter(), communication, defaultHeaders,
-                server.oauth2() == null ? null : run.accessTokens(server.oauth2(), transport, clock));
         List<String> orderWarnings = TestScriptChecks.orderWarnings(testScript, loaded.fixtureResources());
         orderWarnings.forEach(w -> log.warn("{}", w));
         List<String> warnings = new ArrayList<>(unsupported);
         warnings.addAll(orderWarnings);
-        List<PhaseResult> phases = new TestScriptExecution(loaded, http, server.base(), validator,
-                suite.resolvedProfilesDir(), suite.igs(), capabilities, builtIn,
-                run.configuration().execution().rewriteReferences(), warnings).run();
+        List<PhaseResult> phases = new TestScriptExecution(loaded,
+                executions.create(run, label, suite, server, capabilities, builtIn, warnings)).run();
         return result(index, loaded, server.base(), started, phases);
-    }
-
-    /**
-     * The values TestScripts and their fixtures can use as {@code ${testrunner.<name>}}, e.g. to give the resources
-     * of each TestScript execution identifiers of their own, so that TestScripts running in parallel, or again on the
-     * same server, do not find each other's data.
-     */
-    static Map<String, String> builtInValues(RunContext run, int index, Instant started) {
-        String uuid = UUID.randomUUID().toString();
-        return Map.of(
-                "runId", run.runId(),
-                "testScriptId", run.runId().replaceAll("[^A-Za-z0-9.-]", "-") + "-" + "%02d".formatted(index),
-                "uuid", uuid,
-                "timestamp", DateTimeFormatter.ISO_INSTANT.format(started.truncatedTo(ChronoUnit.MILLIS)),
-                "date", DateTimeFormatter.ISO_LOCAL_DATE.format(started.atZone(ZoneOffset.UTC)));
     }
 
     /** Validates the TestScript itself against the base specification of its version. */
@@ -318,19 +239,6 @@ public final class TestRunner {
 
     private static void skipAll(List<TestDefinition> tests, String reason, List<PhaseResult> phases) {
         tests.forEach(t -> phases.add(PhaseResult.skipped(PhaseKind.TEST, t.name(), t.assertionCount(), reason)));
-    }
-
-    private Map<String, java.nio.file.Path> writeReports(RunContext run, RunResult result) {
-        Map<String, java.nio.file.Path> files = new LinkedHashMap<>();
-        for (String format : run.configuration().reporting().formats()) {
-            ReportWriter writer = reportWriters.stream().filter(w -> w.format().equals(format)).findFirst().orElseThrow();
-            try {
-                files.put(format, writer.write(result, run.runDirectory()));
-            } catch (IOException | RuntimeException e) {
-                log.error("Could not write the {} report: {}", format, e.toString());
-            }
-        }
-        return files;
     }
 
     private void logStart(RunContext run, List<TestScriptSource> sources) {
@@ -371,13 +279,5 @@ public final class TestRunner {
         } else {
             log.error(line, args);
         }
-    }
-
-    private static void logSummary(RunResult result) {
-        Map<Outcome, Long> counts = result.countByOutcome();
-        log.info("===== Summary {}: {} TestScript(s), {} passed, {} failed, {} errors, {} skipped -> {}", result.runId(),
-                result.testScripts().size(), counts.get(Outcome.PASS), counts.get(Outcome.FAIL),
-                counts.get(Outcome.ERROR), counts.get(Outcome.SKIP), result.outcome());
-        result.reportFiles().forEach((format, file) -> log.info("  {} report: {}", format, file.toAbsolutePath()));
     }
 }
