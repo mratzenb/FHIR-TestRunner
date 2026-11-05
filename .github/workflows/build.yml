@@ -35,6 +35,12 @@ jobs:
           cache: maven
       - name: mvn verify
         run: mvn -B -ntp verify
+      - name: Keep the coverage report
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: testrunner-app/target/site/jacoco-aggregate/
+          retention-days: 14
       - name: Keep the test reports
         if: failure()
         uses: actions/upload-artifact@v7

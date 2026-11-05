@@ -93,13 +93,32 @@ export DOCKER_HOST=unix://$HOME/.rd/docker.sock            # Rancher Desktop; Co
 export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
 ```
 
+## Coverage
+
+Every `mvn verify` writes one coverage report for all modules, from the unit and the integration tests:
+`testrunner-app/target/site/jacoco-aggregate/index.html`. It is a report, not a gate: no build fails on a number.
+
+As of 2026-11-05, with `HapiServerIT`:
+
+| Module | Lines | Branches |
+|---|---|---|
+| `testrunner-core` | 89.6 % | 78.2 % |
+| `testrunner-fhir-hapi` | 86.0 % | 67.2 % |
+| `testrunner-validation-cli` | 83.0 % | 71.4 % |
+| `testrunner-spring-boot-autoconfigure` | 95.1 % | 55.6 % |
+| all modules | 88.8 % | 77.4 % |
+
+Look at the report when you change the engine: an uncovered branch in `TestScriptChecks`, `ActionRules` or
+`AssertionEvaluator` usually means a rule without a test. A new module must also be a dependency of `testrunner-app`,
+otherwise the report leaves it out.
+
 ## Continuous integration
 
 [`.github/workflows/build.yml`](../../.github/workflows/build.yml) runs on GitHub Actions:
 
 | Job | When | What |
 |---|---|---|
-| `verify` | every push to `main`, every pull request | `mvn -B verify` on Temurin 25, including `HapiServerIT` (the runner has Docker). If it fails, the surefire and failsafe reports are attached to the run as `test-reports`. |
+| `verify` | every push to `main`, every pull request | `mvn -B verify` on Temurin 25, including `HapiServerIT` (the runner has Docker). The coverage report is attached as `coverage`. If the build fails, the surefire and failsafe reports are attached as `test-reports`. |
 | `real-validator` | nightly (03:17 UTC) and on demand (*Run workflow*) | `RealValidatorIT` with the real validator, both modes. The negative control must fail. |
 
 The real validator is pinned (`VALIDATOR_VERSION`, now 7.0.2, the version the docs were verified with). The job
@@ -148,6 +167,7 @@ More: skill `.claude/skills/testrunner-testing`, [ADR-0009](../adr/0009-testing.
 | Module POMs declare **no** versions | every module |
 | `-Xlint:all,-processing,-serial`, `--limit-modules java.se` | compiler plugin in the root `pom.xml` |
 | A compiler warning fails the build (`failOnWarning`) | compiler plugin in the root `pom.xml` |
+| Coverage of unit and integration tests, as a report | JaCoCo `prepare-agent` in the root `pom.xml`, `report-aggregate` in `testrunner-app` |
 | Test doubles only in test scope | enforcer `bannedDependencies` |
 
 → [ADR-0010](../adr/0010-build.md)

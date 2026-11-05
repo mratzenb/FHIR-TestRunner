@@ -37,6 +37,7 @@
         <archunit.version>1.5.1</archunit.version>
 
         <!-- Plugin versions -->
+        <jacoco-maven-plugin.version>0.8.16</jacoco-maven-plugin.version>
         <maven-clean-plugin.version>3.5.0</maven-clean-plugin.version>
         <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
         <maven-deploy-plugin.version>3.1.4</maven-deploy-plugin.version>
@@ -125,6 +126,11 @@
     <build>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco-maven-plugin.version}</version>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-clean-plugin</artifactId>
@@ -219,6 +225,25 @@
                                     </includes>
                                 </bannedDependencies>
                             </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <!-- coverage of unit and integration tests, a report and no gate (aggregated in testrunner-app) -->
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>coverage-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                        <configuration>
+                            <!-- only the runner's classes: instrumenting HAPI and Spring costs time and is not reported -->
+                            <includes>
+                                <include>at.hl7.testing.runner.*</include>
+                            </includes>
                         </configuration>
                     </execution>
                 </executions>

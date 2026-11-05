@@ -16,6 +16,16 @@
         Also hosts the end-to-end integration tests (*IT) and the architecture rules.</description>
 
     <dependencies>
+        <!-- core and fhir-hapi also come through the modules below; they are named because the app uses core directly
+             and because the coverage report (report-aggregate) only looks at direct dependencies -->
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>testrunner-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>testrunner-fhir-hapi</artifactId>
+        </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>testrunner-spring-boot-autoconfigure</artifactId>
@@ -80,6 +90,24 @@
                          artifact, so it can be used as a library and failsafe tests the plain classes -->
                     <classifier>exec</classifier>
                 </configuration>
+            </plugin>
+            <plugin>
+                <!-- one coverage report of every module, from all their unit and integration tests:
+                     target/site/jacoco-aggregate/index.html -->
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>coverage-report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report-aggregate</goal>
+                        </goals>
+                        <configuration>
+                            <includeCurrentProject>true</includeCurrentProject>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
