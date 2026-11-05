@@ -139,7 +139,7 @@ variable always reads the same response once it has arrived.
 | `${testrunner.timestamp}` | the start of the TestScript, UTC, to the millisecond | `2026-10-26T10:00:00.123Z` |
 | `${testrunner.date}` | the date of that start, UTC | `2026-10-26` |
 
-* `TestRunner.builtInValues` computes them when a TestScript starts. `TestScriptExecution` passes them to its
+* `ExecutionFactory.builtInValues` computes them when a TestScript starts. `TestScriptExecution` passes them to its
   `VariableResolver`.
 * The prefix `testrunner.` is reserved (`VariableResolver.BUILT_IN`). It is checked first, so a TestScript variable
   with such a name is never used.
@@ -312,7 +312,7 @@ e.g. `1`, and the read becomes `GET [base]/Patient/1`. The same read before the 
 | `core.model.Operation.withValues`, `Assertion.withValues`, `RequestHeader.map` | which values are resolved |
 | `core.engine.TestScriptExecution` | resolves before each operation and assertion; hands `variables::resolve` to the fixtures |
 | `core.engine.FixtureManager.resolve`, `core.content.ResourceContent.replaceText` | placeholders in fixture resources, at each use |
-| `core.engine.TestRunner.builtInValues` | the `${testrunner.…}` values |
+| `core.engine.ExecutionFactory.builtInValues` | the `${testrunner.…}` values |
 | `core.engine.TestScriptChecks` | checks the variable definitions, and every placeholder where it is used, before the run |
 | `core.engine.Values.single` | exactly one value, as text |
 | `fhir.hapi.TestScriptMapper.variable` | reads `TestScript.variable`, for R4 and R5 |

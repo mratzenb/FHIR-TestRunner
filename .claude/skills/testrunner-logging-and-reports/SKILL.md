@@ -45,7 +45,7 @@ folder prefix. From a failed assertion, `REQ-nnnn` leads to the exact bytes exch
 Writes every exchange as exchanged (all headers, repeated headers on separate lines, body as text), except the
 values of `reporting.redact-headers` (`ReportingConfig.DEFAULT_REDACT_HEADERS`: Authorization, Proxy-Authorization,
 Cookie, Set-Cookie; case-insensitive; `[]` = none): `CommunicationLog.redacting(names)` masks them as `***`, keeping an
-auth scheme (`Bearer ***`, `CommunicationLog.mask`), in files and wire logger alike; `TestRunner.execute` applies it.
+auth scheme (`Bearer ***`, `CommunicationLog.mask`), in files and wire logger alike; `ExecutionFactory.create` applies it.
 Bodies/URLs are not masked. OAuth2 token requests (`http.AccessTokens`) bypass `FhirHttpClient`, so they are neither
 in `communication/` nor counted as `REQ-` ids (they carry the client secret). Write problems are logged as warnings and never fail a test. Also logged at DEBUG to
 `at.hl7.testing.runner.communication` (route anywhere via logging config). `reporting.communication-log=false`

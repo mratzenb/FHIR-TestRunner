@@ -22,16 +22,17 @@ sequenceDiagram
     TR->>Src: PackageSuites.resolve (suites from FHIR packages)
     TR->>TR: RunContext.start, create run folder
     TR->>Src: TestScriptDiscovery.discover
-    loop every TestScript (in parallel if configured)
+    loop every TestScript (RunScheduler: in parallel if configured)
         TR->>Src: TestScriptLoader.load (detect version, map, load fixtures)
         TR->>TR: TestScriptChecks (ids, variables, destinations)
         TR->>Val: validate the TestScript itself (optional)
+        TR->>TR: ExecutionFactory: client, communication log, ${testrunner.…}
         TR->>Ex: run()
         Ex->>Http: send requests (setup, tests, teardown)
         Ex->>Val: validateProfileId assertions
         Ex-->>TR: List of PhaseResult
     end
-    TR->>Rep: write(RunResult)
+    TR->>Rep: ReportPublisher: write(RunResult)
     TR-->>App: RunResult
     App->>App: exit code 0 / 1 / 2 / 3
 ```
@@ -71,7 +72,7 @@ Any problem stops the run before anything is sent: `ConfigurationException`, exi
 
 ## 4. Scheduling
 
-`TestRunner.runAll` decides the order ([ADR-0008](../adr/0008-parallel-execution.md)):
+`RunScheduler` decides the order ([ADR-0008](../adr/0008-parallel-execution.md)):
 
 ```mermaid
 flowchart LR
@@ -256,8 +257,8 @@ flowchart LR
 
 Outcomes combine by severity: `error > fail > skip > pass`.
 
-`TestRunner` hands the `RunResult` to each configured `ReportWriter`. Then `RunListener.runFinished` is called and
-the log file is closed.
+`ReportPublisher` hands the `RunResult` to each configured `ReportWriter` and logs the summary. A writer that fails
+is logged; the other reports are still written. Then `RunListener.runFinished` is called and the log file is closed.
 
 | Format | File | Writer |
 |---|---|---|

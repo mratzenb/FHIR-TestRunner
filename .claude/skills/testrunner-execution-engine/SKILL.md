@@ -14,7 +14,7 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
    `run_yyyy-MM-dd_HH-mm-ss-SSS` = run folder name under `output-dir`, run-wide `AtomicInteger` request counter);
    notifies `RunListener`s.
 2. `source.TestScriptDiscovery` lists files per suite (glob `include` relative to `Test_Scripts/`, stable order).
-3. Per file (in parallel if `execution.parallelism > 1`): `source.TestScriptLoader` detects or takes the pinned FHIR
+3. Per file (`RunScheduler`: in parallel if `execution.parallelism > 1`): `source.TestScriptLoader` detects or takes the pinned FHIR
    version, maps the file via that version's `FhirVersionSupport`, loads fixture resources: `#id` references from
    `TestScript.contained` (`ResourceContent.contained` on the file, JSON/XML, version-neutral; unknown id ⇒ Load
    error listing `containedIds`), others from `Example_Instances/` (`ExampleInstanceResolver`).
@@ -30,11 +30,14 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
    only "fails in every run" problems, each placeholder reported once) and, if `validation.validate-test-scripts`,
    the validator checks the TestScript against its base spec. Problems ⇒ phase `Load` = `error`, all listed,
    nothing sent. Messages name the place: `Test 'read', action 2: …`.
-5. `TestScriptExecution` checks `metadata.capability` (`CapabilityCheck`, see below), then runs setup → tests →
-   teardown with its own `ExecutionState` (fixtures, responses by `responseId`, last response). Helpers:
+5. `TestScriptExecution(loaded, ExecutionEnvironment)` (environment from `ExecutionFactory.create`: client, base,
+   validator, profiles dir, IGs, `CapabilityCheck`, built-in values, rewriting, Setup warnings) checks
+   `metadata.capability` (`CapabilityCheck`, see below), then runs setup → tests → teardown with its own
+   `ExecutionState` (fixtures, responses by `responseId`, last response). Helpers:
    `VariableResolver`, `RequestFactory`, `AssertionEvaluator`, `FixtureManager`, `PhaseRecorder`.
 6. Every request goes through `http.FhirHttpClient` (request id, log line, communication folder).
-7. `TestScriptResult`s → `RunResult` (in discovery order) → `ReportWriter`s → `RunListener.runFinished`.
+7. `TestScriptResult`s → `RunResult` (in discovery order) → `ReportPublisher` (`ReportWriter`s, summary log) →
+   `RunListener.runFinished`.
 
 The MDC key `testScript` (`TestRunner.MDC_TEST_SCRIPT`) = `<NN>_<file base name>` while a TestScript runs.
 
@@ -133,7 +136,7 @@ there too) → read it in `TestScriptMapper.assertion` (`testrunner-fhir-version
   request id and status. `autodelete` after teardown, reverse order.
 * Variables are evaluated **at each use** (latest response under that id), from `expression` (FHIRPath),
   `path`, or `headerField`, on `sourceId`; `defaultValue` if empty. Undefined variable ⇒ `TestScriptException`.
-* Built-in values (`VariableResolver.BUILT_IN` = `testrunner.`, built by `TestRunner.builtInValues`, fixed per
+* Built-in values (`VariableResolver.BUILT_IN` = `testrunner.`, built by `ExecutionFactory.builtInValues`, fixed per
   execution): `${testrunner.runId}`, `${testrunner.testScriptId}` (`run-…-NN`, a valid FHIR id), `${testrunner.uuid}`,
   `${testrunner.timestamp}`, `${testrunner.date}`. Unknown `testrunner.x` ⇒ error listing the known ones.
 * **Fixtures are resolved at each use** (`docs/wiki/fixtures.md`): `ExecutionState` keeps them as
@@ -178,13 +181,15 @@ there too) → read it in `TestScriptMapper.assertion` (`testrunner-fhir-version
 actions of one TestScript always run in order on one thread. Shared: HTTP transport, request counter, validator,
 report list, `CapabilityCheck`. Results are reported in discovery order. TestScripts touching the same server data can
 interfere – that is why the default is 1. Remedies: `${testrunner.testScriptId}`/`uuid` in fixtures (data of their
-own), or `suites[n].parallel: false` (`SuiteConfig.parallel`): with parallelism > 1, `TestRunner.runAll` runs those
+own), or `suites[n].parallel: false` (`SuiteConfig.parallel`): with parallelism > 1, `RunScheduler.runAll` runs those
 TestScripts one after the other first, then the rest in the pool.
 
 ## Where to look
 
 `TestScriptExecution` (rules), `ActionRules` (what an action needs, before and during the run),
 `AssertionEvaluator` (checks), `RequestFactory` (URLs/headers/body),
-`FixtureManager`, `VariableResolver`, `TestScriptChecks`, `CapabilityCheck`, `TestRunner` (orchestration, logging of
-config/summary).
+`FixtureManager`, `VariableResolver`, `TestScriptChecks`, `CapabilityCheck`, `TestRunner` (orchestration: configuration
+problems, run folder, listeners; per TestScript load → checks → execution), `RunScheduler` (serial suites, thread pool),
+`ExecutionFactory` (`ExecutionEnvironment` of one execution: `FhirHttpClient`, communication log, headers, OAuth2,
+`builtInValues`), `ReportPublisher` (report writers, summary log).
 Docs: `docs/architecture.md` › Runtime view, Execution semantics, Open points; ADR-0004, ADR-0008.

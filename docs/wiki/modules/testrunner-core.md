@@ -40,7 +40,7 @@ flowchart BT
 | `content` | Version-independent work on JSON/XML resources | `ResourceContent` (type, id, references), `FhirElement` (`minimumId` comparison), `PathEvaluator` (JSONPath/XPath) |
 | `http` | The HTTP layer, OAuth2 tokens and the communication log | `FhirHttpClient`, `HttpTransport` (port), `JdkHttpTransport`, `AccessTokens`, `CommunicationLog`, `FhirRequest`/`FhirResponse`/`Exchange` |
 | `source` | Finding and loading TestScripts | `TestScriptDiscovery`, `TestScriptLoader`, `ExampleInstanceResolver`, `PackageSuites` |
-| `engine` | Running a TestScript | `TestRunner`, `TestRunners`, `RunContext`, `TestScriptExecution`, `ExecutionState`, `TestScriptChecks`, `ActionRules`, `AssertionEvaluator`, `RequestFactory`, `VariableResolver`, `FixtureManager`, `CapabilityCheck` |
+| `engine` | Running a TestScript | `TestRunner`, `TestRunners`, `RunContext`, `RunScheduler`, `ExecutionFactory`, `ReportPublisher`, `TestScriptExecution`, `ExecutionState`, `TestScriptChecks`, `ActionRules`, `AssertionEvaluator`, `RequestFactory`, `VariableResolver`, `FixtureManager`, `CapabilityCheck` |
 | `report` | Results and report writers | `Outcome`, `ActionResult`, `PhaseResult`, `TestScriptResult`, `RunResult`, `ReportWriter` (port) and its four implementations |
 
 ## The model
@@ -107,6 +107,15 @@ new TestRunner(versions, transport, validator, reportWriters, listeners, clock);
 ```
 
 `TestRunners.create(httpConfig, validator)` builds one with the defaults, without Spring.
+
+`TestRunner` checks the configuration and runs one TestScript at a time: load, check, execute. Three helpers do
+the rest:
+
+| Class | Job |
+|---|---|
+| `RunScheduler` | which TestScript runs when: serial suites first, then the pool of `execution.parallelism` threads |
+| `ExecutionFactory` | what one execution gets from its run, as an `ExecutionEnvironment`: the `FhirHttpClient` with its communication log, default headers and OAuth2 token, and the `${testrunner.…}` values |
+| `ReportPublisher` | writes the reports in the configured formats and logs the summary |
 
 Only a few engine classes are public: `TestRunner`, `TestRunners`, `RunContext`, `RunListener`, `Source` and the
 exceptions. The rest is package-private. They are details of how a TestScript is executed.
