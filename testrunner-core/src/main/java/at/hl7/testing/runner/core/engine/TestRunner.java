@@ -85,6 +85,17 @@ public final class TestRunner {
      *                                nothing is run then
      */
     public RunResult run(RunConfiguration configuration) {
+        return run(configuration, new RunControl());
+    }
+
+    /**
+     * Runs the configured TestScripts under a {@link RunControl}, through which the run can be stopped from another
+     * thread, e.g. by a shutdown hook.
+     *
+     * @param control controls this run only; a new one is needed for every run
+     * @throws ConfigurationException if the configuration cannot be used; nothing is run then
+     */
+    public RunResult run(RunConfiguration configuration, RunControl control) {
         List<String> problems = new ArrayList<>(configuration.problems());
         problems.addAll(configuration.unsupportedVersions(versions.versions()));
         problems.addAll(configuration.unknownFormats(reports.formats()));
@@ -101,6 +112,9 @@ public final class TestRunner {
             throw new ConfigurationException(problems);
         }
         RunContext run = RunContext.start(configuration, clock.instant());
+        Duration timeout = configuration.execution().timeout();
+        control.begin(clock, timeout == null ? null : run.started().plus(timeout),
+                "the run timeout of " + (timeout == null ? "" : RunControl.describe(timeout)) + " has passed");
         try {
             Files.createDirectories(run.runDirectory());
         } catch (IOException e) {
@@ -111,8 +125,12 @@ public final class TestRunner {
             List<TestScriptSource> sources = TestScriptDiscovery.discover(configuration.suites());
             logStart(run, sources);
             CapabilityCheck capabilities = new CapabilityCheck();
-            List<TestScriptResult> results = scheduler.runAll(run, sources,
-                    (index, source) -> runOne(run, index, sources.size(), source, capabilities));
+            List<TestScriptResult> results = scheduler.runAll(run, sources, control,
+                    (index, source) -> runOne(run, control, index, sources.size(), source, capabilities),
+                    (index, source, reason) -> notRun(run, index, source, reason));
+            if (control.stopReason() != null) {
+                log.warn("The run ended early: {}", control.stopReason());
+            }
             RunResult result = reports.publish(run, new RunResult(run.runId(), run.runDirectory(), run.started(),
                     Duration.between(run.started(), clock.instant()), results, Map.of()));
             RunResult finished = result;
@@ -127,9 +145,22 @@ public final class TestRunner {
         }
     }
 
+    /**
+     * The result of a TestScript that did not start: its tests are {@code skip} with the reason. Its listeners are told
+     * like for every other TestScript.
+     */
+    private TestScriptResult notRun(RunContext run, int index, TestScriptSource source, String reason) {
+        log.warn("TestScript {} not started: {}", source.file().getFileName(), reason);
+        TestScriptResult result = new TestScriptResult(index, source.suite().name(), source.baseName(),
+                source.file().toString(), source.file(), null, null, clock.instant(), Duration.ZERO,
+                List.of(PhaseResult.skipped(PhaseKind.LOAD, "Load", 0, "Not started: " + reason)));
+        listeners.forEach(l -> l.testScriptFinished(run, result));
+        return result;
+    }
+
     /** Runs one TestScript; never throws, every problem ends up in the result. */
-    private TestScriptResult runOne(RunContext run, int index, int total, TestScriptSource source,
-                                    CapabilityCheck capabilities) {
+    private TestScriptResult runOne(RunContext run, RunControl control, int index, int total,
+                                    TestScriptSource source, CapabilityCheck capabilities) {
         String label = "%02d_%s".formatted(index, source.baseName());
         Instant started = clock.instant();
         MDC.put(MDC_TEST_SCRIPT, label);
@@ -138,7 +169,7 @@ public final class TestRunner {
             TestScriptResult result;
             try {
                 LoadedTestScript loaded = new TestScriptLoader(versions).load(source);
-                result = execute(run, index, label, loaded, started, capabilities);
+                result = execute(run, control, index, label, loaded, started, capabilities);
             } catch (TestScriptFormatException | ValidatorUnavailableException e) {
                 log.error("TestScript {} could not be loaded: {}", source.file().getFileName(), e.getMessage());
                 var version = e instanceof TestScriptFormatException format ? format.fhirVersion() : null;
@@ -154,6 +185,10 @@ public final class TestRunner {
                                 Duration.between(started, clock.instant()), "Unexpected error: " + e)));
             }
             logFinished(result);
+            if (run.configuration().execution().failFast()
+                    && (result.outcome() == Outcome.FAIL || result.outcome() == Outcome.ERROR)) {
+                control.stopStarting("fail-fast: TestScript " + label + " ended with " + result.outcome());
+            }
             TestScriptResult finished = result;
             listeners.forEach(l -> l.testScriptFinished(run, finished));
             return result;
@@ -162,8 +197,8 @@ public final class TestRunner {
         }
     }
 
-    private TestScriptResult execute(RunContext run, int index, String label, LoadedTestScript loaded, Instant started,
-                                     CapabilityCheck capabilities) {
+    private TestScriptResult execute(RunContext run, RunControl control, int index, String label,
+                                     LoadedTestScript loaded, Instant started, CapabilityCheck capabilities) {
         var testScript = loaded.testScript();
         var suite = loaded.source().suite();
         log.info("TestScript '{}' ({}, FHIR {})", testScript.displayName(),
@@ -203,8 +238,12 @@ public final class TestRunner {
         orderWarnings.forEach(w -> log.warn("{}", w));
         List<String> warnings = new ArrayList<>(unsupported);
         warnings.addAll(orderWarnings);
+        Duration testScriptTimeout = run.configuration().execution().testScriptTimeout();
+        Deadline deadline = new Deadline(control, clock, testScriptTimeout == null ? null : started.plus(testScriptTimeout),
+                "the TestScript timeout of " + (testScriptTimeout == null ? "" : RunControl.describe(testScriptTimeout))
+                        + " has passed");
         List<PhaseResult> phases = new TestScriptExecution(loaded,
-                executions.create(run, label, suite, server, capabilities, builtIn, warnings)).run();
+                executions.create(run, label, suite, server, capabilities, builtIn, warnings, deadline)).run();
         return result(index, loaded, server.base(), started, phases);
     }
 

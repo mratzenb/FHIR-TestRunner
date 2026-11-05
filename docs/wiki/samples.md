@@ -294,6 +294,18 @@ export TESTRUNNER_VALIDATION_VALIDATORJAR=/opt/validator/validator_cli.jar
 java -jar testrunner-app-exec.jar --testrunner.exit-on-skip=any
 ```
 
+A CI job usually also wants limits, so that a slow server ends the job with a result instead of a kill:
+
+```sh
+java -jar testrunner-app-exec.jar --testrunner.exit-on-skip=any \
+  --testrunner.execution.timeout=20m --testrunner.execution.test-script-timeout=2m \
+  --testrunner.execution.fail-fast=true
+```
+
+A TestScript that takes longer than 2 minutes is stopped before its next action and is an `error`; its teardown still
+runs. With `fail-fast`, the first `fail` or `error` keeps the rest from starting – they are `skip`, so the job ends
+early with exit code 1. More: [configuration.md › Run control](../configuration.md#run-control).
+
 Exit codes: 0 pass, 1 fail or error, 2 invalid configuration, 3 skipped. `exit-on-skip=any` makes a single skipped
 TestScript fail the job, see [Troubleshooting › Exit codes](troubleshooting.md#exit-codes). `junit.xml` in the run
 folder is what CI systems show as test results.

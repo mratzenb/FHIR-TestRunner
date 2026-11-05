@@ -21,6 +21,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,10 @@ final class Harness {
     private String fhirBase;
     private OAuth2Config oauth2;
     private ReferenceRewriting rewriting;
+    private Duration timeout;
+    private Duration testScriptTimeout;
+    private Boolean failFast;
+    private RunControl control = new RunControl();
 
     Harness(Path dir, String fhirBase) {
         this.dir = dir;
@@ -101,6 +106,20 @@ final class Harness {
         return this;
     }
 
+    /** {@code execution.timeout}, {@code execution.test-script-timeout} and {@code execution.fail-fast}. */
+    Harness limits(Duration timeout, Duration testScriptTimeout, boolean failFast) {
+        this.timeout = timeout;
+        this.testScriptTimeout = testScriptTimeout;
+        this.failFast = failFast;
+        return this;
+    }
+
+    /** The control of the next run, e.g. to cancel it from another thread. */
+    Harness control(RunControl control) {
+        this.control = control;
+        return this;
+    }
+
     Harness oauth2(OAuth2Config oauth2) {
         this.oauth2 = oauth2;
         return this;
@@ -120,7 +139,7 @@ final class Harness {
         suites.add(SuiteConfig.of(dir.resolve("suite"), "R4"));
         RunConfiguration configuration = new RunConfiguration(FhirServerConfig.of(fhirBase).withOAuth2(oauth2), suites,
                 HttpConfig.defaults(),
-                new ExecutionConfig(parallelism, rewriting),
+                new ExecutionConfig(parallelism, rewriting, timeout, testScriptTimeout, failFast),
                 ValidationConfig.disabled(),
                 new ReportingConfig(dir.resolve("results"), List.of("junit", "summary", "json"), true, false, null, null),
                 null);
@@ -128,7 +147,7 @@ final class Harness {
             FhirVersionRegistry versions = new FhirVersionRegistry(List.of(StubVersionSupport.of(scripts)));
             TestRunner runner = new TestRunner(versions, transport, validator, TestRunners.defaultReportWriters(versions),
                     List.of(), Clock.systemDefaultZone());
-            return runner.run(configuration);
+            return runner.run(configuration, control);
         }
     }
 

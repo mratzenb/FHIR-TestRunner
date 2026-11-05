@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Executes one TestScript: setup, every test, teardown. One instance per execution; it owns all state of that
@@ -33,6 +34,9 @@ import java.util.List;
  *   <li>The teardown and the autodelete of fixtures always run once the setup has started.</li>
  *   <li>A server that lacks a required capability ({@code metadata.capability}) skips the whole TestScript before
  *       the setup: nothing is created, so there is nothing to tear down.</li>
+ *   <li>A {@link Deadline} that has passed (run stopped, run or TestScript timeout) is checked before every action of
+ *       the setup and the tests: the phase ends with {@code error} naming the reason, the remaining tests are
+ *       {@code skip}. The teardown and the autodelete still run, so the server is cleaned up.</li>
  * </ul>
  */
 final class TestScriptExecution {
@@ -51,6 +55,7 @@ final class TestScriptExecution {
     private final FixtureManager fixtures;
     private final CapabilityCheck capabilities;
     private final String fhirBase;
+    private final Deadline deadline;
 
     /**
      * @param environment what the execution gets from its run, built by {@link ExecutionFactory}
@@ -68,6 +73,7 @@ final class TestScriptExecution {
                 testScript.profiles(), testScript.fhirVersion(), environment.profilesDir(), environment.igs());
         this.fixtures = new FixtureManager(state, http, fhirBase, variables::resolve, environment.rewriting());
         this.warnings = environment.warnings();
+        this.deadline = environment.deadline();
         state.resolveFixturesWith(fixtures::resolve);
     }
 
@@ -85,12 +91,20 @@ final class TestScriptExecution {
         phases.add(setup);
         if (setup.outcome() == Outcome.PASS) {
             for (TestDefinition test : testScript.tests()) {
-                phases.add(test(test));
+                String stopped = deadline.reason();
+                if (stopped != null) {
+                    log.warn("Test '{}' skipped: {}", test.name(), stopped);
+                    phases.add(PhaseResult.skipped(PhaseKind.TEST, test.name(), test.assertionCount(),
+                            "Skipped: " + stopped));
+                } else {
+                    phases.add(test(test));
+                }
             }
         } else {
-            String reason = "Skipped: the setup did not pass";
+            String stopped = deadline.reason();
+            String reason = stopped != null ? "Skipped: " + stopped : "Skipped: the setup did not pass";
             for (TestDefinition test : testScript.tests()) {
-                log.warn("Test '{}' skipped: the setup did not pass", test.name());
+                log.warn("Test '{}' {}", test.name(), reason.toLowerCase(Locale.ROOT));
                 phases.add(PhaseResult.skipped(PhaseKind.TEST, test.name(), test.assertionCount(), reason));
             }
         }
@@ -135,7 +149,7 @@ final class TestScriptExecution {
             log.error("Fixture initialization failed: {}", e.getMessage());
             return finish(phase);
         }
-        runActions(testScript.setup(), phase);
+        runActions(testScript.setup(), phase, true);
         return finish(phase);
     }
 
@@ -155,23 +169,33 @@ final class TestScriptExecution {
             log.debug("Test description: {}", test.description());
         }
         PhaseRecorder phase = new PhaseRecorder(PhaseKind.TEST, test.name(), test.assertionCount());
-        runActions(test.actions(), phase);
+        runActions(test.actions(), phase, true);
         return finish(phase);
     }
 
     private PhaseResult teardown() {
         log.info("--- Teardown");
         PhaseRecorder phase = new PhaseRecorder(PhaseKind.TEARDOWN, "Teardown", assertionCount(testScript.teardown()));
-        runActions(testScript.teardown(), phase);
+        runActions(testScript.teardown(), phase, false);
         for (String problem : fixtures.autodelete(testScript.fixtures())) {
             phase.problem(Outcome.ERROR, problem);
         }
         return finish(phase);
     }
 
-    /** Runs actions in order until one ends the phase. */
-    private void runActions(List<Action> actions, PhaseRecorder phase) {
+    /**
+     * Runs actions in order until one ends the phase.
+     *
+     * @param stoppable whether the {@link Deadline} ends the phase; not for the teardown, which cleans up
+     */
+    private void runActions(List<Action> actions, PhaseRecorder phase, boolean stoppable) {
         for (Action action : actions) {
+            String stopped = stoppable ? deadline.reason() : null;
+            if (stopped != null) {
+                log.error("{} '{}' stopped: {}", phase.kind().label(), phase.name(), stopped);
+                phase.problem(Outcome.ERROR, "Stopped before the next action: " + stopped);
+                return;
+            }
             boolean stop = switch (action) {
                 case Operation operation -> !execute(operation, phase);
                 case Assertion assertion -> !check(assertion, phase);

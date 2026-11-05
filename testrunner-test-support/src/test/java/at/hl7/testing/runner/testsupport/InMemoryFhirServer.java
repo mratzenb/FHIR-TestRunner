@@ -14,6 +14,7 @@ import org.eclipse.jetty.util.Callback;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -77,6 +78,7 @@ public final class InMemoryFhirServer implements AutoCloseable {
     private final Map<String, List<ObjectNode>> history = new ConcurrentHashMap<>();
     private final Map<String, Answer> answers = new ConcurrentHashMap<>();
     private final List<Request> requests = Collections.synchronizedList(new ArrayList<>());
+    private volatile Duration delay = Duration.ZERO;
     private final AtomicInteger nextId = new AtomicInteger(1);
 
     private InMemoryFhirServer(String fhirVersion) throws Exception {
@@ -113,6 +115,15 @@ public final class InMemoryFhirServer implements AutoCloseable {
         return this;
     }
 
+    /**
+     * Answers every request only after {@code delay}, like a slow server; for tests of timeouts. The request is
+     * recorded when it arrives.
+     */
+    public InMemoryFhirServer delay(Duration newDelay) {
+        this.delay = newDelay;
+        return this;
+    }
+
     /** The requests received, in order. */
     public List<Request> requests() {
         synchronized (requests) {
@@ -145,6 +156,9 @@ public final class InMemoryFhirServer implements AutoCloseable {
                 headers.computeIfAbsent(field.getName(), name -> new ArrayList<>()).add(field.getValue());
             }
             requests.add(new Request(method, path.isEmpty() ? "/" : path, query, headers, body));
+            if (!delay.isZero()) {
+                Thread.sleep(delay.toMillis());
+            }
             Answer answer = answers.get(method + " " + path);
             if (answer == null) {
                 answer = answer(method, path, query, body, headers);
@@ -157,6 +171,10 @@ public final class InMemoryFhirServer implements AutoCloseable {
             } else {
                 Content.Sink.write(response, true, answer.body(), callback);
             }
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            callback.failed(e);
             return true;
         } catch (IOException | RuntimeException e) {
             e.printStackTrace();

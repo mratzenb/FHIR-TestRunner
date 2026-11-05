@@ -85,6 +85,11 @@ flowchart LR
 
 Results keep their discovery number. Reports are always in discovery order, whatever finishes first.
 
+Before a TestScript starts, `RunScheduler` asks the run's `RunControl` whether it may. It may not once the run
+`timeout` has passed, the run was cancelled (`RunControl.cancel`), or `fail-fast` is on and a TestScript ended with
+`fail` or `error`. Such a TestScript is `skip`: "Not started: …" in the phase `Load`. See
+[configuration.md › Run control](../configuration.md#run-control).
+
 ## 5. Loading one TestScript
 
 `TestScriptLoader.load` does three things:
@@ -185,6 +190,7 @@ How outcomes affect the phase:
 | … with `stopTestOnFail` | `fail` | stops |
 | … with `warningOnly` | `pass` with warning | goes on |
 | Action cannot be executed | `error` | stops |
+| A limit has passed (run or TestScript timeout, run cancelled) – checked before each action | `error` "Stopped before the next action: …" | stops; later tests `skip`; teardown still runs |
 
 The full table is in [architecture.md](../architecture.md#execution-semantics).
 

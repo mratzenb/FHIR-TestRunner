@@ -57,6 +57,8 @@ The MDC key `testScript` (`TestRunner.MDC_TEST_SCRIPT`) = `<NN>_<file base name>
 | Content the version ignores (detection warnings, e.g. R5-only element in R4) | warning on the `Setup` phase (always present) | outcome unchanged |
 | Assertion the runner cannot evaluate (`requestMethod`, `requestURL`, `manualEval`) | warning on the Setup before the run, `error` when it runs | its phase stops |
 | No FHIR server configured | `skip` | – |
+| `execution.test-script-timeout` passed, run `timeout` passed or run cancelled (`Deadline.reason()`, asked before every setup/test action) | current phase `error` "Stopped before the next action: …", remaining tests `skip` | teardown + autodelete still run (never stopped); a running request is not interrupted |
+| Run stopped (timeout, `RunControl.cancel`) or `fail-fast` after a `fail`/`error` – TestScript not started yet | `skip`, phase `Load` "Not started: …" (`TestRunner.notRun`) | `RunScheduler` asks `RunControl.startReason()` before each start; fail-fast lets running ones finish |
 
 Precedence: `error > fail > skip > pass` (`report.Outcome.and`, enum order `PASS, SKIP, FAIL, ERROR`).
 Phases: `PhaseKind.LOAD | SETUP | TEST | TEARDOWN`. Exception choice is the API: throw `AssertionFailure` for "checked
@@ -174,6 +176,19 @@ there too) → read it in `TestScriptMapper.assertion` (`testrunner-fhir-version
 * Destinations: `TestScript.destination` → `model.Destination`; `operation.destination` → `Operation.destination()`.
   The runner plays every origin and sends everything to the one configured server; > 1 server addressed ⇒ Load
   error (`TestScriptChecks`). One undeclared `destination: 1` is fine (common in IG TestScripts).
+
+## Run control (ADR-0013)
+
+`ExecutionConfig.timeout`, `testScriptTimeout` (both `Duration`, null = none, must be > 0) and `failFast` (default
+false). `RunControl` (public, one per run, `TestRunner.run(configuration, control)`; `run(configuration)` makes one;
+reuse ⇒ `IllegalStateException`): `cancel(reason)` (public, first reason wins), `isCancelled()`; package-private
+`begin` (run deadline = start + timeout), `stopStarting` (fail-fast), `abortReason()` (cancel or run timeout),
+`startReason()` (abort or fail-fast), `applied`/`stopReason()` (logged "The run ended early: …"). `Deadline` (per
+execution, in `ExecutionEnvironment`) = `RunControl.abortReason()` or the TestScript's own deadline. Checked
+**between actions only**, nothing is interrupted; `TestScriptExecution.runActions(…, stoppable)` – teardown is
+`stoppable = false`. Messages: "Stopped before the next action: the TestScript timeout of 2m has passed",
+"Skipped: …", "Not started: fail-fast: TestScript 02_b ended with FAIL". Tests: `RunControlTest` (uses
+`InMemoryFhirServer.delay` and `Harness.limits`/`control`).
 
 ## Parallelism (ADR-0008)
 

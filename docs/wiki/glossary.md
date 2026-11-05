@@ -35,6 +35,7 @@
 | **Server mode** | Long-running validator servers. The default. |
 | **Fallback** | Server mode switching to process mode after a server failed. |
 | **Negative control** | A TestScript that must fail. Proves that validation really runs. |
+| **Run control** | `execution.timeout`, `test-script-timeout`, `fail-fast` and `RunControl.cancel`: limits checked between actions; a stopped TestScript is `error`, one not started `skip`, teardown always runs. [ADR-0013](../adr/0013-run-control.md) |
 | **Outcome** | `pass`, `skip`, `fail`, `error`. Combined by severity: `error > fail > skip > pass`. |
 | **fail** | The server did not behave as expected. |
 | **error** | Something could not be executed: invalid TestScript, unsupported feature, validator or network problem. |

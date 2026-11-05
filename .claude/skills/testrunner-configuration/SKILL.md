@@ -38,6 +38,9 @@ testrunner:
   http: {connect-timeout: 10s, request-timeout: 60s, follow-redirects: true}
   execution: {parallelism: 1, rewrite-references: autocreate}   # parallelism ≥ 1; rewrite-references none |
                                              # autocreate | all (ReferenceRewriting, runner-specific, ADR-0012)
+    timeout:                                 # Duration, whole run; default null = none (ADR-0013, RunControl)
+    test-script-timeout:                     # Duration, each TestScript; default none; both must be > 0 (problems())
+    fail-fast: false                         # after the first fail/error no further TestScript starts
   validation:
     enabled: true
     mode: server                             # server (default) | process

@@ -71,6 +71,9 @@ testrunner:
     parallelism: 1                         # TestScripts run at the same time, see ADR-0008
     rewrite-references: autocreate         # none | autocreate (default) | all – rewrite references in fixtures to
                                            # the ids the server assigned; runner-specific, see below and ADR-0012
+    timeout:                               # the whole run, e.g. 30m; default none. See "Run control" below
+    test-script-timeout:                   # each TestScript, e.g. 2m; default none
+    fail-fast: false                       # true: after the first fail or error, start no further TestScript
 
   validation:
     enabled: true                          # false: validateProfileId becomes a warning, nothing is validated
@@ -122,6 +125,30 @@ a TestScript that relies on it may fail on another test engine.
 Run a suite with `--testrunner.execution.rewrite-references=none` to check that its TestScripts are portable. Details
 and examples: [wiki › Fixtures](wiki/fixtures.md#references-to-fixtures-on-the-server),
 [ADR-0012](adr/0012-reference-rewriting.md).
+
+### Run control
+
+Three limits keep a run from taking longer than it is worth, for example in CI. None is set by default.
+
+| Setting | Once it has passed |
+|---|---|
+| `execution.timeout: 30m` | The running TestScripts stop before their next action; the others do not start. |
+| `execution.test-script-timeout: 2m` | That TestScript stops before its next action. The other TestScripts are not affected. |
+| `execution.fail-fast: true` | After the first TestScript with `fail` or `error`, no further TestScript starts; the running ones finish. |
+
+The limits are checked **between actions**: a request that is running is never interrupted, so a limit can be
+overrun by one `http.request-timeout`. A stopped TestScript is `error` ("Stopped before the next action: the
+TestScript timeout of 2m has passed"); its remaining tests are `skip`, and its **teardown and autodelete still run**,
+so the server is left clean. A TestScript that did not start is `skip` with the reason ("Not started: fail-fast:
+TestScript 02_… ended with FAIL"). Why: [ADR-0013](adr/0013-run-control.md).
+
+Embedded, a run is stopped from another thread with a `RunControl`:
+
+```java
+RunControl control = new RunControl();
+// e.g. in a shutdown hook or a UI: control.cancel("stopped by the user");
+RunResult result = runner.run(configuration, control);
+```
 
 ### Servers protected by OAuth2
 

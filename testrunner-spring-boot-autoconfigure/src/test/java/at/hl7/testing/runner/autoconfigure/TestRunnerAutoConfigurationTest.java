@@ -54,6 +54,9 @@ class TestRunnerAutoConfigurationTest {
                 "testrunner.packages.registry=https://registry.example",
                 "testrunner.execution.parallelism=4",
                 "testrunner.execution.rewrite-references=all",
+                "testrunner.execution.timeout=30m",
+                "testrunner.execution.test-script-timeout=90s",
+                "testrunner.execution.fail-fast=true",
                 "testrunner.http.request-timeout=2m",
                 "testrunner.validation.validator-jar=/opt/validator_cli.jar",
                 "testrunner.reporting.formats=junit,json",
@@ -82,6 +85,9 @@ class TestRunnerAutoConfigurationTest {
                     assertThat(config.fhirServer().oauth2()).isNull();
                     assertThat(config.execution().parallelism()).isEqualTo(4);
                     assertThat(config.execution().rewriteReferences()).isEqualTo(ReferenceRewriting.ALL);
+                    assertThat(config.execution().timeout()).isEqualTo(Duration.ofMinutes(30));
+                    assertThat(config.execution().testScriptTimeout()).isEqualTo(Duration.ofSeconds(90));
+                    assertThat(config.execution().failFast()).isTrue();
                     assertThat(config.http().requestTimeout()).isEqualTo(Duration.ofMinutes(2));
                     assertThat(config.http().connectTimeout()).isEqualTo(Duration.ofSeconds(10));
                     assertThat(config.validation().validatorJar()).isEqualTo(Path.of("/opt/validator_cli.jar"));
