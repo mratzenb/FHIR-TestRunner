@@ -31,6 +31,18 @@ Offline (`-o`) works only once all dependencies and plugins are in the local rep
 
 `RealValidatorIT` is skipped unless `VALIDATOR_JAR` is set; the skip in the summary is expected.
 
+## CI (GitHub Actions, `.github/workflows/build.yml`)
+
+* Job `verify`: push to `main` and every pull request → `mvn -B -ntp verify` on Temurin 25 (`setup-java` with
+  `cache: maven`); on failure the surefire/failsafe reports are uploaded as artefact `test-reports`.
+* Job `real-validator`: nightly (`cron 17 3 * * *`) and `workflow_dispatch` only → downloads the pinned
+  `validator_cli.jar` (`env.VALIDATOR_VERSION`, 7.0.2 = the version `docs/validation.md` was verified with), caches it
+  and `~/.fhir/packages` (`actions/cache`, key `validator-<version>`), runs only `RealValidatorIT` (the command
+  of the "One IT only" row with `VALIDATOR_JAR`). Raising the version: run that command locally with the new jar
+  first; the negative control must still FAIL.
+* Actions are pinned to major versions (`checkout@v7`, `setup-java@v6`, `cache@v6`, `upload-artifact@v7`);
+  `permissions: contents: read`.
+
 ## Running the application
 
 ```sh

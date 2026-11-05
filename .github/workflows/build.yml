@@ -1,0 +1,83 @@
+# Builds and tests every push and pull request: compile (warnings fail it), unit tests, ITs, architecture rules.
+# Nightly, and on demand, it also runs RealValidatorIT with the real HL7 validator. See docs/wiki/build-and-test.md.
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 3 * * *"        # nightly, 03:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # a newer push cancels the older build of the same branch; the nightly run is not cancelled by a push
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # the validator version the docs were verified with (docs/validation.md); raise it deliberately
+  VALIDATOR_VERSION: 7.0.2
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+      - name: mvn verify
+        run: mvn -B -ntp verify
+      - name: Keep the test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: |
+            **/target/surefire-reports/
+            **/target/failsafe-reports/
+          retention-days: 14
+
+  real-validator:
+    # needs the 200 MB validator and the FHIR packages from the internet: nightly and on demand only
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+      - name: Cache the validator and the FHIR packages
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/validator
+            ~/.fhir/packages
+          key: validator-${{ env.VALIDATOR_VERSION }}
+      - name: Download the validator
+        run: |
+          mkdir -p ~/validator
+          test -f ~/validator/validator_cli.jar || curl -fsSL -o ~/validator/validator_cli.jar \
+            "https://github.com/hapifhir/org.hl7.fhir.core/releases/download/${VALIDATOR_VERSION}/validator_cli.jar"
+      - name: RealValidatorIT, both validator modes (the negative control must fail)
+        run: |
+          VALIDATOR_JAR="$HOME/validator/validator_cli.jar" mvn -B -ntp verify -pl testrunner-app -am \
+            -Dtest=NoSuchTest -Dsurefire.failIfNoSpecifiedTests=false \
+            -Dit.test=RealValidatorIT -Dfailsafe.failIfNoSpecifiedTests=false
+      - name: Keep the test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: real-validator-reports
+          path: testrunner-app/target/failsafe-reports/
+          retention-days: 14
