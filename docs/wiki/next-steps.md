@@ -20,8 +20,8 @@ path to a silent pass is closed. The weak spots are smaller:
    part of what makes a TestScript valid. That is the cause of D2 (A1).
 3. **A run cannot be bounded or cancelled.** If a run is killed or crashes, it writes no reports. This hurts most in
    CI (A2).
-4. **No CI pipeline and no test against a real FHIR server.** The in-memory server ignores search semantics. That is
-   why D1 went unnoticed (A3, A4).
+4. **No CI pipeline and no test against a real FHIR server.** The in-memory server knows only a little FHIR: it
+   ignores search semantics and did not answer conditional updates at all (A3, A4).
 
 The feature with the best value for its effort is a **check mode** (F1). It loads and checks TestScripts without a
 server. Every check it needs already exists. TestScript authors, and the TinkerTool that writes TestScripts, would
@@ -56,8 +56,12 @@ The runner sends it with the body's `id` replaced by `Patient`.
 **Why.** `RequestFactory.create` sets the body id to the last path segment of the URL for every update. It does this
 so that `PUT [type]/[id]` and the body agree. In a conditional update the last segment is the resource type.
 
-**Effect.** A real server rejects the request because the id does not match the resource it found (`400`), or it
-stores a resource with the id `Patient`. Either way the TestScript fails for a reason that is not the server's fault.
+**Effect.** The specification is ambiguous here. One rule says an id in the body that differs from the matched
+resource is a `400 Bad Request`; another says the server shall ignore the id. A server that follows the first rule
+rejects the request, so the TestScript fails for a reason that is not the server's fault. HAPI FHIR 8.12 follows the
+second: it ignores the id, answers `201` or `200`, and the defect is invisible there (checked with
+`hapiproject/hapi:v8.12.0-1`, also with the old code). Either way the runner sent something the TestScript did not
+say.
 
 **Fix.** Only set the id when the URL is an instance URL: the path after `[base]` is exactly `[type]/[id]`, and
 `[type]` is the resource type of the body. Otherwise send the body unchanged.
@@ -143,8 +147,9 @@ dependency tree.
 ### A4 – Tests against a real server
 
 [ADR-0009](../adr/0009-testing.md) accepts that the in-memory server is not a FHIR server. That was right for fast,
-offline unit tests. But nothing runs the sample suites against a real server automatically. D1 shows what slips
-through. Two smaller points:
+offline unit tests. But nothing runs the sample suites against a real server automatically, so the samples' claims
+about server behaviour (referential integrity, conditional delete with several matches, content types) are never
+checked. Two smaller points:
 
 * 71 of the 192 tests sit in one 1,180-line class, `TestScriptExecutionTest`.
 * ADR-0009 still says "~115 tests".
