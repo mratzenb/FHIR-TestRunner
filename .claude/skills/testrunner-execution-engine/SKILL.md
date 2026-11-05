@@ -11,8 +11,9 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
    (`source.PackageSuites`: package cache, else download from the registry; `package.json` gives folder layout,
    FHIR version and `igs`; a problem ⇒ `ConfigurationException`), unknown report formats and
    unsupported pinned versions, `ProfileValidator.configurationProblems()` (any problem ⇒ `ConfigurationException`, exit 2); creates a `RunContext` (run id
-   `run_yyyy-MM-dd_HH-mm-ss-SSS` = run folder name under `output-dir`, run-wide `AtomicInteger` request counter);
-   notifies `RunListener`s.
+   `run_yyyy-MM-dd_HH-mm-ss-SSS` = run folder name under `output-dir`, run-wide `AtomicInteger` request counter;
+   package-private), notifies `RunListener`s with `RunContext.info()` = `RunInfo` (run id, start, configuration, run
+   folder – no counter, no tokens).
 2. `source.TestScriptDiscovery` lists files per suite (glob `include` relative to `Test_Scripts/`, stable order).
 3. Per file (`RunScheduler`: in parallel if `execution.parallelism > 1`): `source.TestScriptLoader` detects or takes the pinned FHIR
    version, maps the file via that version's `FhirVersionSupport`, loads fixture resources: `#id` references from

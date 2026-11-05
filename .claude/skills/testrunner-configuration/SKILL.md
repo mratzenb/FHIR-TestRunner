@@ -104,7 +104,7 @@ Spring closes it (stops validator servers). Registered in
 | `ProfileValidator` | by `validation.mode` | another validator (e.g. in-process) |
 | `FhirVersionSupport` (list) | `ServiceLoader` modules | override a version |
 | `ReportWriter` (list) | junit, summary, json, testreport | add a format; select via `reporting.formats` |
-| `RunListener` (list) | `RunLogFileListener` (only with Logback) | events, metrics |
+| `RunListener` (list) | `RunLogFileListener` (only with Logback) | events, metrics; gets `RunInfo` |
 | `Clock` | system | fixed time in tests |
 | `TestRunner` | wired from the above | wire yourself |
 

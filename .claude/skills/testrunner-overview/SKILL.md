@@ -33,16 +33,19 @@ Other folders: `config/` dev configurations (`dev-r4.yml`, `dev-r5.yml`, `dev-al
 | `spi.ProfileValidator` | `validateProfileId` + check of each TestScript | `ValidatorCliProfileValidator`, `ValidatorServerProfileValidator`, `ProfileValidator.DISABLED` |
 | `http.HttpTransport` | send one request (functional interface) | `JdkHttpTransport` |
 | `report.ReportWriter` | one report format, selected by `format()` | `JUnitXmlReportWriter` (`junit`), `SummaryReportWriter` (`summary`), `JsonReportWriter` (`json`), `TestReportWriter` (`testreport`) |
-| `engine.RunListener` | run / TestScript events | `RunLogFileListener` |
+| `engine.RunListener` | run / TestScript events, with a read-only `RunInfo` (not `RunContext`) | `RunLogFileListener` |
 
-Entry points: `TestRunner.run(RunConfiguration)`; without Spring `TestRunners.create(HttpConfig, ProfileValidator)`
+Entry points: `TestRunner.run(RunConfiguration)` or `run(RunConfiguration, RunControl)` (stoppable, ADR-0013); without Spring `TestRunners.create(HttpConfig, ProfileValidator)`
 and `ProfileValidators.create(ValidationConfig)`.
 
 ## Rules that the build enforces
 
 * `ArchitectureTest` (ArchUnit, app module): core uses no Spring/HAPI/Logback/adapter packages; `fhir.r4` and
   `fhir.r5` do not know each other; `fhir.hapi` uses no `org.hl7.fhir.r4..`/`r5..`; `fhir..` and `validation..` use
-  no Spring; core packages are cycle-free. Spring is therefore only in `autoconfigure` and `app`.
+  no Spring; core packages are cycle-free; **other modules use only the core API** (`CORE_API_PACKAGES`: `model`,
+  `config`, `spi`, `report`; `CORE_API_TYPES`: `TestRunner`, `TestRunners`, `RunControl`, `RunListener`, `RunInfo`,
+  `ConfigurationException`, `HttpTransport`, `JdkHttpTransport`, `FhirRequest`, `FhirResponse`, `HttpHeaders`) –
+  using anything else from outside means adding it to that list on purpose; nobody outside `engine` uses `RunContext`. Spring is therefore only in `autoconfigure` and `app`.
 * Compiler: `--limit-modules java.se` – no `com.sun.*`, `sun.*`, `jdk.*` APIs in main or test code.
   `-Xlint:all,-processing,-serial`; no warnings tolerated by convention.
 * Enforcer: Java ≥ 25, Maven ≥ 3.9, `testrunner-test-support` only in test scope.
@@ -64,5 +67,5 @@ and `ProfileValidators.create(ValidationConfig)`.
 ## Documentation (source of truth if a skill and the docs disagree)
 
 `README.md`; `docs/architecture.md`, `fhir-versions.md`, `configuration.md`, `logging.md`, `validation.md`;
-`docs/adr/0001`–`0012` (index in `docs/adr/README.md`). When code changes a documented behaviour, update the
+`docs/adr/0001`–`0013` (index in `docs/adr/README.md`). When code changes a documented behaviour, update the
 doc, the ADR and the matching skill together.

@@ -4,7 +4,7 @@ import at.hl7.testing.runner.core.config.OAuth2Config;
 import at.hl7.testing.runner.core.config.ReferenceRewriting;
 import at.hl7.testing.runner.core.config.RunConfiguration;
 import at.hl7.testing.runner.core.config.ValidatorMode;
-import at.hl7.testing.runner.core.engine.RunContext;
+import at.hl7.testing.runner.core.engine.RunInfo;
 import at.hl7.testing.runner.core.engine.RunListener;
 import at.hl7.testing.runner.core.engine.TestRunner;
 import at.hl7.testing.runner.core.http.FhirResponse;
@@ -185,7 +185,7 @@ class TestRunnerAutoConfigurationTest {
         };
         RunListener listener = new RunListener() {
             @Override
-            public void runFinished(RunContext run, RunResult result) {
+            public void runFinished(RunInfo run, RunResult result) {
                 events.add("finished " + result.runId());
             }
         };

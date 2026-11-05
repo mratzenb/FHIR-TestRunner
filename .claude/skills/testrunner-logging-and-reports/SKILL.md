@@ -70,7 +70,7 @@ switches the files off; ids stay.
 * **New format**: implement `ReportWriter` (`format()` name, `write(RunResult, Path runDirectory)` returns the
   file); register it (Spring: a `@Bean`; library: pass it to the `TestRunner` constructor); select it in
   `reporting.formats`. Unknown formats are a configuration problem.
-* Listeners: implement `RunListener` (`runStarted`, `testScriptFinished` – may be called concurrently, also for a
+* Listeners: implement `RunListener` – each method gets a `RunInfo` (values only) – (`runStarted`, `testScriptFinished` – may be called concurrently, also for a
   TestScript that was not started –, `runFinished` – exactly once per started run, also after an exception or on
   Ctrl-C). A listener that throws is logged and ignored.
 * Reports are written once per started run, whatever ends it (`TestRunner.publish`, ADR-0013); unfinished TestScripts

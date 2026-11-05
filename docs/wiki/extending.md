@@ -86,15 +86,18 @@ the transport is sent but **not** in `communication/`. For a header that should 
 
 ## React to run events
 
-Implement `RunListener` (all methods have defaults) and declare it as a bean. `testScriptFinished` may be called from
-several threads at once. A listener that prints each result as soon as it is known:
+Implement `RunListener` (all methods have defaults) and declare it as a bean. Each method gets a `RunInfo`: run id,
+start, configuration and run folder – values only, the state of the run stays in the engine. `testScriptFinished`
+may be called from several threads at once; `runFinished` is called exactly once, also after an exception or on
+Ctrl-C. A listener that throws is logged and does not stop the run. A listener that prints each result as soon as
+it is known:
 
 ```java
 @Bean
 RunListener progress() {
     return new RunListener() {
         @Override
-        public void testScriptFinished(RunContext run, TestScriptResult result) {
+        public void testScriptFinished(RunInfo run, TestScriptResult result) {
             System.out.printf("%s %s (%d ms)%n", result.outcome(), result.name(), result.duration().toMillis());
         }
     };

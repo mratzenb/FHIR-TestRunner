@@ -64,7 +64,8 @@ Any problem stops the run before anything is sent: `ConfigurationException`, exi
 | `runDirectory` | `testrunner-results/run_2026-10-26_10-00-00-000/` |
 | `requestCounter` | an `AtomicInteger` → request ids `REQ-0001`, `REQ-0002`, … |
 
-`RunListener.runStarted` is called. The `RunLogFileListener` attaches the `testrunner.log` file appender now.
+`RunListener.runStarted` is called with a `RunInfo`: the run id, start, configuration and run folder, without the
+counter and the tokens. The `RunLogFileListener` attaches the `testrunner.log` file appender now.
 
 ## 3. Discovery
 

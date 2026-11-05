@@ -159,7 +159,7 @@ validator server mode, the validator servers.</figcaption>
 </figure>
 
 1. `TestRunner.run(RunConfiguration)` checks the configuration, creates a `RunContext` (run id, run folder,
-   request counter) and notifies `RunListener`s (e.g. the per-run log file).
+   request counter) and notifies `RunListener`s (e.g. the per-run log file) with a read-only `RunInfo`.
 2. `TestScriptDiscovery` lists the TestScript files of every suite (glob `include`, stable order).
 3. Per file, possibly in parallel: `TestScriptLoader` determines the FHIR version (pinned per suite or detected),
    lets that version's `FhirVersionSupport` map the file to the neutral `TestScript` model, and loads the fixture
