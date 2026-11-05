@@ -110,8 +110,9 @@ export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
 * Put both lines into `~/.zshrc` to set them once. In IntelliJ, add them to the environment of the run configuration;
   it does not read `~/.zshrc`.
 
-With both set, the log may still show `WARN RyukResourceReaper - Can not connect to Ryuk at localhost:…` once or
-twice while Ryuk starts. The tests run anyway, and Ryuk removes the containers afterwards.
+With both set, the log may still show `WARN RyukResourceReaper - Can not connect to Ryuk at localhost:…` several
+times while Ryuk starts – seven times within two seconds in one run, each with a stack trace. The tests run anyway,
+and Ryuk removes the containers afterwards. What counts is the result line: `Tests run: 3, … Skipped: 0`.
 
 Tested with Rancher Desktop. The Colima path is that tool's documented default, not tested here. CI needs neither
 variable: the Linux runners have `/var/run/docker.sock`.
