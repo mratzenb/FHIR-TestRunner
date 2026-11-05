@@ -15,6 +15,17 @@ flowchart LR
     s --> l["testrunner.log<br/>grep REQ-0003"]
 ```
 
+In a shell, from the run folder:
+
+```sh
+cd target/testrunner-results/$(ls -t target/testrunner-results | head -1)   # the newest run
+cat summary.txt
+cat communication/*/REQ-0003_*/response.http                               # what the server answered
+grep REQ-0003 testrunner.log                                               # what the runner did with it
+```
+
+A worked example, from a failed assertion to the bytes: [Samples › Reading a failure](samples.md#reading-a-failure).
+
 ## Exit codes
 
 | Code | Meaning | Look at |
@@ -48,7 +59,9 @@ configured, or the server lacks a required capability. `testrunner.exit-on-skip`
 | Warning "Validating FHIR R4 with one validator process per validation instead" | a validator server failed, fallback is active | look at the server output in `testrunner.log` (`[validator server R4]`); switch with `--testrunner.validation.mode=process` |
 | `validateProfileId` is `error` with an unknown profile | the IG does not define the canonical URL the TestScript uses | see [validation.md](../validation.md#where-the-profiles-come-from) |
 | The negative control **passes** | validation does not run, or the profile no longer enforces the rule | see [validation.md](../validation.md#the-negative-control) |
-| `error` in phase `Load` naming an action, e.g. "Test 'read', action 2: targetId 'x' is neither …" | a typo in an id, variable or profile, or a response used before the operation keeping it | the message names the phase and action; see [How a run works › Checks before sending](run-lifecycle.md#6-checks-before-sending) |
+| `error` in phase `Load` naming an action, e.g. "Test 'read', action 2: targetId 'x' is neither …" | a typo in an id, variable or profile, or a response used before the operation keeping it | the message names the phase and action; see [How a run works › Checks before sending](run-lifecycle.md#6-checks-before-sending) and the example in [Samples › Mistakes](samples.md#mistakes-found-before-sending) |
+| `error` in phase `Load`: "Operator greaterThan cannot be used with contentType (allowed: …)" | the check does not support that operator | use one of the operators listed in the message |
+| `error` in phase `Load`: "The PUT of operation 'update' has no sourceId, so there is nothing to send" | an update, create or patch without a body | add the `sourceId` of the fixture to send |
 | `error`: "Variable 'x' … has no value" | the source lacks the element or header | see [Variables and placeholders](variables.md#errors) |
 | Create fails with `400`/`422`: a reference "cannot be resolved" | a fixture references another fixture by its example id; the server knows it under another id | create the referenced fixture first and set `rewrite-references: all`, or give it `autocreate`; see [Fixtures](fixtures.md#references-to-fixtures-on-the-server) |
 | Warning "sends fixture 'x', which references … – but fixture 'y' is only created by …" | the actions create the fixtures in the wrong order | move the create of `y` before the one of `x` |

@@ -30,17 +30,34 @@ The FHIR assert types are fixed by the specification, so this is rare. More like
 
 ## Add a report format
 
-No change in the runner needed. Implement `ReportWriter`:
+No change in the runner needed. Implement `ReportWriter`. A complete one, a CSV line per TestScript:
 
 ```java
-public final class HtmlReportWriter implements ReportWriter {
-    @Override public String format() { return "html"; }
-    @Override public Path write(RunResult result, Path runDirectory) throws IOException { … }
+public final class CsvReportWriter implements ReportWriter {
+
+    @Override
+    public String format() {
+        return "csv";                                   // the name in testrunner.reporting.formats
+    }
+
+    @Override
+    public Path write(RunResult result, Path runDirectory) throws IOException {
+        StringBuilder csv = new StringBuilder("index;suite;name;outcome;durationMs\n");
+        for (TestScriptResult testScript : result.testScripts()) {   // in discovery order
+            csv.append(testScript.index()).append(';').append(testScript.suite()).append(';')
+                    .append(testScript.name()).append(';').append(testScript.outcome()).append(';')
+                    .append(testScript.duration().toMillis()).append('\n');
+        }
+        return Files.writeString(runDirectory.resolve("result.csv"), csv);
+    }
 }
 ```
 
-* **With Spring:** declare it as a bean. Select it with `testrunner.reporting.formats=junit,html`.
+* **With Spring:** declare it as a bean. Select it with `testrunner.reporting.formats=junit,csv`.
 * **Without Spring:** pass it in the `TestRunner` constructor, next to `TestRunners.defaultReportWriters(…)`.
+
+A writer that throws does not stop the run: the error is logged and the other formats are written. Anything taken
+from a response, such as a message, is untrusted text – escape it for HTML or XML.
 
 ## Replace the HTTP transport
 
@@ -50,13 +67,38 @@ Two common cases need no code:
 * An OAuth2 server: `testrunner.fhir-server.oauth2`, see
   [configuration.md › Servers protected by OAuth2](../configuration.md#servers-protected-by-oauth2).
 
-For anything else, e.g. a proxy or mutual TLS, declare an `HttpTransport` bean. It is a functional interface.
-Example: [configuration.md](../configuration.md#extending-the-pre-defined-spring-configuration).
+For anything else, e.g. a proxy or mutual TLS, declare an `HttpTransport` bean. It is a functional interface:
+one method, `FhirResponse send(FhirRequest)`. Wrapping the default one adds a header to every request:
+
+```java
+@Bean
+HttpTransport httpTransport(RunConfiguration configuration) {
+    JdkHttpTransport delegate = new JdkHttpTransport(configuration.http());
+    return request -> delegate.send(new FhirRequest(request.method(), request.uri(),
+            request.headers().with("X-Correlation-Id", UUID.randomUUID().toString()), request.body()));
+}
+```
+
+`FhirHttpClient` writes the communication log from the request it hands to the transport, so a header added inside
+the transport is sent but **not** in `communication/`. For a header that should be logged, use
+`fhir-server.headers` instead.
 
 ## React to run events
 
 Implement `RunListener` (all methods have defaults) and declare it as a bean. `testScriptFinished` may be called from
-several threads at once.
+several threads at once. A listener that prints each result as soon as it is known:
+
+```java
+@Bean
+RunListener progress() {
+    return new RunListener() {
+        @Override
+        public void testScriptFinished(RunContext run, TestScriptResult result) {
+            System.out.printf("%s %s (%d ms)%n", result.outcome(), result.name(), result.duration().toMillis());
+        }
+    };
+}
+```
 
 ## Replace the validator
 
