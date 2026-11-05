@@ -280,7 +280,8 @@ step below is one pull request, with tests and documentation.
    `RealValidatorIT` in both modes, so the negative control is checked every night.
 3. ~~**`-Werror`**~~ Done: `failOnWarning` in the compiler plugin of the root `pom.xml`, so the "no warnings" rule
    of [ADR-0010](../adr/0010-build.md) is enforced.
-4. **Reports, not gates**: JaCoCo coverage report, CycloneDX SBOM, Dependabot for Maven. No thresholds at first.
+4. **Reports, not gates**: ~~JaCoCo coverage report~~ (done: aggregated in `testrunner-app`, kept by CI),
+   CycloneDX SBOM, Dependabot for Maven. No thresholds at first.
 5. ~~Correct the test count in ADR-0009.~~ Done.
 
 *Done when:* a pull request shows a green build, and a compiler warning turns it red.

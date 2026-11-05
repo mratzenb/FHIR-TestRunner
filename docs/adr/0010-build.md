@@ -10,6 +10,8 @@
   scope (`bannedDependencies`, [ADR-0009](0009-testing.md)).
 * The app module builds a plain jar (library) and `testrunner-app-<version>-exec.jar` (Spring Boot executable,
   classifier `exec`), so failsafe tests and library users use plain classes.
+* Coverage with JaCoCo: the agent runs in every module's unit and integration tests, `testrunner-app` aggregates one
+  report at `verify`. A report, not a gate: thresholds would reward tests written for the number.
 * `-Xlint:all` without warnings, enforced: the compiler plugin sets `failOnWarning` (`-Werror`), so a warning fails
   the build instead of relying on a convention.
 * `--limit-modules java.se` for main and test code: the compiler sees only Java SE, so `com.sun.*`, `sun.*` and other
