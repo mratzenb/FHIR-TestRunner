@@ -42,8 +42,19 @@ may be used.
 * Levels: unit tests per module (surefire, `*Test`), end-to-end through the Spring Boot app (failsafe, `*IT`),
   architecture rules (ArchUnit). `RealValidatorIT` runs the AT Core R4 suite with the real validator in both
   validator modes; it is opt-in via `VALIDATOR_JAR`.
+* **One test against a real FHIR server** (added 2026-11): `HapiServerIT` runs the sample suites against HAPI FHIR
+  R4 and R5 in Docker (Testcontainers, version from the Spring Boot BOM; image pinned to `hapiproject/hapi:v8.12.0-1`,
+  the release matching `hapi-fhir.version`). It is skipped without Docker (`@Testcontainers(disabledWithoutDocker =
+  true)`), so `mvn verify` stays offline-capable; CI has Docker and runs it on every push. Validation is off there,
+  `RealValidatorIT` covers the validator.
 
 ## Alternatives
+* *Real-server tests always on, failing without Docker* – would make `mvn verify` depend on Docker on every
+  developer machine. Skipping is visible in the summary (`Skipped: 3`), and CI always has Docker.
+* *Real-server tests in a separate Maven profile* – one more switch to remember; `disabledWithoutDocker` already
+  chooses by what the machine can do.
+* *The latest HAPI image* (`hapiproject/hapi:latest`) – a HAPI release could change results between two runs of the
+  same commit.
 * *A test-support module with the doubles in `src/main/java`, used in test scope* (until 2026-10) – the layout the
   maven-jar-plugin documentation suggests, since a test-jar does not pass on test-scoped dependencies. But it makes
   test code main code: SonarQube and similar tools would analyse the doubles as production code (rules, coverage,
@@ -58,12 +69,16 @@ may be used.
   `javax.tools` compiler, i.e. a JDK rather than a JRE, to run the tests.
 
 ## Consequences
-* `mvn verify` runs ~115 tests in under a minute, offline (after dependencies are cached).
+* `mvn verify` runs ~210 tests in about half a minute, offline (after dependencies are cached), with
+  `HapiServerIT` skipped. With Docker it adds three tests and ~40 s, most of it starting the two HAPI servers;
+  the first run also pulls the image (~600 MB).
 * The fake validator jar works only on the machine and class path it was created on (absolute `Class-Path`
   entries); it is created per test run in a temporary folder, so that is all it needs.
 * Jetty is a test dependency only; the runner itself has no HTTP server.
 * A module that needs a new test double adds it to `testrunner-test-support/src/test/java`; a dependency the double
   needs goes into that module's POM in compile scope.
 * The in-memory server is not a FHIR server; behaviour that depends on a real server (search semantics, conditional
-  delete rules) is out of scope of the automated tests – the docker-compose HAPI setup of the PoC remains the way to
-  test against one.
+  delete rules, referential integrity) is covered by `HapiServerIT` for the samples, and only where Docker runs.
+  The HAPI servers there run with referential integrity checks off and multiple deletes on, as the samples assume
+  (the same settings as the PoC's docker-compose file). With HAPI's defaults, deletes of fixtures that others
+  reference answer `409 Conflict`.

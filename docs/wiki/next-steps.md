@@ -281,7 +281,7 @@ step below is one pull request, with tests and documentation.
 3. ~~**`-Werror`**~~ Done: `failOnWarning` in the compiler plugin of the root `pom.xml`, so the "no warnings" rule
    of [ADR-0010](../adr/0010-build.md) is enforced.
 4. **Reports, not gates**: JaCoCo coverage report, CycloneDX SBOM, Dependabot for Maven. No thresholds at first.
-5. Correct the test count in ADR-0009.
+5. ~~Correct the test count in ADR-0009.~~ Done.
 
 *Done when:* a pull request shows a green build, and a compiler warning turns it red.
 
@@ -295,9 +295,9 @@ step below is one pull request, with tests and documentation.
    nothing sent.
 3. **Decide** how unsupported checks (`requestMethod`, `requestURL`, `manualEval`) are reported. Proposal: keep
    `error` at run time, as documented, and add a warning on the Setup before the run so the author sees it early.
-4. **A4.** `HapiServerIT` in `testrunner-app` with Testcontainers (version from the Spring Boot BOM) and a pinned
-   `hapiproject/hapi` image, R4 and R5. It runs the `testdata` suites and is skipped without Docker
-   (`disabledWithoutDocker`); CI has Docker.
+4. ~~**A4.**~~ Done: `HapiServerIT` in `testrunner-app`, Testcontainers from the Spring Boot BOM,
+   `hapiproject/hapi:v8.12.0-1` for R4 and R5. It runs the AT Core suites, every sample and a conditional update,
+   and is skipped without Docker; CI runs it on every push.
 5. Split `TestScriptExecutionTest` along its nested classes into one class per concern.
 
 *Docs:* [architecture.md › Execution semantics](../architecture.md#execution-semantics),

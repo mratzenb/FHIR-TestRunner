@@ -6,7 +6,8 @@ description: How tests are written in the FHIR TestScript Runner (TestRunnerOnJa
 # Testing (ADR-0009)
 
 No FHIR server, no network, no real validator needed: `mvn verify` runs all tests in under a minute
-(build commands: `testrunner-build-and-run`).
+(build commands: `testrunner-build-and-run`). With Docker running, `HapiServerIT` also runs (+~40 s); without, it
+is skipped.
 
 ## Levels and where things are tested
 
@@ -20,6 +21,16 @@ No FHIR server, no network, no real validator needed: `mvn verify` runs all test
 | App (`testrunner-app`) | `TestRunnerApplicationTest`, `RunCommandTest`; `EndToEndIT` (failsafe) | CLI arguments, exit codes per `exit-on-skip`; whole app on the PoC samples with in-memory server + fake validator, real exit code 3, contained fixtures in R4/R5 |
 | Architecture (`testrunner-app`) | `ArchitectureTest` (ArchUnit) | module boundaries |
 | Real validator (`testrunner-app`) | `RealValidatorIT` (failsafe, only with env `VALIDATOR_JAR`) | AT Core R4 incl. negative control, both modes |
+| Real FHIR server (`testrunner-app`) | `HapiServerIT` (failsafe, Testcontainers, `@Testcontainers(disabledWithoutDocker = true)`) | AT Core R4 + R5 and every sample against `hapiproject/hapi:v8.12.0-1` (two static `@Container`s, R4 and R5, started once per class); a conditional update creates, then updates the same resource. Validation off |
+
+**`HapiServerIT` details.** Containers: `hapi.fhir.enforce_referential_integrity_on_write=false`,
+`…_on_delete=false`, `allow_multiple_delete=true` (as the PoC's compose file; with HAPI defaults the samples' deletes
+get `409`). Wait strategy `GET /fhir/metadata` 200, 3 min. The image tag is pinned to the HAPI release matching
+`hapi-fhir.version`; raise both together. Expected sample outcomes are the same as in `EndToEndIT`
+(`stopTestOnFail` sample FAIL in `Test02`, `validateProfile` and `delete` samples ERROR). Docker socket on macOS with
+Rancher Desktop: `DOCKER_HOST=unix://$HOME/.rd/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`.
+HAPI ignores the body id of a conditional update, so D1-like request bugs need the in-memory server's stricter
+answers (`InMemoryFhirServer` returns 400 for a differing body id).
 
 Naming: unit tests `*Test` (surefire), integration tests `*IT` (failsafe). Test methods describe behaviour
 (`crashedServerFallsBackToOneProcessPerValidationAndIsNotRestarted`). JUnit 5 + AssertJ; `@TempDir` for files.

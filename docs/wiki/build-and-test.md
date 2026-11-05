@@ -9,7 +9,8 @@
   ([download](https://github.com/hapifhir/org.hl7.fhir.core/releases/latest/download/validator_cli.jar)).
 * For real runs: a FHIR server, e.g. `docker run -p 8080:8080 -e hapi.fhir.fhir_version=R4 hapiproject/hapi:latest`.
 
-The tests need neither a FHIR server nor the validator.
+The tests need neither a FHIR server nor the validator. With Docker running, `HapiServerIT` also tests against a
+real HAPI FHIR server; without Docker it is skipped.
 
 ## Commands
 
@@ -20,6 +21,7 @@ The tests need neither a FHIR server nor the validator.
 | One module and its dependencies | `mvn -B -pl testrunner-validation-cli -am test` |
 | One test class | `mvn -B -pl testrunner-core -am test -Dtest=TestScriptExecutionTest -Dsurefire.failIfNoSpecifiedTests=false` |
 | Also with the real validator | `VALIDATOR_JAR=/path/to/validator_cli.jar mvn -B verify` |
+| Only the tests against a real HAPI server (Docker) | `mvn -B verify -pl testrunner-app -am -Dtest=NoSuchTest -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=HapiServerIT -Dfailsafe.failIfNoSpecifiedTests=false` |
 
 More variants: skill `.claude/skills/testrunner-build-and-run`.
 
@@ -53,6 +55,7 @@ flowchart TB
     subgraph it["Integration tests – failsafe, *IT"]
         i1["EndToEndIT: whole app, in-memory server, fake validator"]
         i2["RealValidatorIT: real validator, opt-in via VALIDATOR_JAR"]
+        i3["HapiServerIT: real HAPI FHIR R4 + R5 in Docker, skipped without Docker"]
     end
     unit --> it
 ```
@@ -63,8 +66,32 @@ flowchart TB
 | version module tests | the TestScripts in `testdata/` |
 | validator tests | `FakeValidatorJar` |
 | `EndToEndIT` | all of the above, through Spring Boot |
+| `HapiServerIT` | Testcontainers: `hapiproject/hapi:v8.12.0-1`, R4 and R5, the sample suites |
 
-`RealValidatorIT` is skipped without `VALIDATOR_JAR`. A skip in the summary is expected.
+`RealValidatorIT` is skipped without `VALIDATOR_JAR`, `HapiServerIT` without Docker. A skip in the summary is
+expected.
+
+### Against a real FHIR server
+
+`HapiServerIT` starts two HAPI FHIR servers once per test class (~30 s) and runs the AT Core suites (R4 and R5) and
+the samples against them. The samples assume a lenient server, so the containers run with these settings, the same
+as the PoC's `docker-compose.yml`:
+
+| HAPI setting | Value | Why |
+|---|---|---|
+| `hapi.fhir.enforce_referential_integrity_on_write` | `false` | fixtures reference resources that are not on the server, e.g. `managingOrganization` |
+| `hapi.fhir.enforce_referential_integrity_on_delete` | `false` | autodelete removes fixtures that other fixtures still reference |
+| `hapi.fhir.allow_multiple_delete` | `true` | the samples delete by search, which can match several resources |
+
+With HAPI's defaults the same samples get `409 Conflict` on those deletes. That is the server's right, not a runner
+problem. A suite meant for strict servers should delete in reverse order of its references.
+
+On macOS with Rancher Desktop or Colima, Testcontainers may not find the Docker socket on its own:
+
+```sh
+export DOCKER_HOST=unix://$HOME/.rd/docker.sock            # Rancher Desktop; Colima: ~/.colima/default/docker.sock
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+```
 
 ## Continuous integration
 
@@ -72,7 +99,7 @@ flowchart TB
 
 | Job | When | What |
 |---|---|---|
-| `verify` | every push to `main`, every pull request | `mvn -B verify` on Temurin 25. If it fails, the surefire and failsafe reports are attached to the run as `test-reports`. |
+| `verify` | every push to `main`, every pull request | `mvn -B verify` on Temurin 25, including `HapiServerIT` (the runner has Docker). If it fails, the surefire and failsafe reports are attached to the run as `test-reports`. |
 | `real-validator` | nightly (03:17 UTC) and on demand (*Run workflow*) | `RealValidatorIT` with the real validator, both modes. The negative control must fail. |
 
 The real validator is pinned (`VALIDATOR_VERSION`, now 7.0.2, the version the docs were verified with). The job
