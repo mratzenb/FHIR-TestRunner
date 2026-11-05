@@ -86,12 +86,35 @@ as the PoC's `docker-compose.yml`:
 With HAPI's defaults the same samples get `409 Conflict` on those deletes. That is the server's right, not a runner
 problem. A suite meant for strict servers should delete in reverse order of its references.
 
-On macOS with Rancher Desktop or Colima, Testcontainers may not find the Docker socket on its own:
+### Docker on macOS
+
+Testcontainers looks for Docker at `/var/run/docker.sock`. Rancher Desktop and Colima put their socket elsewhere, so
+Testcontainers finds nothing and **`HapiServerIT` is skipped – the build stays green**. Only two things show it:
+
+```
+[WARNING] Tests run: 3, Failures: 0, Errors: 0, Skipped: 3 -- in at.hl7.testing.runner.app.HapiServerIT
+ERROR DockerClientProviderStrategy - Could not find a valid Docker environment. …
+```
+
+Point Testcontainers at the socket before running Maven:
 
 ```sh
-export DOCKER_HOST=unix://$HOME/.rd/docker.sock            # Rancher Desktop; Colima: ~/.colima/default/docker.sock
+export DOCKER_HOST=unix://$HOME/.rd/docker.sock                  # Rancher Desktop
+# export DOCKER_HOST=unix://$HOME/.colima/default/docker.sock    # Colima
 export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
 ```
+
+* `DOCKER_HOST` is where the runner's JVM reaches Docker on the Mac.
+* `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` is where the socket is *inside* the Linux VM. Testcontainers mounts it into
+  its helper container (Ryuk, which removes the containers after the tests); the Mac path does not exist there.
+* Put both lines into `~/.zshrc` to set them once. In IntelliJ, add them to the environment of the run configuration;
+  it does not read `~/.zshrc`.
+
+With both set, the log may still show `WARN RyukResourceReaper - Can not connect to Ryuk at localhost:…` once or
+twice while Ryuk starts. The tests run anyway, and Ryuk removes the containers afterwards.
+
+Tested with Rancher Desktop. The Colima path is that tool's documented default, not tested here. CI needs neither
+variable: the Linux runners have `/var/run/docker.sock`.
 
 ## Coverage
 

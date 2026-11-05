@@ -32,7 +32,9 @@ Offline (`-o`) works only once all dependencies and plugins are in the local rep
 `RealValidatorIT` is skipped unless `VALIDATOR_JAR` is set; the skip in the summary is expected.
 `HapiServerIT` (Testcontainers, HAPI FHIR R4 + R5) runs only where Docker is reachable, else its 3 tests are
 skipped. Only it: the "One IT only" command with `-Dit.test=HapiServerIT`. On this machine (Rancher Desktop) set
-`DOCKER_HOST=unix://$HOME/.rd/docker.sock` and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`.
+`DOCKER_HOST=unix://$HOME/.rd/docker.sock` and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` –
+without them `HapiServerIT` is **skipped and the build stays green** ("Could not find a valid Docker environment");
+check for `Skipped: 3` before claiming it ran. Wiki: `docs/wiki/build-and-test.md#docker-on-macos`.
 Testcontainers' version comes from the Spring Boot BOM (`testcontainers-junit-jupiter`, test scope in
 `testrunner-app`); the image tag `hapiproject/hapi:v8.12.0-1` is a constant in `HapiServerIT`.
 
