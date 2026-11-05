@@ -55,7 +55,8 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
   `spring-boot.version` (Jackson, SLF4J, Logback, JUnit, AssertJ, Jetty, JsonPath) and `hapi-fhir.version`. Artefacts
   outside them (`hapi-fhir-caching-caffeine`, `archunit-junit5`) are managed once in the parent with a property.
 * Plugin versions are properties too. **Module POMs declare no versions.**
-* Compiler: `release 25`, `-parameters`, `-Xlint:all,-processing,-serial`, `--limit-modules java.se`.
+* Compiler: `release 25`, `-parameters`, `-Xlint:all,-processing,-serial`, `--limit-modules java.se`,
+  `failOnWarning` (`-Werror`: any warning fails the build; fix it, or `@SuppressWarnings` with a reason).
 * Project modules are in the parent's `dependencyManagement`. `testrunner-test-support` is there with
   `<type>test-jar</type><classifier>tests</classifier>`; a module uses it as
 
@@ -80,6 +81,7 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
 |---|---|
 | `/bin/mvn: no such file` | plain `mvn` used; use the full path |
 | Build stops at `enforce` | wrong JDK (`JAVA_HOME`) or Maven, or test-support used outside test scope |
+| `warnings found and -Werror specified` (German: `Warnungen gefunden und -Werror angegeben`) | a compiler warning, e.g. a raw type or an unchecked cast; `[WARNING]` lines above name it |
 | `package com.sun... is not visible` | JDK-specific API used; only Java SE is allowed (use Jetty for HTTP servers in tests) |
 | `ArchitectureTest` fails | a module boundary was crossed, see `testrunner-overview` |
 | `No tests matching pattern` | `-Dtest`/`-Dit.test` without the matching `failIfNoSpecifiedTests=false` |

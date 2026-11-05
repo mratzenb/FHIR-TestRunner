@@ -97,6 +97,7 @@ More: skill `.claude/skills/testrunner-testing`, [ADR-0009](../adr/0009-testing.
 | Plugin versions as properties | root `pom.xml` |
 | Module POMs declare **no** versions | every module |
 | `-Xlint:all,-processing,-serial`, `--limit-modules java.se` | compiler plugin in the root `pom.xml` |
+| A compiler warning fails the build (`failOnWarning`) | compiler plugin in the root `pom.xml` |
 | Test doubles only in test scope | enforcer `bannedDependencies` |
 
 → [ADR-0010](../adr/0010-build.md)

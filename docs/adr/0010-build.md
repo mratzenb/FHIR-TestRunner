@@ -10,7 +10,8 @@
   scope (`bannedDependencies`, [ADR-0009](0009-testing.md)).
 * The app module builds a plain jar (library) and `testrunner-app-<version>-exec.jar` (Spring Boot executable,
   classifier `exec`), so failsafe tests and library users use plain classes.
-* `-Xlint:all` without warnings.
+* `-Xlint:all` without warnings, enforced: the compiler plugin sets `failOnWarning` (`-Werror`), so a warning fails
+  the build instead of relying on a convention.
 * `--limit-modules java.se` for main and test code: the compiler sees only Java SE, so `com.sun.*`, `sun.*` and other
   `jdk.*` APIs do not compile (they may be missing or change in other JDKs). Jetty serves HTTP in tests.
 * `testrunner-test-support` is published as test-jar (classifier `tests`); its type and classifier are part of the
