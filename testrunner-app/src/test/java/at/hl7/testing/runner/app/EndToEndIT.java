@@ -119,6 +119,47 @@ class EndToEndIT {
         });
     }
 
+    /** The walk-through of docs/wiki/samples.md, with its configuration file as written there. */
+    @Test
+    void wikiSampleSuitePasses() {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+        Path samples = SampleData.wikiSamples();
+
+        RunResult run = run("spring.config.additional-location=file:" + samples.resolve("first-suite.yml"),
+                "testrunner.fhir-server.base-url=" + r4Server.baseUrl(),
+                "testrunner.suites[0].base-dir=" + samples.resolve("first-suite"),
+                "testrunner.validation.enabled=false");
+
+        TestScriptResult result = run.testScripts().getFirst();
+        assertThat(result.outcome()).as(result.phases().toString()).isEqualTo(Outcome.PASS);
+        assertThat(r4Server.requestLines()).containsExactly("POST /Patient", "GET /Patient/1", "GET /Patient",
+                "PUT /Patient/1", "DELETE /Patient/1");
+        assertThat(r4Server.requests().get(2).query()).startsWith("identifier=urn:example:testrunner-wiki%7C");
+    }
+
+    /** The Load errors quoted in docs/wiki/samples.md: all mistakes listed, nothing sent. */
+    @Test
+    void wikiMistakesAreReportedBeforeAnythingIsSent() {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+
+        RunResult run = run("testrunner.fhir-server.base-url=" + r4Server.baseUrl(),
+                "testrunner.suites[0].fhir-version=R4",
+                "testrunner.suites[0].base-dir=" + SampleData.wikiSamples().resolve("mistakes"),
+                "testrunner.validation.enabled=false");
+
+        TestScriptResult result = run.testScripts().getFirst();
+        assertThat(result.phases().getFirst().kind()).isEqualTo(PhaseKind.LOAD);
+        assertThat(result.phases().getFirst().messages().getFirst()).contains(
+                "Test 'Mistakes', action 1: variable 'patientId' reads 'created', which is not there yet, it is kept"
+                        + " by Test 'Mistakes', action 4",
+                "Test 'Mistakes', action 2: Operator greaterThan cannot be used with contentType (allowed: contains,"
+                        + " notContains, equals, notEquals)",
+                "Test 'Mistakes', action 3: The PUT of operation 'update' has no sourceId, so there is nothing to send",
+                "Test 'Mistakes', action 4: sourceId 'patinet' is neither a fixture nor the responseId or requestId"
+                        + " of an operation");
+        assertThat(r4Server.requests()).isEmpty();
+    }
+
     @Test
     void mixedSuiteRunsR4AndR5InParallelAgainstTheirOwnServers() {
         r4Server = InMemoryFhirServer.start("4.0.1");

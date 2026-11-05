@@ -150,6 +150,10 @@ Feed it to a scanner such as Dependency-Track or `grype sbom:testrunner-app/targ
 
 ## Test data
 
+The wiki's own samples, [`samples/`](samples), are tested too: `EndToEndIT.wikiSampleSuitePasses` and
+`wikiMistakesAreReportedBeforeAnythingIsSent` run them on each build (`SampleData.wikiSamples()`). Change a sample
+and the page [Samples](samples.md) together.
+
 `testdata/` holds the TestScripts, Example Instances and profiles from the Python PoC:
 
 ```

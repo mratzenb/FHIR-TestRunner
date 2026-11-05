@@ -1,0 +1,14 @@
+{
+  "resourceType": "Patient",
+  "id": "example-patient",
+  "identifier": [{
+    "system": "urn:example:testrunner-wiki",
+    "value": "${testrunner.uuid}"
+  }],
+  "name": [{
+    "family": "Muster",
+    "given": ["Maria"]
+  }],
+  "gender": "female",
+  "birthDate": "1980-04-01"
+}

@@ -304,14 +304,22 @@ public final class InMemoryFhirServer implements AutoCloseable {
         return store(type, id, body, headers, 200);
     }
 
-    /** Stored resources of a type whose JSON contains the value of every search parameter not starting with '_'. */
+    /**
+     * Stored resources of a type whose JSON contains the value of every search parameter not starting with '_'. A
+     * token {@code system|value} needs both parts.
+     */
     private List<ObjectNode> matching(String type, String query) {
         List<String> values = new ArrayList<>();
         if (query != null) {
             for (String parameter : query.split("&")) {
                 int eq = parameter.indexOf('=');
                 if (eq > 0 && !parameter.startsWith("_")) {
-                    values.add(java.net.URLDecoder.decode(parameter.substring(eq + 1), StandardCharsets.UTF_8));
+                    String value = java.net.URLDecoder.decode(parameter.substring(eq + 1), StandardCharsets.UTF_8);
+                    for (String part : value.split("\\|")) {
+                        if (!part.isEmpty()) {
+                            values.add(part);
+                        }
+                    }
                 }
             }
         }

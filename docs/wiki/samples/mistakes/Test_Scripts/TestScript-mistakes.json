@@ -1,0 +1,48 @@
+{
+  "resourceType": "TestScript",
+  "id": "mistakes",
+  "url": "http://example.org/TestScript/mistakes",
+  "name": "Mistakes",
+  "title": "Wiki sample: a TestScript the runner rejects before sending anything",
+  "status": "draft",
+  "description": "Every action has a mistake that would fail in every run. The runner lists all of them in the phase Load and sends nothing. See docs/wiki/samples.md.",
+  "variable": [{
+    "name": "patientId",
+    "expression": "Patient.id",
+    "sourceId": "created"
+  }],
+  "test": [{
+    "name": "Mistakes",
+    "action": [{
+      "operation": {
+        "type": { "system": "http://terminology.hl7.org/CodeSystem/testscript-operation-codes", "code": "read" },
+        "resource": "Patient",
+        "encodeRequestUrl": true,
+        "params": "/${patientId}"
+      }
+    }, {
+      "assert": {
+        "description": "contentType cannot be compared with greaterThan",
+        "contentType": "json",
+        "operator": "greaterThan",
+        "value": "x",
+        "warningOnly": false
+      }
+    }, {
+      "operation": {
+        "type": { "system": "http://terminology.hl7.org/CodeSystem/testscript-operation-codes", "code": "update" },
+        "resource": "Patient",
+        "encodeRequestUrl": true,
+        "params": "/1"
+      }
+    }, {
+      "operation": {
+        "type": { "system": "http://terminology.hl7.org/CodeSystem/testscript-operation-codes", "code": "create" },
+        "resource": "Patient",
+        "encodeRequestUrl": true,
+        "sourceId": "patinet",
+        "responseId": "created"
+      }
+    }]
+  }]
+}

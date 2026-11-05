@@ -1,0 +1,141 @@
+{
+  "resourceType": "TestScript",
+  "id": "create-read-search",
+  "url": "http://example.org/TestScript/create-read-search",
+  "name": "CreateReadSearch",
+  "title": "Wiki sample: create, read and search a Patient",
+  "status": "draft",
+  "description": "The sample of docs/wiki/samples.md: creates a Patient with an identifier of its own, reads it back by the id the server assigned, finds it by that identifier and updates it.",
+  "fixture": [{
+    "id": "patient",
+    "autocreate": false,
+    "autodelete": false,
+    "resource": { "reference": "Patient/example-patient" }
+  }],
+  "variable": [{
+    "name": "patientId",
+    "expression": "Patient.id",
+    "sourceId": "created"
+  }, {
+    "name": "identifier",
+    "expression": "Patient.identifier[0].value",
+    "sourceId": "sent"
+  }],
+  "test": [{
+    "name": "Create",
+    "description": "POST the Patient; the server assigns the id.",
+    "action": [{
+      "operation": {
+        "type": { "system": "http://terminology.hl7.org/CodeSystem/testscript-operation-codes", "code": "create" },
+        "resource": "Patient",
+        "accept": "json",
+        "encodeRequestUrl": true,
+        "requestHeader": [{ "field": "Prefer", "value": "return=representation" }],
+        "sourceId": "patient",
+        "requestId": "sent",
+        "responseId": "created"
+      }
+    }, {
+      "assert": {
+        "description": "201 Created",
+        "response": "created",
+        "warningOnly": false
+      }
+    }, {
+      "assert": {
+        "description": "The server says where the resource is",
+        "headerField": "Location",
+        "operator": "notEmpty",
+        "warningOnly": false
+      }
+    }]
+  }, {
+    "name": "Read",
+    "description": "GET the Patient by the id the server assigned.",
+    "action": [{
+      "operation": {
+        "type": { "system": "http://terminology.hl7.org/CodeSystem/testscript-operation-codes", "code": "read" },
+        "resource": "Patient",
+        "accept": "json",
+        "encodeRequestUrl": true,
+        "params": "/${patientId}",
+        "responseId": "read"
+      }
+    }, {
+      "assert": {
+        "description": "200 OK",
+        "responseCode": "200",
+        "warningOnly": false
+      }
+    }, {
+      "assert": {
+        "description": "The server returned what was sent",
+        "minimumId": "patient",
+        "warningOnly": false
+      }
+    }, {
+      "assert": {
+        "description": "The family name survived the round trip",
+        "expression": "Patient.name.family",
+        "operator": "equals",
+        "value": "Muster",
+        "warningOnly": false
+      }
+    }]
+  }, {
+    "name": "Search",
+    "description": "Find the Patient by its identifier, which no other run uses.",
+    "action": [{
+      "operation": {
+        "type": { "system": "http://terminology.hl7.org/CodeSystem/testscript-operation-codes", "code": "search" },
+        "resource": "Patient",
+        "accept": "json",
+        "encodeRequestUrl": true,
+        "params": "?identifier=urn:example:testrunner-wiki|${identifier}"
+      }
+    }, {
+      "assert": {
+        "description": "Exactly this one Patient",
+        "expression": "Bundle.entry.count() = 1",
+        "warningOnly": false
+      }
+    }, {
+      "assert": {
+        "description": "It is the Patient created above",
+        "expression": "Bundle.entry[0].resource.id",
+        "operator": "equals",
+        "value": "${patientId}",
+        "warningOnly": false
+      }
+    }]
+  }, {
+    "name": "Update",
+    "description": "PUT the Patient to the id the server assigned; the runner puts that id into the body.",
+    "action": [{
+      "operation": {
+        "type": { "system": "http://terminology.hl7.org/CodeSystem/testscript-operation-codes", "code": "update" },
+        "resource": "Patient",
+        "accept": "json",
+        "encodeRequestUrl": true,
+        "params": "/${patientId}",
+        "sourceId": "patient"
+      }
+    }, {
+      "assert": {
+        "description": "200 OK: the Patient existed",
+        "responseCode": "200",
+        "warningOnly": false
+      }
+    }]
+  }],
+  "teardown": {
+    "action": [{
+      "operation": {
+        "type": { "system": "http://terminology.hl7.org/CodeSystem/testscript-operation-codes", "code": "delete" },
+        "resource": "Patient",
+        "encodeRequestUrl": true,
+        "params": "/${patientId}"
+      }
+    }]
+  }
+}

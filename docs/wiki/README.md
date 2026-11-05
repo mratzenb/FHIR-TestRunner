@@ -22,6 +22,7 @@ flowchart LR
 | You want to … | Read |
 |---|---|
 | understand the whole thing in ten minutes | [The big picture](big-picture.md) |
+| write and run a TestScript, copy a configuration | [Samples](samples.md) |
 | know what a Maven module does | [Modules](modules/README.md) |
 | follow a run from start to end | [How a run works](run-lifecycle.md) |
 | know how `${variable}` placeholders are resolved | [Variables and placeholders](variables.md) |
