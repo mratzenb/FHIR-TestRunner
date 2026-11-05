@@ -31,6 +31,7 @@ flowchart LR
 | build, test and run it locally | [Build and test](build-and-test.md) |
 | look up a term | [Glossary](glossary.md) |
 | find out why a run looks wrong | [Troubleshooting](troubleshooting.md) |
+| know what to build next, and in which order | [Next steps](next-steps.md) |
 
 ## The reference documents
 
