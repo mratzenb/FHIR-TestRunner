@@ -137,6 +137,8 @@
                     <configuration>
                         <release>${maven.compiler.release}</release>
                         <parameters>true</parameters>
+                        <!-- a compiler warning fails the build (-Werror; ADR-0010) -->
+                        <failOnWarning>true</failOnWarning>
                         <compilerArgs>
                             <arg>-Xlint:all,-processing,-serial</arg>
                             <!-- only Java SE APIs, no com.sun.*, sun.* or jdk.* (main and test code; ADR-0010) -->

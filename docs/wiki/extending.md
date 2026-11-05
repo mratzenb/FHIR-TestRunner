@@ -99,6 +99,6 @@ See [test-support](modules/testrunner-test-support.md#adding-a-double).
 
 ## Checklist before you push
 
-* `mvn verify` is green and prints no compiler warnings.
+* `mvn verify` is green. A compiler warning already fails it.
 * `ArchitectureTest` still passes – no Spring or HAPI in the core.
 * The reference doc, the ADR (if a decision changed) and the skill are updated.

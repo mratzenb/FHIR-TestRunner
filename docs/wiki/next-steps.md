@@ -273,8 +273,8 @@ step below is one pull request, with tests and documentation.
    failure, upload the surefire/failsafe reports and `target/` run folders.
 2. **Nightly validator job**: download a pinned `validator_cli.jar` (cached) and run `RealValidatorIT` with
    `VALIDATOR_JAR`. That covers the negative control, which must fail.
-3. **`-Werror`** next to `-Xlint:all,-processing,-serial` in the root `pom.xml`, so the "no warnings" rule of
-   [ADR-0010](../adr/0010-build.md) is enforced.
+3. ~~**`-Werror`**~~ Done: `failOnWarning` in the compiler plugin of the root `pom.xml`, so the "no warnings" rule
+   of [ADR-0010](../adr/0010-build.md) is enforced.
 4. **Reports, not gates**: JaCoCo coverage report, CycloneDX SBOM, Dependabot for Maven. No thresholds at first.
 5. Correct the test count in ADR-0009.
 
