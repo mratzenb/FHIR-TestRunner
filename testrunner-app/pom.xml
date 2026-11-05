@@ -92,6 +92,24 @@
                 </configuration>
             </plugin>
             <plugin>
+                <!-- the software bill of materials of the executable jar: every library it ships, with versions and
+                     licenses, target/bom.json and target/bom.xml -->
+                <groupId>org.cyclonedx</groupId>
+                <artifactId>cyclonedx-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>sbom</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>makeBom</goal>
+                        </goals>
+                        <configuration>
+                            <includeTestScope>false</includeTestScope>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <!-- one coverage report of every module, from all their unit and integration tests:
                      target/site/jacoco-aggregate/index.html -->
                 <groupId>org.jacoco</groupId>

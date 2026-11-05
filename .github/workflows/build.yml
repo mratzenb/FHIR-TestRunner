@@ -41,6 +41,12 @@ jobs:
           name: coverage
           path: testrunner-app/target/site/jacoco-aggregate/
           retention-days: 14
+      - name: Keep the software bill of materials
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom
+          path: testrunner-app/target/bom.*
+          retention-days: 14
       - name: Keep the test reports
         if: failure()
         uses: actions/upload-artifact@v7
