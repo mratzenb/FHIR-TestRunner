@@ -137,6 +137,17 @@ What the action rules (`ActionRules`) find:
 The same rules are applied again when an action runs. With values only known then (`resource: ${type}`) an action
 can still fail at run time, e.g. on an invalid URL.
 
+Assertions the runner cannot evaluate get a **warning**, not an error:
+
+| Assertion | Warning on the Setup |
+|---|---|
+| `requestMethod`, `requestURL` | `Test 'client', action 2: requestURL is not supported – it checks a request received by the system under test, and the runner sends every request itself; the assertion will be an error when it runs` |
+| operator `manualEval` | `Test 'human', action 2: Operator manualEval is not supported – it needs a human tester; …` |
+
+They stay an `error` when they run, as the outcome rules say. The warning only makes them visible before the setup
+changes data on the server. The rest of the TestScript still runs. If the TestScript also has problems, the
+warnings are listed after them in the `Load` phase.
+
 Only what fails in **every** run is reported. A response kept in an earlier test counts as there, even if that test
 might stop early. An id or profile that is itself a placeholder (`sourceId: ${which}`) is checked when it is used.
 
@@ -206,7 +217,8 @@ Limits:
   an `error`.
 * `targetId` cannot name a request. Use the `responseId` of the same operation to address what it created.
 * `requestMethod` and `requestURL` stay unsupported. They check the requests of a client under test, and the runner
-  is that client itself.
+  is that client itself. They are announced as a warning before anything is sent, see
+  [Checks before sending](#6-checks-before-sending).
 
 ### The helpers
 

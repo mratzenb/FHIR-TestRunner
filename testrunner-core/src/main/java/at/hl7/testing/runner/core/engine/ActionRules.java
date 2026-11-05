@@ -95,12 +95,54 @@ final class ActionRules {
     }
 
     /**
+     * Whether the runner can evaluate a check. {@code requestMethod} and {@code requestURL} check a request that the
+     * system under test received – they test a client, and the runner is the client itself.
+     */
+    static boolean supported(Check check) {
+        return switch (check) {
+            case Check.ContentType c -> true;
+            case Check.Expression c -> true;
+            case Check.HeaderField c -> true;
+            case Check.MinimumId c -> true;
+            case Check.NavigationLinks c -> true;
+            case Check.Path c -> true;
+            case Check.RequestMethod c -> false;
+            case Check.RequestUrl c -> false;
+            case Check.Resource c -> true;
+            case Check.Response c -> true;
+            case Check.ResponseCode c -> true;
+            case Check.ValidateProfile c -> true;
+        };
+    }
+
+    /**
+     * Why the runner cannot evaluate an assertion, whatever its values: its check is not {@link #supported}, or its
+     * operator is {@code manualEval}, which needs a human tester. Such an assertion is an {@code error} when it runs, as
+     * documented; {@link TestScriptChecks#unsupportedWarnings} announces it before anything is sent.
+     *
+     * @return the reason, or {@code null} if the runner can evaluate the assertion
+     */
+    static String unsupported(Assertion assertion) {
+        if (!supported(assertion.check())) {
+            return checkName(assertion.check()) + " is not supported – it checks a request received by the system"
+                    + " under test, and the runner sends every request itself";
+        }
+        if (assertion.operator() == Operator.MANUAL_EVAL) {
+            return "Operator manualEval is not supported – it needs a human tester";
+        }
+        return null;
+    }
+
+    /**
      * Why an assertion cannot be evaluated in any run: its check does not allow its operator, or the operator needs an
      * expected value and the assertion has none.
      *
      * @return the problems, empty if there are none
      */
     static List<String> problems(Assertion assertion) {
+        if (unsupported(assertion) != null) {
+            return List.of(); // a warning before the run, an error when it runs, whatever its operator
+        }
         Operator op;
         try {
             op = operator(assertion);
