@@ -151,7 +151,7 @@ offline unit tests. But nothing runs the sample suites against a real server aut
 about server behaviour (referential integrity, conditional delete with several matches, content types) are never
 checked. Two smaller points:
 
-* 71 of the 192 tests sit in one 1,180-line class, `TestScriptExecutionTest`.
+* 71 of the 192 tests sit in one 1,180-line class, `TestScriptExecutionTest`. (Split in M1.5.)
 * ADR-0009 still says "~115 tests".
 
 ### A5 – Orchestration
@@ -299,7 +299,9 @@ step below is one pull request, with tests and documentation.
 4. ~~**A4.**~~ Done: `HapiServerIT` in `testrunner-app`, Testcontainers from the Spring Boot BOM,
    `hapiproject/hapi:v8.12.0-1` for R4 and R5. It runs the AT Core suites, every sample and a conditional update,
    and is skipped without Docker; CI runs it on every push.
-5. Split `TestScriptExecutionTest` along its nested classes into one class per concern.
+5. ~~Split `TestScriptExecutionTest` along its nested classes into one class per concern.~~ Done: twelve classes
+   on a common `EngineTestBase` (server, `Harness`, `PATIENT`, `ORGANIZATION`, `phase`), e.g. `OperationsTest`,
+   `ChecksBeforeSendingTest`, `TestRunnerTest`; the largest has 243 lines.
 
 *Docs:* [architecture.md › Execution semantics](../architecture.md#execution-semantics),
 [How a run works](run-lifecycle.md), skill `testrunner-execution-engine`.

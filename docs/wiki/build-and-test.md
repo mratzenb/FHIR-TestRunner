@@ -19,7 +19,7 @@ real HAPI FHIR server; without Docker it is skipped.
 | Build and run all tests | `mvn -B verify` |
 | Jar without tests | `mvn -B -DskipTests package` |
 | One module and its dependencies | `mvn -B -pl testrunner-validation-cli -am test` |
-| One test class | `mvn -B -pl testrunner-core -am test -Dtest=TestScriptExecutionTest -Dsurefire.failIfNoSpecifiedTests=false` |
+| One test class | `mvn -B -pl testrunner-core -am test -Dtest=OperationsTest -Dsurefire.failIfNoSpecifiedTests=false` |
 | Also with the real validator | `VALIDATOR_JAR=/path/to/validator_cli.jar mvn -B verify` |
 | Only the tests against a real HAPI server (Docker) | `mvn -B verify -pl testrunner-app -am -Dtest=NoSuchTest -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=HapiServerIT -Dfailsafe.failIfNoSpecifiedTests=false` |
 
@@ -46,7 +46,7 @@ Results land in `target/testrunner-results/run_<timestamp>/`.
 ```mermaid
 flowchart TB
     subgraph unit["Unit tests – surefire, *Test"]
-        u1["core: TestScriptExecutionTest + helpers"]
+        u1["core: engine tests per concern (OperationsTest, AssertionsTest, …) + helpers"]
         u2["fhir-r4/r5: R4SupportTest, R5SupportTest"]
         u3["validation-cli: process + server tests"]
         u4["autoconfigure: TestRunnerAutoConfigurationTest"]

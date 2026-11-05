@@ -218,7 +218,7 @@ still runs. The warning appears for every `rewrite-references` value, because th
 | `core.engine.ExecutionState` | keeps the fixtures as written; `find` hands them out resolved |
 | `core.content.ResourceContent` | `replaceText`, `references`, `replaceReferences`, `contained` |
 
-Tests: `TestScriptExecutionTest`, nested classes `Fixtures`, `FixtureValues` and `ReferenceRewriting`;
+Tests: `FixturesTest`, `PlaceholdersTest` and `ReferenceRewritingTest`;
 `ResourceContentTest.containedResourcesAreBodiesOfTheirOwn`; `EndToEndIT.fixtureFromTestScriptContainedInR4AndR5`.
 
 The reference is [architecture.md › Execution semantics](../architecture.md#execution-semantics).
