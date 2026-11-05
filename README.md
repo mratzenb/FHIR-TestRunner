@@ -23,7 +23,9 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
 java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml --novalidator
 ```
 
-A local HAPI server: `docker run -p 8080:8080 -e hapi.fhir.fhir_version=R4 hapiproject/hapi:latest`.
+A local HAPI server: `docker run -p 8080:8080 -e hapi.fhir.fhir_version=R4 hapiproject/hapi:v8.12.0-1`.
+
+Writing a TestScript of your own: start with the walk-through in [docs/wiki/samples.md](docs/wiki/samples.md).
 
 Results go to `target/testrunner-results/run_<timestamp>/` (`junit.xml`, `summary.txt`, `result.json`, a FHIR
 `TestReport` per TestScript in `testreports/`, `testrunner.log`, `communication/`). Exit code: 0 passed, 1 failed/errors, 2 invalid configuration, 3 everything skipped (nothing tested;

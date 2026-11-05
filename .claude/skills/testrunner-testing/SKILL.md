@@ -18,7 +18,7 @@ is skipped.
 | Version modules (`testrunner-fhir-r4`, `-r5`) | `R4SupportTest`, `R5SupportTest` | every sample TestScript of the version maps exactly; detection cases |
 | Validator (`testrunner-validation-cli`) | `ValidatorCliProfileValidatorTest`, `ValidatorServerProfileValidatorTest` | process handling, arguments, server lifecycle, fallback, parallel use |
 | Spring (`testrunner-spring-boot-autoconfigure`) | `TestRunnerAutoConfigurationTest` (`ApplicationContextRunner`) | binding, defaults, replacing/adding beans |
-| App (`testrunner-app`) | `TestRunnerApplicationTest`, `RunCommandTest`; `EndToEndIT` (failsafe) | CLI arguments, exit codes per `exit-on-skip`; whole app on the PoC samples with in-memory server + fake validator, real exit code 3, contained fixtures in R4/R5 |
+| App (`testrunner-app`) | `TestRunnerApplicationTest`, `RunCommandTest`; `EndToEndIT` (failsafe) | CLI arguments, exit codes per `exit-on-skip`; whole app on the PoC samples with in-memory server + fake validator, real exit code 3, contained fixtures in R4/R5; the wiki samples (`wikiSampleSuitePasses` with `docs/wiki/samples/first-suite.yml`, `wikiMistakesAreReportedBeforeAnythingIsSent` – the Load messages quoted on `docs/wiki/samples.md`) |
 | Architecture (`testrunner-app`) | `ArchitectureTest` (ArchUnit) | module boundaries |
 | Real validator (`testrunner-app`) | `RealValidatorIT` (failsafe, only with env `VALIDATOR_JAR`) | AT Core R4 incl. negative control, both modes |
 | Real FHIR server (`testrunner-app`) | `HapiServerIT` (failsafe, Testcontainers, `@Testcontainers(disabledWithoutDocker = true)`) | AT Core R4 + R5 and every sample against `hapiproject/hapi:v8.12.0-1` (two static `@Container`s, R4 and R5, started once per class); a conditional update creates, then updates the same resource. Validation off |
@@ -45,7 +45,8 @@ Only Java SE + Jetty: no `com.sun.net.httpserver` (the compiler rejects it).
 * **`InMemoryFhirServer`** – Jetty on `127.0.0.1`, free port, base `…/fhir`. `start("4.0.1")` (version for the
   CapabilityStatement, which announces read/vread/update/delete/history/create/search-type for Patient and
   Organization and transaction/batch), `baseUrl()`, `close()` (AutoCloseable). Supports create (201 + Location/ETag), read, vread,
-  update, delete, history, crude search (all values contained in the JSON; `_`-params ignored), conditional delete,
+  update, delete, history, crude search (all values contained in the JSON, a token `system|value` split into both;
+  `_`-params ignored), conditional delete,
   conditional update (`PUT [type]?query`: 201 no match, 200 one match, 400 other body id, 412 several matches),
   `metadata`, batch/transaction (empty response Bundle), XML create (id rewritten, not stored). Hooks:
   `on(method, path, Answer.json(status, body))` fixes an answer; `requests()` (method, path, query, headers, body;
@@ -67,7 +68,8 @@ Only Java SE + Jetty: no `com.sun.net.httpserver` (the compiler rejects it).
     at start), `FAKE_VALIDATOR_STARTUP_MILLIS` (slow start). In tests the JVM arguments go in through the
     `ValidationConfig` constructor (`jvmArguments`); see `ValidatorServerProfileValidatorTest.config(...)`.
 * **`SampleData`** – finds `testdata/` by walking up from the working directory: `r4()`, `r5()`, `samples()`,
-  `testScript(suite, fileName)`.
+  `testScript(suite, fileName)`; `wikiSamples()` = `docs/wiki/samples/` (the tested samples of the wiki page
+  `docs/wiki/samples.md`: `first-suite/`, `mistakes/`, `first-suite.yml`). Changing one means changing the page.
 
 New shared double: put it into `testrunner-test-support/src/test/java/at/hl7/testing/runner/testsupport/`, its
 dependencies into that POM in compile scope. A double used by one module only stays in that module's `src/test`.

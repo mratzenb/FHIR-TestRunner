@@ -44,6 +44,14 @@ public final class SampleData {
         return root().resolve("samples");
     }
 
+    /**
+     * The samples of the wiki page {@code docs/wiki/samples.md}, in {@code docs/wiki/samples/}: {@code first-suite},
+     * {@code mistakes} and the configuration {@code first-suite.yml}. Tested, so the page and the runner agree.
+     */
+    public static Path wikiSamples() {
+        return root().resolveSibling("docs").resolve("wiki").resolve("samples");
+    }
+
     /** A TestScript file of a sample folder. */
     public static Path testScript(Path suite, String fileName) {
         return suite.resolve("Test_Scripts").resolve(fileName);

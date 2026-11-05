@@ -1,0 +1,12 @@
+# The configuration of docs/wiki/samples.md: the wiki's sample suite against a local FHIR R4 server.
+#   java -jar testrunner-app/target/testrunner-app-*-exec.jar --config=docs/wiki/samples/first-suite.yml --novalidator
+testrunner:
+  fhir-server:
+    base-url: http://localhost:8080/fhir
+  suites:
+    - name: first-suite
+      fhir-version: R4
+      base-dir: docs/wiki/samples/first-suite
+  reporting:
+    output-dir: target/testrunner-results
+    formats: [junit, summary, json]
