@@ -8,7 +8,8 @@ build, so this page and the runner cannot drift apart.
 | Sample | Shows |
 |---|---|
 | [Your first suite](#your-first-suite) | the folder layout, a TestScript that creates, reads, searches, updates and deletes, the run folder |
-| [Mistakes found before sending](#mistakes-found-before-sending) | what the runner rejects in the phase `Load`, and the messages |
+| [Mistakes found before sending](#mistakes-found-before-sending) | what the runner rejects in the phase `Load`, and the messages; `--check` |
+| [Running one TestScript or one test](#running-one-testscript-or-one-test) | `--testscript`, `--test`, `--list` |
 | [Configurations](#configurations) | an R4 and an R5 server, parallel runs, an OAuth2 server, an IG package, CI |
 | [Reading a failure](#reading-a-failure) | from `summary.txt` to the exact bytes in `communication/` |
 | [Assertions](#assertions) | one line per assertion type |
@@ -164,7 +165,7 @@ runner reports all of them at once and sends **nothing** – no fixture is half-
 
 ```sh
 java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --novalidator \
-  --testrunner.suites[0].base-dir=docs/wiki/samples/mistakes --testrunner.suites[0].fhir-version=R4
+  '--testrunner.suites[0].base-dir=docs/wiki/samples/mistakes' '--testrunner.suites[0].fhir-version=R4'
 ```
 
 `summary.txt`, exit code 1:
@@ -191,11 +192,40 @@ the summary lists the same problems, in `check_<timestamp>/`:
 
 ```sh
 java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --check --novalidator \
-  --testrunner.suites[0].base-dir=docs/wiki/samples/mistakes --testrunner.suites[0].fhir-version=R4
+  '--testrunner.suites[0].base-dir=docs/wiki/samples/mistakes' '--testrunner.suites[0].fhir-version=R4'
 ```
 
 Run it on every change of a suite, e.g. in the CI job of an IG before it is published. A check of
-[`first-suite`](samples/first-suite) exits with 0.
+[`first-suite`](samples/first-suite) exits with 0. (The quotes keep zsh from reading `[0]` as a file pattern.)
+
+## Running one TestScript or one test
+
+`--testscript` and `--test` pick from the suites without editing them; `--list` shows the pick and sends nothing:
+
+```sh
+java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=docs/wiki/samples/first-suite.yml \
+  --novalidator --testscript=CreateReadSearch --test=Create,Read --list
+```
+
+```
+ 1. first-suite: docs/wiki/samples/first-suite/Test_Scripts/TestScript-create-read-search.json  (FHIR R4) CreateReadSearch – 2 of 4 tests
+      Create
+      Read
+1 TestScript(s), 2 test(s) would run (selected: TestScripts [CreateReadSearch], tests [Create, Read])
+```
+
+Without `--list` the same arguments run these two tests, with the setup and teardown. `--testscript` matches the file
+name, `TestScript.name` or `url`; `--test` a test name. Both take globs (`*`, `?`) and ignore case; tests left out are
+not in the reports.
+
+`Read` alone does not work: it reads the id of the Patient that `Create` kept. That is found before anything is sent:
+
+```
+Test 'Read', action 1: variable 'patientId' reads 'created', which is kept by Test 'Create', action 1, a test that is
+not selected (testrunner.select.tests); select that test too
+```
+
+Details: [configuration.md › Selecting what runs](../configuration.md#selecting-what-runs).
 
 The full list of what is checked before sending:
 [How a run works › Checks before sending](run-lifecycle.md#6-checks-before-sending). What is **not** checked there,

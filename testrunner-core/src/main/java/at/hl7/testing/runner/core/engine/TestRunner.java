@@ -2,8 +2,11 @@ package at.hl7.testing.runner.core.engine;
 
 import at.hl7.testing.runner.core.config.FhirServerConfig;
 import at.hl7.testing.runner.core.config.RunConfiguration;
+import at.hl7.testing.runner.core.config.SelectConfig;
 import at.hl7.testing.runner.core.http.HttpTransport;
+import at.hl7.testing.runner.core.model.FhirVersion;
 import at.hl7.testing.runner.core.model.TestDefinition;
+import at.hl7.testing.runner.core.model.TestScript;
 import at.hl7.testing.runner.core.report.Outcome;
 import at.hl7.testing.runner.core.report.PhaseKind;
 import at.hl7.testing.runner.core.report.PhaseResult;
@@ -27,6 +30,7 @@ import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -39,7 +43,11 @@ import java.util.function.Function;
  * Runs the TestScripts of a {@link RunConfiguration} and writes the reports. The entry point of the engine.
  *
  * <p>{@link #check} does everything a run does before it sends anything – discovery, loading, the checks before
- * sending, the validation of the TestScripts – and reports that, without a FHIR server.
+ * sending, the validation of the TestScripts – and reports that, without a FHIR server. {@link #list} only says what
+ * a run would run.
+ *
+ * <p>{@code RunConfiguration.select} narrows a run, a check and a list to some TestScripts and tests; see
+ * {@link #list}.
  *
  * <p>Stateless between runs and thread-safe: everything about a run lives in its {@link RunContext}. The
  * collaborators are passed in, so the runner works without any framework; the Spring Boot auto-configuration
@@ -147,11 +155,76 @@ public final class TestRunner {
         }
     }
 
-    private RunResult start(RunConfiguration configuration, RunControl control, Mode mode) {
+    /**
+     * What a run of this configuration would run, in the order it would run it: the TestScripts the suites hold and
+     * {@code select} selects, with the tests selected of each. Reads the TestScripts, sends nothing, writes nothing.
+     *
+     * <p>A TestScript is selected when a pattern of {@code select.test-scripts} matches its file name, name or url, and,
+     * if {@code select.tests} is given, at least one of its tests. A file that cannot be read is listed with an empty
+     * list of tests and its problem; with {@code select.tests} it is listed only if a TestScript pattern names its file.
+     *
+     * @throws ConfigurationException if the configuration cannot be used
+     */
+    public List<Listed> list(RunConfiguration configuration) {
+        RunConfiguration resolved = resolve(configuration, false);
+        Selection selection = new Selection(resolved.select());
+        List<Listed> listed = new ArrayList<>();
+        TestScriptLoader loader = new TestScriptLoader(versions);
+        for (TestScriptSource source : TestScriptDiscovery.discover(resolved.suites())) {
+            TestScript testScript = null;
+            String problem = null;
+            try {
+                testScript = loader.map(source);
+            } catch (TestScriptFormatException e) {
+                problem = e.getMessage();
+            } catch (RuntimeException e) {
+                problem = "Unexpected error: " + e;
+            }
+            if (selection.selects(source, testScript)) {
+                listed.add(new Listed(listed.size() + 1, source.suite().name(), source.file(),
+                        testScript == null ? null : testScript.fhirVersion(),
+                        testScript == null ? null : testScript.displayName(),
+                        testScript == null ? null : testScript.url(),
+                        testScript == null ? List.of() : selection.tests(testScript).stream().map(TestDefinition::name)
+                                .toList(),
+                        testScript == null ? 0 : testScript.tests().size(), problem));
+            }
+        }
+        return listed;
+    }
+
+    /**
+     * A TestScript a run would run, see {@link #list}.
+     *
+     * @param index       its position in the run, starting at 1
+     * @param suite       the name of its suite
+     * @param file        the file
+     * @param fhirVersion its FHIR version, {@code null} if it cannot be read
+     * @param name        its name for reports ({@code TestScript.name}, title or id), {@code null} if it cannot be read
+     * @param url         {@code TestScript.url}, may be {@code null}
+     * @param tests       the names of the tests that would run
+     * @param testCount   how many tests the TestScript has, selected or not
+     * @param problem     why the file cannot be read, {@code null} if it can; the run reports it as {@code error}
+     */
+    public record Listed(int index, String suite, Path file, FhirVersion fhirVersion, String name,
+                         String url, List<String> tests, int testCount, String problem) {
+
+        public Listed {
+            tests = List.copyOf(tests);
+        }
+    }
+
+    /**
+     * Checks the configuration and resolves its package suites.
+     *
+     * @param validates whether the run uses the validator, whose configuration problems then count
+     * @throws ConfigurationException if the configuration cannot be used
+     */
+    private RunConfiguration resolve(RunConfiguration configuration, boolean validates) {
         List<String> problems = new ArrayList<>(configuration.problems());
         problems.addAll(configuration.unsupportedVersions(versions.versions()));
         problems.addAll(configuration.unknownFormats(reports.formats()));
-        if (mode == Mode.RUN || configuration.validation().validateTestScripts()) {
+        if (validates) {
             problems.addAll(validator.configurationProblems());
         }
         if (problems.isEmpty()) {
@@ -165,6 +238,11 @@ public final class TestRunner {
         if (!problems.isEmpty()) {
             throw new ConfigurationException(problems);
         }
+        return configuration;
+    }
+
+    private RunResult start(RunConfiguration configuration, RunControl control, Mode mode) {
+        configuration = resolve(configuration, mode == Mode.RUN || configuration.validation().validateTestScripts());
         RunContext run = RunContext.start(configuration, clock.instant(), mode == Mode.CHECK ? "check" : "run");
         try {
             Files.createDirectories(run.runDirectory());
@@ -180,14 +258,16 @@ public final class TestRunner {
         notify(listener -> listener.runStarted(info));
         Throwable failure = null;
         try {
-            List<TestScriptSource> sources = TestScriptDiscovery.discover(configuration.suites());
+            Selection selection = new Selection(configuration.select());
+            List<TestScriptSource> sources = select(TestScriptDiscovery.discover(configuration.suites()), selection,
+                    configuration.select());
             progress.found(sources);
             logStart(run, mode, sources);
             CapabilityCheck capabilities = new CapabilityCheck();
             scheduler.runAll(run, sources, control,
                     (index, source) -> {
                         progress.started(index);
-                        TestScriptResult result = runOne(run, control, mode, index, sources.size(), source,
+                        TestScriptResult result = runOne(run, control, mode, selection, index, sources.size(), source,
                                 capabilities);
                         progress.finished(result);
                         return result;
@@ -273,9 +353,40 @@ public final class TestRunner {
         return result;
     }
 
+    /**
+     * The TestScripts selected by {@code select}, in discovery order; logs how many were left out. Reads a TestScript
+     * only if its name, url or tests decide; a file that cannot be read stays in if its file name is selected, so
+     * that its error is reported.
+     */
+    private List<TestScriptSource> select(List<TestScriptSource> found, Selection selection, SelectConfig select) {
+        if (selection.all()) {
+            return found;
+        }
+        TestScriptLoader loader = new TestScriptLoader(versions);
+        List<TestScriptSource> selected = new ArrayList<>();
+        for (TestScriptSource source : found) {
+            if (selection.selectsByFileName(source)) {
+                selected.add(source);
+                continue;
+            }
+            TestScript testScript;
+            try {
+                testScript = loader.map(source);
+            } catch (RuntimeException e) {
+                testScript = null; // loaded again when it runs, which reports the problem
+            }
+            if (selection.selects(source, testScript)) {
+                selected.add(source);
+            }
+        }
+        log.info("Selected {} of {} TestScript(s) ({}); {} left out", selected.size(), found.size(),
+                select.describe(), found.size() - selected.size());
+        return selected;
+    }
+
     /** Runs or checks one TestScript; never throws, every problem ends up in the result. */
-    private TestScriptResult runOne(RunContext run, RunControl control, Mode mode, int index, int total,
-                                    TestScriptSource source, CapabilityCheck capabilities) {
+    private TestScriptResult runOne(RunContext run, RunControl control, Mode mode, Selection selection, int index,
+                                    int total, TestScriptSource source, CapabilityCheck capabilities) {
         String label = "%02d_%s".formatted(index, source.baseName());
         Instant started = clock.instant();
         MDC.put(MDC_TEST_SCRIPT, label);
@@ -283,8 +394,11 @@ public final class TestRunner {
             log.info("===== TestScript {}/{}: {}", index, total, source.file());
             TestScriptResult result;
             try {
-                LoadedTestScript loaded = new TestScriptLoader(versions).load(source);
-                result = execute(run, control, mode, index, label, loaded, started, capabilities);
+                LoadedTestScript complete = new TestScriptLoader(versions).load(source);
+                LoadedTestScript loaded = selected(complete, selection);
+                Map<String, String> leftOut = TestScriptChecks.keptBy(complete.testScript().tests().stream()
+                        .filter(t -> !selection.selects(t)).toList());
+                result = execute(run, control, mode, index, label, loaded, leftOut, started, capabilities);
             } catch (TestScriptFormatException | ValidatorUnavailableException e) {
                 log.error("TestScript {} could not be loaded: {}", source.file().getFileName(), e.getMessage());
                 var version = e instanceof TestScriptFormatException format ? format.fhirVersion() : null;
@@ -312,8 +426,30 @@ public final class TestRunner {
         }
     }
 
+    /**
+     * The TestScript with only its selected tests; setup and teardown stay. Tests left out are neither run nor
+     * reported, and the checks before sending see only what runs.
+     */
+    private static LoadedTestScript selected(LoadedTestScript loaded, Selection selection) {
+        if (!selection.selectsTests()) {
+            return loaded;
+        }
+        TestScript testScript = loaded.testScript();
+        List<TestDefinition> tests = selection.tests(testScript);
+        if (tests.size() == testScript.tests().size()) {
+            return loaded;
+        }
+        log.info("{} of {} test(s) selected: {}", tests.size(), testScript.tests().size(),
+                tests.stream().map(TestDefinition::name).toList());
+        return loaded.withTestScript(testScript.withTests(tests));
+    }
+
+    /**
+     * @param leftOut where the responseIds and requestIds of the tests left out by the selection are kept
+     */
     private TestScriptResult execute(RunContext run, RunControl control, Mode mode, int index, String label,
-                                     LoadedTestScript loaded, Instant started, CapabilityCheck capabilities) {
+                                     LoadedTestScript loaded, Map<String, String> leftOut, Instant started,
+                                     CapabilityCheck capabilities) {
         var testScript = loaded.testScript();
         var suite = loaded.source().suite();
         log.info("TestScript '{}' ({}, FHIR {})", testScript.displayName(),
@@ -326,7 +462,7 @@ public final class TestRunner {
         List<String> unsupported = TestScriptChecks.unsupportedWarnings(testScript);
         unsupported.forEach(w -> log.warn("{}", w));
         List<String> problems = new ArrayList<>(TestScriptChecks.problems(testScript, loaded.fixtureResources(),
-                builtIn.keySet()));
+                builtIn.keySet(), leftOut));
         problems.addAll(validateTestScript(run, loaded));
         if (!problems.isEmpty()) {
             problems.forEach(p -> log.error("{}", p));
@@ -449,12 +585,16 @@ public final class TestRunner {
                 s.fhirVersion()));
         c.suites().stream().filter(s -> !s.igs().isEmpty())
                 .forEach(s -> log.info("  Suite '{}' validates with IGs {}", s.name(), s.igs()));
+        if (!c.select().selectsAll()) {
+            log.info("  Selected:           {}", c.select().describe());
+        }
         log.info("{} TestScript(s) to {}", sources.size(), mode == Mode.CHECK ? "check" : "run");
         for (int i = 0; i < sources.size(); i++) {
             log.info("  {}. {}", i + 1, sources.get(i).file());
         }
         if (sources.isEmpty()) {
-            log.warn("No TestScripts found in the configured suites");
+            log.warn(c.select().selectsAll() ? "No TestScripts found in the configured suites"
+                    : "No TestScript is selected (" + c.select().describe() + ")");
         }
     }
 

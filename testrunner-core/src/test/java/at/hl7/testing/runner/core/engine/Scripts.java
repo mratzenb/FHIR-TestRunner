@@ -115,6 +115,15 @@ final class Scripts {
         private final List<Action> setup = new ArrayList<>();
         private final List<TestDefinition> tests = new ArrayList<>();
         private final List<Action> teardown = new ArrayList<>();
+        private String name = "TS";
+        private String url = "http://example.org/TestScript/ts";
+
+        /** {@code TestScript.name} and {@code TestScript.url}; default {@code TS} and {@code …/TestScript/ts}. */
+        Builder named(String newName, String newUrl) {
+            this.name = newName;
+            this.url = newUrl;
+            return this;
+        }
 
         Builder destination(int index) {
             destinations.add(new Destination(index, "FHIR-Server"));
@@ -158,7 +167,7 @@ final class Scripts {
         }
 
         TestScript build() {
-            return new TestScript(FhirVersion.R4, "ts", "http://example.org/TestScript/ts", "TS", null, destinations,
+            return new TestScript(FhirVersion.R4, "ts", url, name, null, destinations,
                     capabilities, fixtures, profiles, variables, setup, tests, teardown);
         }
     }

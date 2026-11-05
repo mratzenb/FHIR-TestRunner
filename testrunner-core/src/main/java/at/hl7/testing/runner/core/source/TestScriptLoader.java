@@ -37,6 +37,17 @@ public final class TestScriptLoader {
     }
 
     /**
+     * Reads the file and maps it to the model, without loading what it refers to: enough to know its name, url and
+     * tests, also when a fixture resource is missing.
+     *
+     * @throws TestScriptFormatException if the file cannot be read or its version cannot be determined
+     */
+    public TestScript map(TestScriptSource source) {
+        Body content = read(source);
+        return support(source, content).readTestScript(content).testScript();
+    }
+
+    /**
      * @throws TestScriptFormatException if the file cannot be read, its version cannot be determined or a fixture
      *                                   resource is missing
      */

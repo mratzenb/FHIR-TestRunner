@@ -7,7 +7,8 @@ description: Configuration of the FHIR TestScript Runner (TestRunnerOnJava) – 
 
 `core.config.RunConfiguration` – a tree of immutable records – is the **only** input of `TestRunner.run`:
 `fhirServer: FhirServerConfig`, `suites: List<SuiteConfig>`, `http: HttpConfig`, `execution: ExecutionConfig`,
-`validation: ValidationConfig` (+ `ServerModeConfig server`, `ValidatorMode mode`), `reporting: ReportingConfig`.
+`validation: ValidationConfig` (+ `ServerModeConfig server`, `ValidatorMode mode`), `reporting: ReportingConfig`,
+`packages: PackagesConfig`, `select: SelectConfig` (8 components; `withSuites`, `withSelect`).
 Defaults are applied in the **compact constructors** (null ⇒ default), so binding, code and tests share them.
 `problems()` lists everything that blocks a run, all at once (exit code 2).
 
@@ -61,9 +62,15 @@ testrunner:
     log-file: true
     log-file-level: DEBUG                    # TRACE|DEBUG|INFO|WARN|ERROR
   packages: {cache-dir: ~/.fhir/packages, registry: https://packages.fhir.org}   # PackagesConfig
+  select:                                    # SelectConfig, default all (ADR-0014); engine: core.engine.Selection
+    test-scripts: []                         # globs (* ? case-insensitive, whole text) on file name ± extension,
+                                             # TestScript.name or url; empty entry ⇒ problems()
+    tests: []                                # globs on test names; setup/teardown always run; deselected tests are
+                                             # left out (not skip), a TestScript without a selected test too
   run-on-startup: true                       # app only (RunCommand); false = wire without running
   mode: run                                  # app only (RunCommand.Mode, Binder): run | check (--check: load +
-                                             # check, send nothing, TestRunner.check, ADR-0014)
+                                             # check, send nothing, TestRunner.check, ADR-0014) | list (--list:
+                                             # TestRunner.list, printed to stdout by RunCommand.list, writes nothing)
   exit-on-skip: all                          # app only (RunCommand.ExitOnSkip, bound via Binder): all | any | never
   shutdown-grace: 30s                        # app only (RunCommand, Binder): wait on Ctrl-C/SIGTERM before reportNow
 ```
@@ -71,7 +78,9 @@ testrunner:
 Sources, highest first: command line → system properties → env vars (`TESTRUNNER_FHIRSERVER_BASEURL`) → `--config`
 file → `testrunner-app/src/main/resources/application.yml`. CLI shortcuts (`TestRunnerApplication`):
 `--config=<file>` = `--spring.config.additional-location=file:<file>`, `--novalidator` =
-`--testrunner.validation.enabled=false`, `--check` = `--testrunner.mode=check`. Console logging is ordinary Spring Boot (`logging.level.*`).
+`--testrunner.validation.enabled=false`, `--check` = `--testrunner.mode=check`, `--list` = `--testrunner.mode=list`,
+`--testscript=<glob>` / `--test=<glob>` (repeatable or comma-separated; `--opt value` too) =
+`--testrunner.select.test-scripts[i]=…` / `--testrunner.select.tests[i]=…` (indexed, collected over all options). Console logging is ordinary Spring Boot (`logging.level.*`).
 
 Dev configs in `config/`: `dev-r4.yml`, `dev-r5.yml`, `dev-all.yml` (samples + r4 + r5, parallelism 4, R5 on
 `:8081`), `negative-control.yml` (expected FAIL). All take `validator-jar: ${VALIDATOR_JAR:validator_cli.jar}`,
@@ -112,15 +121,17 @@ Spring closes it (stops validator servers). Registered in
 
 `testrunner-app`: `TestRunnerApplication` (main, argument shortcuts, `web-application-type: none`), `RunCommand`
 (`ApplicationRunner` + `ExitCodeGenerator` + `ApplicationListener<ContextClosedEvent>`, conditional on
-`run-on-startup`; runs with a `RunControl` and on context close – Ctrl-C/SIGTERM, before beans are destroyed –
-`stop(control, shutdownGrace)`: cancel, `awaitFinished`, else `reportNow`), `ValidatorCheck` (start-up warning).
+`run-on-startup`; `testrunner.mode` run / check / list – `@Autowired` public constructor, a package-private one takes
+the `PrintStream` for `--list`; runs with a `RunControl` and on context close – Ctrl-C/SIGTERM, before beans are
+destroyed – `stop(control, shutdownGrace)`: cancel, `awaitFinished`, else `reportNow`), `ValidatorCheck` (start-up
+warning).
 
 ## Library use (no Spring)
 
 ```java
 RunConfiguration configuration = new RunConfiguration(FhirServerConfig.of("http://localhost:8080/fhir"),
         List.of(SuiteConfig.of(Path.of("testdata/r4"), "R4")), null, ExecutionConfig.parallel(4),
-        ValidationConfig.enabled(Path.of("validator_cli.jar")).withMode(ValidatorMode.SERVER), null, null);
+        ValidationConfig.enabled(Path.of("validator_cli.jar")).withMode(ValidatorMode.SERVER), null, null, null);
 ProfileValidator validator = ProfileValidators.create(configuration.validation());
 try {
     RunResult result = TestRunners.create(configuration.http(), validator).run(configuration);

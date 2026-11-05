@@ -21,6 +21,9 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
 | `--config=<file>` | Adds a configuration file (short for `--spring.config.additional-location=file:<file>`) |
 | `--novalidator` | Disables profile validation (short for `--testrunner.validation.enabled=false`) |
 | `--check` | Only loads and checks the TestScripts, sends nothing (short for `--testrunner.mode=check`), see [Check mode](#check-mode) |
+| `--list` | Prints what would run, sends and writes nothing (short for `--testrunner.mode=list`), see [Selecting what runs](#selecting-what-runs) |
+| `--testscript=<glob>` | Runs only the TestScripts whose file name, `name` or `url` matches; repeatable, or comma-separated (adds to `testrunner.select.test-scripts`) |
+| `--test=<glob>` | Runs only the tests whose name matches; setup and teardown always run (adds to `testrunner.select.tests`) |
 | `--testrunner.<property>=<value>` | Overrides any single property |
 | `--spring.profiles.active=<p>` | Activates `application-<p>.yml` files placed next to the jar or in `./config/` |
 
@@ -103,12 +106,17 @@ testrunner:
     log-file: true                         # testrunner.log in the run folder
     log-file-level: DEBUG                  # TRACE | DEBUG | INFO | WARN | ERROR
 
+  select:                                  # which TestScripts and tests of the suites run; default all
+    test-scripts: []                       # globs on file name (with or without extension), TestScript.name or url
+    tests: []                              # globs on test names; setup and teardown always run
+
   packages:                                # for suites with package-id
     cache-dir: ~/.fhir/packages            # default; the cache of the validator, IG Publisher and SUSHI
     registry: https://packages.fhir.org    # default; where missing packages are downloaded from
 
   run-on-startup: true                     # app only: false to wire everything without running (tests, embedding)
   mode: run                                # app only: run (default) | check – load and check, send nothing (--check)
+                                           # | list – print what would run (--list)
   exit-on-skip: all                        # app only: when skipped TestScripts give exit code 3 instead of 0:
                                            # all (default, nothing was tested) | any (a skip, no failure) | never
   shutdown-grace: 30s                      # app only: on Ctrl-C or kill, how long to wait for the run to tear
@@ -182,6 +190,39 @@ ignores, an assertion the runner cannot evaluate), or `error` listing every prob
 executed. Exit code 0 no problems, 1 problems, 2 configuration. In a library, call `TestRunner.check(configuration)`.
 Why it is built this way: [ADR-0014](adr/0014-author-workflow.md).
 
+### Selecting what runs
+
+`select` narrows a run – and a check and a list – to some TestScripts and tests, without touching the suites:
+
+```sh
+java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=config/dev-r4.yml \
+  --testscript='*patient-update*' --test='Update*'
+```
+
+| Setting | Short form | Matches |
+|---|---|---|
+| `select.test-scripts: ["*update*"]` | `--testscript='*update*'` | the file name (`TestScript-x.json` or `TestScript-x`), `TestScript.name` or `TestScript.url` |
+| `select.tests: [UpdatePatient]` | `--test=UpdatePatient` | `TestScript.test.name` |
+
+* Patterns are globs: `*` any characters, `?` one, case-insensitive, matching the whole text – `read` does not match
+  `read-patient`, `read*` does. Several patterns: any of them. Quote them in a shell.
+* With `select.tests`, a TestScript runs only if at least one of its tests is selected.
+* **Setup and teardown always run.** Tests left out are not run and **not reported** – not as `skip` either. The log
+  says how many were left out.
+* A selected test that needs a response kept by a test left out is a `Load` error naming that test: select it too.
+* `include` of a suite still applies first: the selection picks from what the suites hold.
+
+`--list` shows what a run with the same arguments would run, and sends and writes nothing:
+
+```
+ 1. r4: testdata/r4/Test_Scripts/TestScript-testscript-patient-update-at-core.json  (FHIR R4) TestScriptATCorePatientUpdate
+      UpdatePatient
+1 TestScript(s), 1 test(s) would run (selected: TestScripts [*patient-update*], tests [Update*])
+```
+
+A TestScript with tests left out says so (`– 1 of 4 tests`); one that cannot be read shows why. Exit code 0, or 1 if
+a TestScript cannot be read. In a library: `TestRunner.list(configuration)`.
+
 ### Servers protected by OAuth2
 
 A FHIR server that wants an OAuth2 access token needs no code. With `fhir-server.oauth2` the runner uses the client
@@ -253,7 +294,7 @@ Relaxed binding applies: `base-dir`, `baseDir` and `BASEDIR` are the same; durat
 |---|---|
 | `fhirServer` | `testrunner.fhir-server.base-url` |
 | `path` | `testrunner.suites[n].base-dir` |
-| `testscripts: [...]` | `testrunner.suites[n].include` (globs, relative to `Test_Scripts/`) |
+| `testscripts: [...]` | `testrunner.suites[n].include` (globs, relative to `Test_Scripts/`); for one run also `--testscript` |
 | `results_path` | `testrunner.reporting.output-dir` |
 | `validation.fhirVersion` | not needed: the version comes from each TestScript (or `suites[n].fhir-version`) |
 | `<path>/validator_cli.jar` (fixed) | `testrunner.validation.validator-jar` (any path) |
@@ -273,7 +314,7 @@ RunConfiguration configuration = new RunConfiguration(
         List.of(SuiteConfig.of(Path.of("testdata/r4"), "R4")),
         null, ExecutionConfig.parallel(4),
         ValidationConfig.enabled(Path.of("validator_cli.jar")).withMode(ValidatorMode.SERVER),
-        null, null);                       // reporting and packages: defaults
+        null, null, null);                 // reporting, packages, select: defaults
 ProfileValidator validator = ProfileValidators.create(configuration.validation());
 try {
     RunResult result = TestRunners.create(configuration.http(), validator).run(configuration);

@@ -5,10 +5,13 @@ import at.hl7.testing.runner.core.config.FhirServerConfig;
 import at.hl7.testing.runner.core.config.HttpConfig;
 import at.hl7.testing.runner.core.config.ReportingConfig;
 import at.hl7.testing.runner.core.config.RunConfiguration;
+import at.hl7.testing.runner.core.config.SelectConfig;
 import at.hl7.testing.runner.core.config.SuiteConfig;
 import at.hl7.testing.runner.core.config.ValidationConfig;
 import at.hl7.testing.runner.core.engine.RunControl;
+import at.hl7.testing.runner.core.engine.TestRunner;
 import at.hl7.testing.runner.core.engine.TestRunners;
+import at.hl7.testing.runner.core.model.FhirVersion;
 import at.hl7.testing.runner.core.report.Outcome;
 import at.hl7.testing.runner.core.report.PhaseKind;
 import at.hl7.testing.runner.core.report.PhaseResult;
@@ -81,6 +84,30 @@ class RunCommandTest {
         assertThat(control.isFinished()).isTrue();
     }
 
+    @Test
+    void listShowsTheTestScriptsWithTheirSelectedTestsAndTheCounts() {
+        List<TestRunner.Listed> listed = List.of(
+                new TestRunner.Listed(1, "r4", Path.of("r4/Test_Scripts/a.json"), FhirVersion.R4, "A", "http://x/a",
+                        List.of("read", "search"), 2, null),
+                new TestRunner.Listed(2, "r4", Path.of("r4/Test_Scripts/b.json"), FhirVersion.R4, "B", null,
+                        List.of("read"), 3, null),
+                new TestRunner.Listed(3, "r4", Path.of("r4/Test_Scripts/broken.json"), null, null, null, List.of(), 0,
+                        "The FHIR version of broken.json could not be determined, it is …\n  R4: …"));
+
+        String text = RunCommand.list(listed, new SelectConfig(null, List.of("read", "search")));
+
+        assertThat(text).isEqualTo("""
+                 1. r4: %s  (FHIR R4) A
+                      read
+                      search
+                 2. r4: %s  (FHIR R4) B – 1 of 3 tests
+                      read
+                 3. r4: %s  (cannot be read: The FHIR version of broken.json could not be determined, it is …)
+                3 TestScript(s), 3 test(s) would run (selected: tests [read, search])
+                """.formatted(Path.of("r4/Test_Scripts/a.json"), Path.of("r4/Test_Scripts/b.json"),
+                Path.of("r4/Test_Scripts/broken.json")));
+    }
+
     /** Lets {@code control} go through a run without TestScripts, as {@code TestRunner.run} does. */
     private static void finishedRun(RunControl control) {
         try (InMemoryFhirServer server = InMemoryFhirServer.start("4.0.1")) {
@@ -88,7 +115,7 @@ class RunCommandTest {
             java.nio.file.Files.createDirectories(dir.resolve("suite/Test_Scripts"));
             var configuration = new RunConfiguration(FhirServerConfig.of(server.baseUrl()),
                     List.of(SuiteConfig.of(dir.resolve("suite"), "R4")), null, null, ValidationConfig.disabled(),
-                    new ReportingConfig(dir.resolve("results"), null, false, false, null, null), null);
+                    new ReportingConfig(dir.resolve("results"), null, false, false, null, null), null, null);
             TestRunners.create(HttpConfig.defaults(), ProfileValidator.DISABLED).run(configuration, control);
         } catch (java.io.IOException e) {
             throw new java.io.UncheckedIOException(e);

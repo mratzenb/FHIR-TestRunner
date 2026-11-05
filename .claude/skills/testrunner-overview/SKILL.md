@@ -19,7 +19,7 @@ communication log of every HTTP exchange. Group `at.hl7.testing`, version `0.1.0
 | `testrunner-fhir-r4`, `-r5` | `fhir.r4`, `fhir.r5` | `R4Support`/`R5Support` + `R4Dialect`/`R5Dialect`, `META-INF/services` registration | fhir-hapi, `hapi-fhir-structures-rX` |
 | `testrunner-validation-cli` | `validation.cli` | `ValidatorCliProfileValidator` (process), `ValidatorServerProfileValidator` + `ValidatorServer` (server), `ProfileValidators` factory | core |
 | `testrunner-spring-boot-autoconfigure` | `autoconfigure` | `TestRunnerAutoConfiguration`, `ValidatorCliAutoConfiguration`, `RunLogFileListener` | core, Spring Boot |
-| `testrunner-app` | `app` | `TestRunnerApplication` (main, `--config`, `--novalidator`, `--check`), `RunCommand` (run or check, exit code), `ValidatorCheck`; `EndToEndIT`, `RealValidatorIT`, `HapiServerIT`, `ShutdownIT`, `ArchitectureTest` | everything |
+| `testrunner-app` | `app` | `TestRunnerApplication` (main, `--config`, `--novalidator`, `--check`, `--list`, `--testscript`, `--test`), `RunCommand` (run, check or list; exit code), `ValidatorCheck`; `EndToEndIT`, `RealValidatorIT`, `HapiServerIT`, `ShutdownIT`, `ArchitectureTest` | everything |
 | `testrunner-test-support` | `testsupport` | **test code only** (`src/test/java`, test-jar classifier `tests`): `InMemoryFhirServer`, `FakeValidator`/`FakeValidatorJar`, `SampleData` | Jackson, Jetty |
 
 Other folders: `config/` dev configurations (`dev-r4.yml`, `dev-r5.yml`, `dev-all.yml`, `negative-control.yml`),
@@ -36,7 +36,8 @@ Other folders: `config/` dev configurations (`dev-r4.yml`, `dev-r5.yml`, `dev-al
 | `engine.RunListener` | run / TestScript events, with a read-only `RunInfo` (not `RunContext`) | `RunLogFileListener` |
 
 Entry points: `TestRunner.run(RunConfiguration)` or `run(RunConfiguration, RunControl)` (stoppable, ADR-0013);
-`TestRunner.check(…)` loads and checks without sending (ADR-0014); without Spring `TestRunners.create(HttpConfig, ProfileValidator)`
+`TestRunner.check(…)` loads and checks without sending, `TestRunner.list(…)` says what would run, `RunConfiguration.select`
+narrows all three (ADR-0014); without Spring `TestRunners.create(HttpConfig, ProfileValidator)`
 and `ProfileValidators.create(ValidationConfig)`.
 
 ## Rules that the build enforces
@@ -44,7 +45,7 @@ and `ProfileValidators.create(ValidationConfig)`.
 * `ArchitectureTest` (ArchUnit, app module): core uses no Spring/HAPI/Logback/adapter packages; `fhir.r4` and
   `fhir.r5` do not know each other; `fhir.hapi` uses no `org.hl7.fhir.r4..`/`r5..`; `fhir..` and `validation..` use
   no Spring; core packages are cycle-free; **other modules use only the core API** (`CORE_API_PACKAGES`: `model`,
-  `config`, `spi`, `report`; `CORE_API_TYPES`: `TestRunner`, `TestRunners`, `RunControl`, `RunListener`, `RunInfo`,
+  `config`, `spi`, `report`; `CORE_API_TYPES`: `TestRunner` (incl. nested `TestRunner.Listed`), `TestRunners`, `RunControl`, `RunListener`, `RunInfo`,
   `ConfigurationException`, `HttpTransport`, `JdkHttpTransport`, `FhirRequest`, `FhirResponse`, `HttpHeaders`) –
   using anything else from outside means adding it to that list on purpose; nobody outside `engine` uses `RunContext`. Spring is therefore only in `autoconfigure` and `app`.
 * Compiler: `--limit-modules java.se` – no `com.sun.*`, `sun.*`, `jdk.*` APIs in main or test code.

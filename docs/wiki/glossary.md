@@ -9,6 +9,7 @@
 | **Suite** | A set of TestScripts with its folders, usually one IG. Configured under `testrunner.suites`. Example: [Samples › Your first suite](samples.md#your-first-suite). |
 | **Run** | One call of `TestRunner.run`. Has a run id and a run folder. |
 | **Check** | One call of `TestRunner.check` (`--check`): loads and checks the TestScripts like a run, sends nothing. Run folder `check_<timestamp>`. |
+| **Selection** | `testrunner.select` (`--testscript`, `--test`): the TestScripts and tests a run takes from its suites. What is not selected is left out, not skipped. `--list` shows it. |
 | **Run folder** | `<output-dir>/run_<timestamp>/` – reports, log and communication log of one run. |
 | **Phase** | Load, Setup, one Test, or Teardown. Each gets a result. |
 | **Action** | One step in a phase: an operation or an assertion. |

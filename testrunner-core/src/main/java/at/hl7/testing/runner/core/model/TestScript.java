@@ -42,6 +42,12 @@ public record TestScript(FhirVersion fhirVersion, String id, String url, String 
         teardown = List.copyOf(teardown);
     }
 
+    /** A copy with only these tests, e.g. those selected to run; setup and teardown stay. */
+    public TestScript withTests(List<TestDefinition> newTests) {
+        return new TestScript(fhirVersion, id, url, name, title, destinations, capabilities, fixtures, profiles,
+                variables, setup, newTests, teardown);
+    }
+
     /** The name to show in logs and reports: name, title, id, in this order. */
     public String displayName() {
         for (String candidate : new String[] {name, title, id}) {

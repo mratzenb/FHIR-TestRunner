@@ -15,6 +15,8 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
    package-private), notifies `RunListener`s with `RunContext.info()` = `RunInfo` (run id, start, configuration, run
    folder – no counter, no tokens).
 2. `source.TestScriptDiscovery` lists files per suite (glob `include` relative to `Test_Scripts/`, stable order).
+   Then `TestRunner.select` keeps what `RunConfiguration.select` selects (see Selection below); the index counts
+   only selected TestScripts.
 3. Per file (`RunScheduler`: in parallel if `execution.parallelism > 1`): `source.TestScriptLoader` detects or takes the pinned FHIR
    version, maps the file via that version's `FhirVersionSupport`, loads fixture resources: `#id` references from
    `TestScript.contained` (`ResourceContent.contained` on the file, JSON/XML, version-neutral; unknown id ⇒ Load
@@ -48,6 +50,22 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
 `validate-test-scripts` is on; fail-fast and `test-script-timeout` ignored, run timeout/cancel apply;
 `ReportPublisher.publish(run, result, check)` skips format `testreport` and logs "===== Check …". App:
 `--check` = `testrunner.mode=check` (`RunCommand.Mode`), exit codes as for a run.
+
+**Selection (F2, ADR-0014).** `config.SelectConfig(testScripts, tests)` (globs; empty = all; blank entry ⇒
+`problems()`), applied by package-private `engine.Selection` (`glob`: `*`/`?`, case-insensitive, whole text,
+everything else literal). TestScript selected if a pattern matches file name ± extension, `name` or `url`, and – with
+test patterns – one of its tests; unreadable file (`selects(source, null)`) only via a TestScript pattern on its file
+name. Deciding by name/url/tests reads the file once (`TestScriptLoader.map` = read + map, no fixtures); a file-name
+match (`selectsByFileName`, only without test patterns) reads nothing. In `runOne`, `selected(loaded, selection)`
+→ `LoadedTestScript.withTestScript(testScript.withTests(selectedTests))`: deselected tests are neither run nor
+reported (no `skip`), setup/teardown always run; log "Selected n of m TestScript(s) (…); k left out" and "x of y
+test(s) selected: […]". `TestScriptChecks.problems(…, leftOut)` with `TestScriptChecks.keptBy(deselected tests)`:
+an id kept only by a deselected test ⇒ Load error "…, which is kept by Test 'x', action 1, a test that is not
+selected (testrunner.select.tests); select that test too" (reported once per id). `TestRunner.list(configuration)`
+→ `List<TestRunner.Listed>` (index, suite, file, version, name, url, selected test names, testCount, problem): reads,
+sends and writes nothing, no listeners. App: `--testscript`/`--test` (repeatable, comma-separated) →
+`testrunner.select.*[i]`; `--list` = `testrunner.mode=list`, `RunCommand.list(listed, select)` prints to stdout, exit
+0 (1 if a TestScript cannot be read). Tests: `SelectionTest`, `RunCommandTest`, `EndToEndIT`.
 
 The MDC key `testScript` (`TestRunner.MDC_TEST_SCRIPT`) = `<NN>_<file base name>` while a TestScript runs.
 

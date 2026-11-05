@@ -109,8 +109,9 @@ new TestRunner(versions, transport, validator, reportWriters, listeners, clock);
 `TestRunners.create(httpConfig, validator)` builds one with the defaults, without Spring.
 
 `TestRunner` checks the configuration and runs one TestScript at a time: load, check, execute. `check` stops
-before execute, for authors and CI without a server ([ADR-0014](../../adr/0014-author-workflow.md)). Three helpers do
-the rest:
+before execute, for authors and CI without a server; `list` says what would run. `Selection` applies
+`RunConfiguration.select` to the TestScripts and tests ([ADR-0014](../../adr/0014-author-workflow.md)). Three helpers
+do the rest:
 
 | Class | Job |
 |---|---|
@@ -126,7 +127,7 @@ enforces it; everything else may change without notice.
 | Package | Public for other modules |
 |---|---|
 | `model`, `config`, `spi`, `report` | everything: the model the version modules fill, the configuration, the ports, the results |
-| `engine` | `TestRunner`, `TestRunners`, `RunControl`, `RunListener`, `RunInfo`, `ConfigurationException` |
+| `engine` | `TestRunner` (with `TestRunner.Listed`, the result of `list`), `TestRunners`, `RunControl`, `RunListener`, `RunInfo`, `ConfigurationException` |
 | `http` | `HttpTransport`, `JdkHttpTransport`, `FhirRequest`, `FhirResponse`, `HttpHeaders` – for a transport of your own |
 | `content`, `source` | nothing |
 
@@ -164,7 +165,7 @@ response. Decimals keep their precision (`100.0` ≠ `100`).
 
 | Test | Covers |
 |---|---|
-| Engine tests, one class per concern, all on `EngineTestBase`: `FixturesTest`, `OperationsTest`, `AssertionsTest`, `CapabilitiesTest`, `ReferenceRewritingTest`, `KeptRequestsTest`, `ChecksBeforeSendingTest`, `CheckModeTest`, `PhasesTest`, `PlaceholdersTest`, `TestRunnerTest`, `RunControlTest`, `RunFolderTest`, `OAuth2Test` | phase rules, operations, assertions, fixtures, capabilities, variables, kept requests, checks before sending, check mode, parallel runs, run control, the run folder, OAuth2 – through the real `TestRunner` with an in-memory server |
+| Engine tests, one class per concern, all on `EngineTestBase`: `FixturesTest`, `OperationsTest`, `AssertionsTest`, `CapabilitiesTest`, `ReferenceRewritingTest`, `KeptRequestsTest`, `ChecksBeforeSendingTest`, `CheckModeTest`, `SelectionTest`, `PhasesTest`, `PlaceholdersTest`, `TestRunnerTest`, `RunControlTest`, `RunFolderTest`, `OAuth2Test` | phase rules, operations, assertions, fixtures, capabilities, variables, kept requests, checks before sending, check mode, selection and list, parallel runs, run control, the run folder, OAuth2 – through the real `TestRunner` with an in-memory server |
 | `RunConfigurationTest` | defaults and `problems()` |
 | `AccessTokensTest` | fetching and renewing OAuth2 access tokens |
 | `FhirElementTest`, `PathEvaluatorTest`, `ResourceContentTest`, `UrlEncodingTest` | content helpers |

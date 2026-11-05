@@ -160,6 +160,33 @@ class EndToEndIT {
         assertThat(r4Server.requests()).isEmpty();
     }
 
+    /** The selection of docs/wiki/samples.md: Create and Read run, Read alone is a Load error naming Create. */
+    @Test
+    void wikiSampleTestsAreSelectedByName() {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+        Path samples = SampleData.wikiSamples();
+        List<String> common = List.of("spring.config.additional-location=file:" + samples.resolve("first-suite.yml"),
+                "testrunner.fhir-server.base-url=" + r4Server.baseUrl(),
+                "testrunner.suites[0].base-dir=" + samples.resolve("first-suite"),
+                "testrunner.validation.enabled=false",
+                "testrunner.select.test-scripts[0]=CreateReadSearch");
+        List<String> two = new ArrayList<>(common);
+        two.addAll(List.of("testrunner.select.tests[0]=Create", "testrunner.select.tests[1]=Read"));
+
+        TestScriptResult result = run(two.toArray(String[]::new)).testScripts().getFirst();
+
+        assertThat(result.phases()).extracting(PhaseResult::name).containsExactly("Setup", "Create", "Read", "Teardown");
+        assertThat(result.outcome()).isEqualTo(Outcome.PASS);
+        assertThat(r4Server.requestLines()).containsExactly("POST /Patient", "GET /Patient/1", "DELETE /Patient/1");
+        context.close();
+
+        List<String> one = new ArrayList<>(common);
+        one.add("testrunner.select.tests[0]=Read");
+        assertThat(run(one.toArray(String[]::new)).testScripts().getFirst().phases().getFirst().messages().getFirst())
+                .contains("Test 'Read', action 1: variable 'patientId' reads 'created', which is kept by Test 'Create',"
+                        + " action 1, a test that is not selected (testrunner.select.tests); select that test too");
+    }
+
     /** The {@code --check} commands of docs/wiki/samples.md: the same Load error without a server, 0 for the good suite. */
     @Test
     void wikiSamplesAreCheckedWithoutAServer() {
@@ -412,6 +439,59 @@ class EndToEndIT {
         assertThat(check.resolve("communication")).as("nothing was sent").doesNotExist();
         assertThat(Files.readAllLines(calls)).as("every TestScript that could be read is validated")
                 .filteredOn(l -> l.startsWith("validate")).hasSize(8);
+    }
+
+    /** F2 of docs/wiki/next-steps.md: select by file name, by TestScript name and by test name; --list sends nothing. */
+    @Test
+    void selectedTestScriptsAndTestsRunTheOthersAreLeftOut() {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+        String suite = "testrunner.suites[0].base-dir=" + SampleData.samples();
+
+        RunResult byFile = run("testrunner.fhir-server.base-url=" + r4Server.baseUrl(), suite,
+                "testrunner.validation.enabled=false", "testrunner.select.test-scripts[0]=*patient-update*");
+        assertThat(byFile.testScripts()).extracting(r -> r.source().getFileName().toString())
+                .containsExactly("TestScript-testscript-patient-update-at-core.json");
+        context.close();
+        r4Server.close();
+
+        r4Server = InMemoryFhirServer.start("4.0.1");
+        RunResult byName = run("testrunner.fhir-server.base-url=" + r4Server.baseUrl(), suite,
+                "testrunner.validation.enabled=false",
+                "testrunner.select.test-scripts[0]=TestScriptMinimumIdNavigationLinks",
+                "testrunner.select.tests[0]=navigation*");
+        TestScriptResult minimum = byName.testScripts().getFirst();
+        assertThat(byName.testScripts()).hasSize(1);
+        assertThat(minimum.phases()).extracting(PhaseResult::name).containsExactly("Setup", "NavigationLinks",
+                "Teardown");
+        assertThat(minimum.outcome()).isEqualTo(Outcome.PASS);
+        assertThat(r4Server.requestLines()).as("only the search of the selected test, not the create of the other")
+                .containsExactly("GET /Patient");
+    }
+
+    @Test
+    void listPrintsWhatWouldRunAndSendsNothing() throws Exception {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        java.io.PrintStream original = System.out;
+        int exit;
+        System.setOut(new java.io.PrintStream(bytes, true, java.nio.charset.StandardCharsets.UTF_8));
+        try {
+            exit = exitCode(TestRunnerApplication.translate(new String[] {"--list", "--test=Register*",
+                    "--testrunner.fhir-server.base-url=" + r4Server.baseUrl(),
+                    "--testrunner.reporting.output-dir=" + dir.resolve("results"),
+                    "--testrunner.suites[0].base-dir=" + SampleData.samples()}));
+        } finally {
+            System.setOut(original);
+        }
+
+        String printed = bytes.toString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(exit).isEqualTo(RunCommand.EXIT_PASSED);
+        assertThat(printed).contains("(FHIR R4) HL7® AT Core TestScript - Patient Create with StopOnFail – 1 of 2 tests",
+                "      RegisterNewPatient",
+                "4 TestScript(s), 4 test(s) would run (selected: tests [Register*])");
+        assertThat(printed).doesNotContain("Test02", "minimumId");
+        assertThat(r4Server.requests()).isEmpty();
+        assertThat(dir.resolve("results")).as("no run folder").doesNotExist();
     }
 
     private static int exitCode(String... args) {

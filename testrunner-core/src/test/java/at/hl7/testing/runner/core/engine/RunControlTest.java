@@ -250,7 +250,7 @@ class RunControlTest extends EngineTestBase {
         RunControl control = new RunControl();
         harness.add("ts", script().test(test("t", op("capabilities"))).build()).control(control).run();
 
-        assertThatThrownBy(() -> harness.run()).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(() -> harness.control(control).run()).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("one run");
     }
 }

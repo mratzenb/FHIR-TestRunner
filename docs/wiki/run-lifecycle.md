@@ -76,6 +76,12 @@ counter and the tokens. The `RunLogFileListener` attaches the `testrunner.log` f
 `Test_Scripts` folder. The order is stable: suite order, then file path. Each file becomes a
 `TestScriptSource` with a number, e.g. `03_TestScript-testscript-patient-update-at-core`.
 
+With `testrunner.select` (`--testscript`, `--test`), `Selection` then keeps only the selected TestScripts, in the same
+order; they are numbered after the selection. To decide by `TestScript.name`, url or test names, it reads each file
+once (`TestScriptLoader.map`); a file selected by its file name is not read for that. When the TestScript is loaded
+(step 5), its tests that are not selected are removed; setup and teardown stay. The log says what was left out.
+`TestRunner.list` (`--list`) ends here and returns the selection, with the tests of each.
+
 ## 4. Scheduling
 
 `RunScheduler` decides the order ([ADR-0008](../adr/0008-parallel-execution.md)):
@@ -162,6 +168,10 @@ warnings are listed after them in the `Load` phase.
 
 Only what fails in **every** run is reported. A response kept in an earlier test counts as there, even if that test
 might stop early. An id or profile that is itself a placeholder (`sourceId: ${which}`) is checked when it is used.
+
+With a selection of tests, the checks see only the tests that run. A response kept only by a test left out is named:
+`targetId 'created', which is kept by Test 'create', action 1, a test that is not selected (testrunner.select.tests);
+select that test too`.
 
 ### Check mode: stop before sending
 

@@ -6,6 +6,7 @@ import at.hl7.testing.runner.core.model.TestScript;
 import at.hl7.testing.runner.core.spi.FhirPathEvaluator;
 import at.hl7.testing.runner.core.spi.FhirVersionSupport;
 import at.hl7.testing.runner.core.spi.ReadCheck;
+import at.hl7.testing.runner.core.spi.TestScriptFormatException;
 import at.hl7.testing.runner.core.spi.TestScriptRead;
 
 import java.util.List;
@@ -37,9 +38,14 @@ final class StubVersionSupport implements FhirVersionSupport {
                 : new ReadCheck(List.of("unknown script"), List.of());
     }
 
+    /** @throws TestScriptFormatException for content that is no prepared model, like a file that is no TestScript */
     @Override
     public TestScriptRead readTestScript(Body content) {
-        return new TestScriptRead(scripts.apply(content), List.of());
+        TestScript testScript = scripts.apply(content);
+        if (testScript == null) {
+            throw new TestScriptFormatException("'" + content.text().trim() + "' is no TestScript");
+        }
+        return new TestScriptRead(testScript, List.of());
     }
 
     @Override
