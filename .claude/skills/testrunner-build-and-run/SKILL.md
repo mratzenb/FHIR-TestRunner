@@ -30,11 +30,17 @@ Offline (`-o`) works only once all dependencies and plugins are in the local rep
 | With the real HL7 validator (`RealValidatorIT`, both modes, ~1 min) | `VALIDATOR_JAR=/path/to/validator_cli.jar mvn -B verify` (a validator 7.0.2 ships with the PoC: `../HL7-AT-TestFhiry-TestRunner/data_r4/validator_cli.jar`) |
 
 `RealValidatorIT` is skipped unless `VALIDATOR_JAR` is set; the skip in the summary is expected.
+`HapiServerIT` (Testcontainers, HAPI FHIR R4 + R5) runs only where Docker is reachable, else its 3 tests are
+skipped. Only it: the "One IT only" command with `-Dit.test=HapiServerIT`. On this machine (Rancher Desktop) set
+`DOCKER_HOST=unix://$HOME/.rd/docker.sock` and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`.
+Testcontainers' version comes from the Spring Boot BOM (`testcontainers-junit-jupiter`, test scope in
+`testrunner-app`); the image tag `hapiproject/hapi:v8.12.0-1` is a constant in `HapiServerIT`.
 
 ## CI (GitHub Actions, `.github/workflows/build.yml`)
 
 * Job `verify`: push to `main` and every pull request → `mvn -B -ntp verify` on Temurin 25 (`setup-java` with
-  `cache: maven`); on failure the surefire/failsafe reports are uploaded as artefact `test-reports`.
+  `cache: maven`); `ubuntu-latest` has Docker, so `HapiServerIT` runs there; on failure the surefire/failsafe
+  reports are uploaded as artefact `test-reports`.
 * Job `real-validator`: nightly (`cron 17 3 * * *`) and `workflow_dispatch` only → downloads the pinned
   `validator_cli.jar` (`env.VALIDATOR_VERSION`, 7.0.2 = the version `docs/validation.md` was verified with), caches it
   and `~/.fhir/packages` (`actions/cache`, key `validator-<version>`), runs only `RealValidatorIT` (the command

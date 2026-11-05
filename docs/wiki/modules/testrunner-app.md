@@ -94,6 +94,7 @@ The build produces two artefacts ([ADR-0010](../../adr/0010-build.md)):
 | `RunCommandTest` | unit | exit codes for every `exit-on-skip` value |
 | `EndToEndIT` | failsafe | the whole app on the sample TestScripts, with an in-memory FHIR server and the fake validator |
 | `RealValidatorIT` | failsafe, opt-in | AT Core R4 suite incl. the negative control with the **real** validator, both modes. Runs only with `VALIDATOR_JAR` set. |
+| `HapiServerIT` | failsafe, needs Docker | AT Core R4 and R5 and every sample against a **real** HAPI FHIR server (Testcontainers, `hapiproject/hapi:v8.12.0-1`). Skipped without Docker. |
 | `ArchitectureTest` | unit (ArchUnit) | the module boundaries |
 
 `ArchitectureTest` lives here because only this module has every other module on its classpath.

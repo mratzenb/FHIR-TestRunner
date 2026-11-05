@@ -52,7 +52,10 @@ The markers and settings of the fake validator are listed in the skill `.claude/
 ## Limits
 
 * The in-memory server is not a real FHIR server. Search semantics or conditional delete rules of a real server are
-  not covered. Test those against a local HAPI server (see [Build and test](../build-and-test.md)).
+  not covered here. `HapiServerIT` in `testrunner-app` covers them for the samples, against HAPI FHIR in Docker (see
+  [Build and test › Against a real FHIR server](../build-and-test.md#against-a-real-fhir-server)).
+* In one respect the in-memory server is stricter than HAPI: a conditional update whose body names an id other than
+  the match is a `400`, as one rule of the specification says. HAPI ignores that id. Keep such checks here.
 * The fake validator jar uses absolute class path entries. It works only on the machine and in the test run that
   created it.
 
