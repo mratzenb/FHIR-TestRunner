@@ -136,8 +136,10 @@ Full recipe: [fhir-versions.md](../fhir-versions.md#adding-r6).
 
 ## Execute a new TestScript element
 
-1. Add it to the neutral model in `core.model`.
-2. Read it in `TestScriptMapper` – once, for all versions.
+1. Add it to the neutral model in `core.model`: a record component, and for `TestScript`, `Operation` or `Assertion`
+   a method of its `Builder` (and the line in `toBuilder`). Code that creates them uses the builders, so nothing else
+   changes.
+2. Read it in `TestScriptMapper` – once, for all versions, with one more builder call.
 3. If its meaning differs between versions, add a method to `TestScriptDialect` with a default, and override it in
    the version that differs.
 4. Use it in the engine.

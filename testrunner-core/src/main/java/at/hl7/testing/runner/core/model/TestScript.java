@@ -42,10 +42,21 @@ public record TestScript(FhirVersion fhirVersion, String id, String url, String 
         teardown = List.copyOf(teardown);
     }
 
+    /** A builder of a TestScript of {@code fhirVersion}; every list is empty until set. */
+    public static Builder builder(FhirVersion fhirVersion) {
+        return new Builder(fhirVersion);
+    }
+
+    /** A builder with every value of this TestScript, to make a copy that differs in a few. */
+    public Builder toBuilder() {
+        return new Builder(fhirVersion).id(id).url(url).name(name).title(title).destinations(destinations)
+                .capabilities(capabilities).fixtures(fixtures).profiles(profiles).variables(variables).setup(setup)
+                .tests(tests).teardown(teardown);
+    }
+
     /** A copy with only these tests, e.g. those selected to run; setup and teardown stay. */
     public TestScript withTests(List<TestDefinition> newTests) {
-        return new TestScript(fhirVersion, id, url, name, title, destinations, capabilities, fixtures, profiles,
-                variables, setup, newTests, teardown);
+        return toBuilder().tests(newTests).build();
     }
 
     /** The name to show in logs and reports: name, title, id, in this order. */
@@ -56,5 +67,94 @@ public record TestScript(FhirVersion fhirVersion, String id, String url, String 
             }
         }
         return "Unnamed TestScript";
+    }
+
+    /**
+     * Builds a {@link TestScript} by name rather than by the position of its 13 components. Not thread-safe; the
+     * TestScript built is immutable.
+     */
+    public static final class Builder {
+        private final FhirVersion fhirVersion;
+        private String id;
+        private String url;
+        private String name;
+        private String title;
+        private List<Destination> destinations = List.of();
+        private List<CapabilityRequirement> capabilities = List.of();
+        private List<FixtureDefinition> fixtures = List.of();
+        private List<ProfileDeclaration> profiles = List.of();
+        private List<VariableDefinition> variables = List.of();
+        private List<Action> setup = List.of();
+        private List<TestDefinition> tests = List.of();
+        private List<Action> teardown = List.of();
+
+        private Builder(FhirVersion fhirVersion) {
+            this.fhirVersion = fhirVersion;
+        }
+
+        public Builder id(String value) {
+            this.id = value;
+            return this;
+        }
+
+        public Builder url(String value) {
+            this.url = value;
+            return this;
+        }
+
+        public Builder name(String value) {
+            this.name = value;
+            return this;
+        }
+
+        public Builder title(String value) {
+            this.title = value;
+            return this;
+        }
+
+        public Builder destinations(List<Destination> value) {
+            this.destinations = value;
+            return this;
+        }
+
+        public Builder capabilities(List<CapabilityRequirement> value) {
+            this.capabilities = value;
+            return this;
+        }
+
+        public Builder fixtures(List<FixtureDefinition> value) {
+            this.fixtures = value;
+            return this;
+        }
+
+        public Builder profiles(List<ProfileDeclaration> value) {
+            this.profiles = value;
+            return this;
+        }
+
+        public Builder variables(List<VariableDefinition> value) {
+            this.variables = value;
+            return this;
+        }
+
+        public Builder setup(List<Action> value) {
+            this.setup = value;
+            return this;
+        }
+
+        public Builder tests(List<TestDefinition> value) {
+            this.tests = value;
+            return this;
+        }
+
+        public Builder teardown(List<Action> value) {
+            this.teardown = value;
+            return this;
+        }
+
+        public TestScript build() {
+            return new TestScript(fhirVersion, id, url, name, title, destinations, capabilities, fixtures, profiles,
+                    variables, setup, tests, teardown);
+        }
     }
 }

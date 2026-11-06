@@ -34,7 +34,7 @@ flowchart BT
 
 | Package | Holds | Key classes |
 |---|---|---|
-| `model` | The version-neutral TestScript: immutable records and enums | `TestScript`, `Action` (sealed: `Operation` \| `Assertion`), `Check` (sealed, one record per assert type), `FixtureDefinition`, `VariableDefinition`, `FhirVersion`, `Body` |
+| `model` | The version-neutral TestScript: immutable records and enums; `TestScript`, `Operation` and `Assertion` with a `builder()`/`toBuilder()` | `TestScript`, `Action` (sealed: `Operation` \| `Assertion`), `Check` (sealed, one record per assert type), `FixtureDefinition`, `VariableDefinition`, `FhirVersion`, `Body` |
 | `config` | The configuration tree, all records with defaults | `RunConfiguration`, `SuiteConfig`, `ValidationConfig`, `ReportingConfig`, … |
 | `spi` | Ports to the FHIR version modules and the validator | `FhirVersionSupport`, `FhirVersionRegistry`, `FhirPathEvaluator`, `ProfileValidator`, `ValidationRequest`/`Result`, `TestReportContent` |
 | `content` | Version-independent work on JSON/XML resources | `ResourceContent` (type, id, references), `FhirElement` (`minimumId` comparison), `PathEvaluator` (JSONPath/XPath) |

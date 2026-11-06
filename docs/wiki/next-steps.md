@@ -99,7 +99,7 @@ promise.
 | A3 | No CI pipeline; build gates only run locally | medium | S |
 | A4 | No test against a real FHIR server | medium | M |
 | A5 | `TestRunner` does too much; `TestScriptExecution` takes 10 constructor parameters (done, M2.1) | medium | M |
-| A6 | Wide positional records: `Operation` has 17 components | medium | M |
+| A6 | Wide positional records: `Operation` has 17 components (done, M5.1) | medium | M |
 | A7 | Assertion values are compared as text | medium | M |
 | A8 | Request and response bodies are `String`s | medium | M |
 | A9 | The public API of the core is undefined; `RunContext` hands mutable run state to listeners (done, M2.5) | medium | S |
@@ -171,6 +171,8 @@ TestScript validation, and the reports. A2 and F3 add more to exactly this class
 `TestScriptExecution` should take one `ExecutionEnvironment` record instead of 10 parameters.
 
 ### A6 – Wide records
+
+**Status:** done in M5.1, with builders.
 
 `Operation` has 17 positional components, `Assertion` 12, `TestScript` 13 and `SuiteConfig` 11. `new Operation(`
 appears at 7 places, and the test builder `Scripts` copies all 17 arguments for every `with…` helper. Every new
@@ -395,8 +397,11 @@ Done, plus `RunFolderTest.htmlReportLinksTheRequestsToTheirCommunicationFolders`
 
 ### M5 – Engine depth (M)
 
-1. **A6** first, because the later steps and R6 touch the model. Add builders or `with…` methods to `Operation`,
-   `Assertion` and `TestScript`, and use them in `TestScriptMapper` and `Scripts`.
+1. ~~**A6**~~ Done: `TestScript.builder(version)`, `Operation.builder()` and `Assertion.builder(check)`, each with
+   `toBuilder()` for copies; `withValues` and `withTests` use them, and so do `TestScriptMapper` and the test helpers
+   `Scripts`. No `new Operation(`, `new Assertion(` or `new TestScript(` is left outside the builders. The records
+   keep their components, so binary users of the accessors see no change. `SuiteConfig` stays positional: Spring's
+   binder fills it through its constructor, and it has factories (`of`, `withPackage`).
 2. **A7 + F6.** `Values` keeps the type: `BigDecimal`, `Boolean`, date/dateTime with precision and offset, `String`.
    `Operators` compares by type. Instants are compared after normalising the offset; values of different precision
    are not comparable, which is a `fail` with a clear message, as in FHIRPath. This changes results of existing

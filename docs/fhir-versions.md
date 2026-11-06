@@ -87,7 +87,10 @@ Three layers, each with one job:
    the engine executes: `TestScript`, `Destination`, `CapabilityRequirement` (`metadata.capability`),
    `FixtureDefinition`, `ProfileDeclaration(id, canonical)`, `Operation`, `Assertion` with a sealed `Check` (one of
    contentType, expression, …), `VariableDefinition`. Nothing in the
-   engine refers to a FHIR version except `fhirVersion` passed through to the validator.
+   engine refers to a FHIR version except `fhirVersion` passed through to the validator. The three wide records –
+   `TestScript` (13 components), `Operation` (17) and `Assertion` (12) – are built with a `builder()` and copied with
+   `toBuilder()`, by element name: a new element is one more builder method, and no place that creates one of them
+   depends on the order of the components.
 
 2. **One generic mapper** (`testrunner-fhir-hapi`, `TestScriptMapper`). It reads the HAPI model of *any* version
    through `ElementView`, which looks up children by element name using HAPI's runtime definitions
