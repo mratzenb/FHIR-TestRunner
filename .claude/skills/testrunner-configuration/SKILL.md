@@ -35,7 +35,8 @@ testrunner:
       include: ["*.json", "*.xml"]           # globs relative to test-scripts-dir
       fhir-server: {base-url: }              # optional own server per suite (own headers/oauth2)
       parallel: true                         # false: TestScripts one after the other, before the parallel ones
-      package-id:                            # instead of base-dir: name#version of a FHIR package (PackageSuites);
+      package-id:                            # instead of base-dir: name#version of a FHIR package (PackageSuites,
+                                             # ADR-0018): 2.1.0 | 2.1.x | current | current$<branch> | dev;
                                              # a pinned fhir-version is checked by problems() as for folders
   http: {connect-timeout: 10s, request-timeout: 60s, follow-redirects: true}
   execution: {parallelism: 1, rewrite-references: autocreate}   # parallelism ≥ 1; rewrite-references none |
@@ -63,7 +64,12 @@ testrunner:
     redact-headers: [Authorization, Proxy-Authorization, Cookie, Set-Cookie]   # masked in communication log; [] = none
     log-file: true
     log-file-level: DEBUG                    # TRACE|DEBUG|INFO|WARN|ERROR
-  packages: {cache-dir: ~/.fhir/packages, registry: https://packages.fhir.org}   # PackagesConfig
+  packages:                                  # PackagesConfig(cacheDir, registry, ciBuild); PackagesConfig.cache(dir)
+    cache-dir: ~/.fhir/packages              # shared with validator / IG Publisher / SUSHI
+    registry: https://packages.fhir.org      # releases; verified against <registry>/<name> dist.shasum (SHA-1)
+    ci-build: https://build.fhir.org         # #current: ig/qas.json, ig/<org>/<repo>[/branches/<b>]/package.tgz
+                                             # proxy/TLS: JVM system properties (no setting of its own), timeouts
+                                             # from http.*
   select:                                    # SelectConfig, default all (ADR-0014); engine: core.engine.Selection
     test-scripts: []                         # globs (* ? case-insensitive, whole text) on file name ± extension,
                                              # TestScript.name or url; empty entry ⇒ problems()

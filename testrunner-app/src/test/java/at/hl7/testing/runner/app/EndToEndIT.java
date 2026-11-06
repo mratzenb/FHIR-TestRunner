@@ -7,6 +7,7 @@ import at.hl7.testing.runner.core.report.PhaseKind;
 import at.hl7.testing.runner.core.report.PhaseResult;
 import at.hl7.testing.runner.core.report.RunResult;
 import at.hl7.testing.runner.core.report.TestScriptResult;
+import at.hl7.testing.runner.testsupport.FakePackageServer;
 import at.hl7.testing.runner.testsupport.FakeValidatorJar;
 import at.hl7.testing.runner.testsupport.InMemoryFhirServer;
 import at.hl7.testing.runner.testsupport.SampleData;
@@ -22,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -603,6 +605,42 @@ class EndToEndIT {
         TestScriptResult result = run.testScripts().getFirst();
         assertThat(result.outcome()).as("checked, and the in-memory server has no patch").isEqualTo(Outcome.SKIP);
         assertThat(phase(result, "Setup").messages().getFirst()).contains("no match for {code=patch}");
+    }
+
+    /**
+     * A suite from a released package of the registry, with a dependency given as patch wildcard: both are downloaded
+     * into the cache, verified against the registry's checksum, and passed to the validator with the version found.
+     */
+    @Test
+    void suiteFromARegistryPackageWithItsDependenciesVerified() throws Exception {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+        try (FakePackageServer packages = FakePackageServer.start()) {
+            packages.publish("example.at.core", "2.1.0", FakePackageServer.archive("example.at.core", "2.1.0", "4.0.1",
+                    Map.of("hl7.fhir.r4.core", "4.0.1", "example.terminology", "7.4.x"), Map.of(
+                            "TestScript-testscript-patient-create-at-core.json", Files.readString(SampleData.r4()
+                                    .resolve("Test_Scripts/TestScript-testscript-patient-create-at-core.json")),
+                            "example/Patient-HL7ATCorePatientCreateTestExample.json", Files.readString(SampleData.r4()
+                                    .resolve("Example_Instances/Patient-HL7ATCorePatientCreateTestExample.json")))));
+            packages.publish("example.terminology", "7.4.0",
+                    FakePackageServer.archive("example.terminology", "7.4.0", "4.0.1", Map.of(), Map.of()));
+            packages.publish("example.terminology", "7.4.2",
+                    FakePackageServer.archive("example.terminology", "7.4.2", "4.0.1", Map.of(), Map.of()));
+
+            RunResult run = run("testrunner.fhir-server.base-url=" + r4Server.baseUrl(),
+                    "testrunner.packages.cache-dir=" + dir.resolve("cache"),
+                    "testrunner.packages.registry=" + packages.registry(),
+                    "testrunner.suites[0].package-id=example.at.core#2.1.0");
+
+            assertThat(run.testScripts()).singleElement().satisfies(r -> assertThat(r.outcome()).isEqualTo(Outcome.PASS));
+            assertThat(dir.resolve("cache/example.terminology#7.4.2/package/package.json")).exists();
+            assertThat(packages.requests()).as("the checksums, then the archives")
+                    .containsSubsequence("/registry/example.at.core", "/cdn/example.at.core-2.1.0.tgz",
+                            "/registry/example.terminology", "/cdn/example.terminology-7.4.2.tgz");
+            // the packages are resolved before the run starts, so before its log file
+            assertThat(run.runDirectory().resolve("testrunner.log")).content().contains(
+                    "Suite 'example.at.core#2.1.0' validates with IGs [example.at.core#2.1.0, example.terminology#7.4.2]",
+                    "-ig example.at.core#2.1.0 -ig example.terminology#7.4.2");
+        }
     }
 
     @Test

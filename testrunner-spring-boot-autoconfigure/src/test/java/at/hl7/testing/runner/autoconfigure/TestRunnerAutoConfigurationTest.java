@@ -52,6 +52,7 @@ class TestRunnerAutoConfigurationTest {
                 "testrunner.suites[2].package-id=hl7.at.fhir.core.r4#dev",
                 "testrunner.packages.cache-dir=/tmp/fhir-packages",
                 "testrunner.packages.registry=https://registry.example",
+                "testrunner.packages.ci-build=https://ci.example",
                 "testrunner.execution.parallelism=4",
                 "testrunner.execution.rewrite-references=all",
                 "testrunner.execution.timeout=30m",
@@ -72,6 +73,7 @@ class TestRunnerAutoConfigurationTest {
                     assertThat(config.suites().get(2).packageId()).isEqualTo("hl7.at.fhir.core.r4#dev");
                     assertThat(config.packages().cacheDir()).isEqualTo(Path.of("/tmp/fhir-packages"));
                     assertThat(config.packages().registry()).hasToString("https://registry.example");
+                    assertThat(config.packages().ciBuild()).hasToString("https://ci.example");
                     assertThat(config.suites().getFirst().baseDir()).isEqualTo(Path.of("testdata/r4"));
                     assertThat(config.suites().getFirst().pinnedFhirVersion()).contains(FhirVersion.R4);
                     assertThat(config.suites().getFirst().include()).containsExactly("TestScript-*.json");

@@ -20,7 +20,7 @@ communication log of every HTTP exchange. Group `at.hl7.testing`, version `0.1.0
 | `testrunner-validation-cli` | `validation.cli` | `ValidatorCliProfileValidator` (process), `ValidatorServerProfileValidator` + `ValidatorServer` (server), `ProfileValidators` factory | core |
 | `testrunner-spring-boot-autoconfigure` | `autoconfigure` | `TestRunnerAutoConfiguration`, `ValidatorCliAutoConfiguration`, `RunLogFileListener` | core, Spring Boot |
 | `testrunner-app` | `app` | `TestRunnerApplication` (main, `--config`, `--novalidator`, `--check`, `--list`, `--testscript`, `--test`), `RunCommand` (run, check or list; exit code), `ValidatorCheck`; `EndToEndIT`, `RealValidatorIT`, `HapiServerIT`, `ShutdownIT`, `ArchitectureTest` | everything |
-| `testrunner-test-support` | `testsupport` | **test code only** (`src/test/java`, test-jar classifier `tests`): `InMemoryFhirServer`, `FakeValidator`/`FakeValidatorJar`, `SampleData` | Jackson, Jetty |
+| `testrunner-test-support` | `testsupport` | **test code only** (`src/test/java`, test-jar classifier `tests`): `InMemoryFhirServer`, `FakeValidator`/`FakeValidatorJar`, `FakePackageServer` (registry + CI builds), `SampleData` | Jackson, Jetty |
 
 Other folders: `testrunner-app/Dockerfile` + root `docker-compose.yml` (container image with HAPI FHIR, ADR-0015),
 `config/` dev configurations (`dev-r4.yml`, `dev-r5.yml`, `dev-all.yml`, `negative-control.yml`),
@@ -79,5 +79,5 @@ and `ProfileValidators.create(ValidationConfig)`.
 ## Documentation (source of truth if a skill and the docs disagree)
 
 `README.md`, `CHANGELOG.md` (changes of results/API); `docs/architecture.md`, `fhir-versions.md`, `configuration.md`,
-`logging.md`, `validation.md`; `docs/adr/0001`–`0017` (index in `docs/adr/README.md`). When code changes a documented behaviour, update the
+`logging.md`, `validation.md`; `docs/adr/0001`–`0018` (index in `docs/adr/README.md`). When code changes a documented behaviour, update the
 doc, the ADR and the matching skill together.

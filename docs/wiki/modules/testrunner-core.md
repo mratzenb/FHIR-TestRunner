@@ -39,7 +39,7 @@ flowchart BT
 | `spi` | Ports to the FHIR version modules and the validator | `FhirVersionSupport`, `FhirVersionRegistry`, `FhirPathEvaluator`, `ProfileValidator`, `ValidationRequest`/`Result`, `TestReportContent` |
 | `content` | Version-independent work on JSON/XML resources | `ResourceContent` (type, id, references), `FhirElement` (`minimumId` comparison), `PathEvaluator` (JSONPath/XPath) |
 | `http` | The HTTP layer, OAuth2 tokens and the communication log | `FhirHttpClient`, `HttpTransport` (port), `JdkHttpTransport`, `AccessTokens`, `CommunicationLog`, `FhirRequest`/`FhirResponse`/`Exchange` |
-| `source` | Finding and loading TestScripts | `TestScriptDiscovery`, `TestScriptLoader`, `ExampleInstanceResolver`, `PackageSuites` |
+| `source` | Finding and loading TestScripts; FHIR packages (cache, registry, CI builds, checksums) | `TestScriptDiscovery`, `TestScriptLoader`, `ExampleInstanceResolver`, `PackageSuites`, `PackageRef` |
 | `engine` | Running a TestScript | `TestRunner`, `TestRunners`, `RunControl`, `RunInfo`, `RunContext`, `RunScheduler`, `ExecutionFactory`, `ReportPublisher`, `TestScriptExecution`, `ExecutionState`, `TestScriptChecks`, `ActionRules`, `AssertionEvaluator`, `RequestFactory`, `VariableResolver`, `FixtureManager`, `CapabilityCheck` |
 | `report` | Results and report writers | `Outcome`, `ActionResult`, `PhaseResult`, `TestScriptResult`, `RunResult`, `ReportWriter` (port) and its four implementations |
 
@@ -169,7 +169,7 @@ response. Decimals keep their precision (`100.0` ≠ `100`).
 | `RunConfigurationTest` | defaults and `problems()` |
 | `AccessTokensTest` | fetching and renewing OAuth2 access tokens |
 | `FhirElementTest`, `PathEvaluatorTest`, `ResourceContentTest`, `UrlEncodingTest` | content helpers |
-| `CommunicationLogTest`, `TestReportWriterTest`, `ExampleInstanceResolverTest`, `PackageSuitesTest` | logs, reports, sources |
+| `CommunicationLogTest`, `TestReportWriterTest`, `ExampleInstanceResolverTest`, `PackageSuitesTest` (against `FakePackageServer`: checksums, `2.1.x`, `#current`, transitive dependencies) | logs, reports, sources |
 
 `Harness` and `Scripts` (in `src/test`) build TestScript models in code, so engine tests need no FHIR module.
 

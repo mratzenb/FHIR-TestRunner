@@ -24,6 +24,12 @@ documents; [next steps](docs/wiki/next-steps.md) has the plan behind them.
 
 ### Added
 
+* Packages (M6.2, ADR-0018): `package-id` takes `#current` (the CI build of an IG), `#current$<branch>` and `#2.1.x`
+  (highest patch release). With validation on, the packages a suite's package depends on are resolved transitively
+  into the cache and passed to the validator with the version found. Every package from the registry is verified
+  against the registry's checksum (`dist.shasum`); a mismatch stops the run (exit code 2). New setting
+  `testrunner.packages.ci-build` (default `https://build.fhir.org`). The downloads use the JVM's proxy and TLS
+  settings and the timeouts of `testrunner.http`.
 * Binary content (M5.3): a `Binary` read in its native content type (a PDF, an image) is kept byte for byte, can be
   sent again by `sourceId`, and is written to `communication/` as `response.body.pdf` etc. Text bodies are decoded
   with the charset of their `Content-Type`.
@@ -35,6 +41,8 @@ documents; [next steps](docs/wiki/next-steps.md) has the plan behind them.
 
 ### Changed – API
 
+* `PackagesConfig` has a third component, `ciBuild`; `PackagesConfig.cache(dir)` is the defaults with another cache
+  (M6.2).
 * The public API is annotated with `jakarta.annotation.Nonnull`/`Nullable` (ADR-0017), and five methods that
   returned `null` for "absent" return an `Optional` now: `FhirServerConfig.base()`, `OperationType.defaultMethod()`,
   `ContentFormat.fromMimeType(…)`, `ContentFormat.fromFileName(…)`, `TestScriptFormatException.fhirVersion()`. Add

@@ -21,3 +21,4 @@ Format: context, decision, alternatives considered, consequences. Status of all:
 | [0015](0015-container-image.md) | Container image: the runner on a Java 25 JRE, everything else mounted; a compose file with HAPI FHIR; built in CI, not published |
 | [0016](0016-typed-comparisons.md) | Assertions compare values by their FHIRPath type: numbers by value, dates and times as points in time; what cannot be compared fails with the reason |
 | [0017](0017-nullness.md) | The public API says where null is allowed: jakarta `@Nonnull`/`@Nullable` on every reference-typed position, `Optional` for absent return values, checked by `ArchitectureTest` |
+| [0018](0018-package-resolution.md) | Package resolution: `#current`, `2.1.x` and dependencies as the HL7 validator reads them, resolved transitively into the shared cache, every released package verified against the registry's checksum; one closed HTTP client with the JVM's proxy and TLS settings |

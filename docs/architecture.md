@@ -296,14 +296,17 @@ configured server.
   (two social security numbers); see [validation.md](validation.md).
 * **IGs as packages instead of scraped pages.** The PoC downloaded an IG by scraping its `artifacts.html`
   (`load_ig_from_internet.py`). A suite now reads the IG's FHIR package (`suites[n].package-id`), from the package
-  cache shared with the validator, downloading it from the registry if needed; FHIR version and IGs come from its
-  `package.json`, see [configuration.md](configuration.md#suites-from-fhir-packages).
+  cache shared with the validator, downloading it from the registry (verified against its checksum) or, for
+  `#current`, from the CI build server; FHIR version and IGs come from its `package.json`, the dependencies are
+  resolved transitively, see [configuration.md](configuration.md#suites-from-fhir-packages) and
+  [ADR-0018](adr/0018-package-resolution.md).
 
 ## Open points
 
-* **Packages: transitive dependencies, `#current`.** A package suite passes the package and its direct
-  dependencies to the validator, which resolves the rest itself. The runner downloads only the package of the suite,
-  and only by exact version: `#current` (CI builds) and versions without number are not resolved.
+* **Packages: what the runner does not resolve.** Exact versions, `2.1.x`, `#current`, `#current$<branch>` and `#dev`
+  are resolved with every dependency ([ADR-0018](adr/0018-package-resolution.md)). A package id without version and
+  npm-style ranges (`^2.1.0`) are not; they are passed to the validator as written. CI builds carry no checksum, so a
+  `#current` download is not verified. The `igs` of a suite with a folder are left to the validator.
 * **Not supported assertions**: `requestMethod`/`requestURL` (they check the requests of a client under test; the
   runner is that client itself), `manualEval`; reported as `error` when they run, not silently ignored, and announced
   as a warning on the Setup before anything is sent (`TestScriptChecks.unsupportedWarnings`). No `Load` error: the

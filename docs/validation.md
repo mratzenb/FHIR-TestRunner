@@ -49,7 +49,7 @@ do not see each other's IGs, so two suites can use different IGs or versions of 
 |---|---|---|
 | package id with version, `hl7.at.fhir.core.r4#2.0.0` | package cache `~/.fhir/packages`, else downloaded from the package registry (packages.fhir.org) together with its dependencies | first use only |
 | package id with `#dev` | package cache: a locally built IG (the IG Publisher puts it there); never published | no |
-| package id with `#current` | latest CI build (build.fhir.org) | yes |
+| package id with `#current` | latest CI build (build.fhir.org) | yes, to check for a newer build |
 | package id without version | latest version in the cache, else the latest published one; avoid, the result changes when a new version is cached | maybe |
 | folder or file | read as it is (StructureDefinitions, ValueSets, …) | no |
 | URL of an IG | downloaded | yes |
@@ -69,6 +69,9 @@ With only that package, the validator tries to fetch the URL from the web and th
 **Suites read from a package** (`package-id`, see [configuration.md](configuration.md#suites-from-fhir-packages))
 need no `igs`: the package itself and its dependencies are the suite's IGs, and the FHIR version comes from the
 package. The TestScripts of a published IG and its profiles then match by construction – both are in the package.
+The runner resolves those dependencies before the run, transitively and verified against the registry's checksum, and
+passes them with the version it found ([ADR-0018](adr/0018-package-resolution.md)), so the validator loads them from
+the cache. `package-id: hl7.at.fhir.core.r4#current` tests the CI build of an IG before it is published.
 
 **Server mode:** a server is bound to the `-ig` arguments it was started with, so there is one server per FHIR
 version, profiles folder and IGs – in practice one per suite and FHIR version. Suites with the same folder and IGs

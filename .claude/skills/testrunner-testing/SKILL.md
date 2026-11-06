@@ -1,6 +1,6 @@
 ---
 name: testrunner-testing
-description: How tests are written in the FHIR TestScript Runner (TestRunnerOnJava) – test levels, which test class covers what, the shared test doubles of testrunner-test-support (InMemoryFhirServer, FakeValidatorJar/FakeValidator, SampleData) and the core Harness/Scripts builders, the test data folders, and conventions. Use when writing, fixing or locating tests, adding a test double, or changing testdata/.
+description: How tests are written in the FHIR TestScript Runner (TestRunnerOnJava) – test levels, which test class covers what, the shared test doubles of testrunner-test-support (InMemoryFhirServer, FakeValidatorJar/FakeValidator, FakePackageServer, SampleData) and the core Harness/Scripts builders, the test data folders, and conventions. Use when writing, fixing or locating tests, adding a test double, or changing testdata/.
 ---
 
 # Testing (ADR-0009)
@@ -14,7 +14,7 @@ is skipped.
 | Level | Class | Covers |
 |---|---|---|
 | Unit, engine (`testrunner-core`, `core/engine/`, all extend `EngineTestBase`) | `FixturesTest` (autocreate/autodelete), `OperationsTest`, `AssertionsTest` (checks, fail vs. error, unsupported checks), `CapabilitiesTest`, `ReferenceRewritingTest`, `KeptRequestsTest` (`requestId`, `direction = request`), `ChecksBeforeSendingTest` (Load errors and warnings before anything is sent), `CheckModeTest` (`TestRunner.check`: Load phase only, nothing sent, no TestReports, validator only when validating), `SelectionTest` (`select.test-scripts`/`tests`, globs, left-out hint, `TestRunner.list`), `PhasesTest`, `PlaceholdersTest` (variables, placeholders in fixtures, `${testrunner.…}`), `TestRunnerTest` (serial suites, parallel runs, package suites, validator configuration problems), `RunControlTest` (timeouts, fail-fast, cancel, reports after an error or `reportNow`), `RunFolderTest` (communication log, masking, reports), `OAuth2Test` | the engine through the real `TestRunner` with `Harness` |
-| Unit, core (`testrunner-core`) | `RunConfigurationTest`, `AccessTokensTest` (OAuth2 token fetch/renewal with a `MutableClock`), `PathEvaluatorTest`, `ResourceContentTest`, `FhirElementTest`, `UrlEncodingTest`, `CommunicationLogTest`, `ExampleInstanceResolverTest`, `PackageSuitesTest` (cache, download of a hand-built `.tgz` incl. pax long names, concurrent download, path traversal), `TestReportWriterTest`, `HtmlReportWriterTest` (escaping of hostile text, links into `communication/`), `FhirTemporalTest`, `OperatorsTest` (typed comparisons, ADR-0016), `BodyTest` (bytes, charset, binary detection) | config defaults/problems, content helpers (`FhirElement`: JSON/XML alike, exact decimals, `minimumId` containment rules), log format |
+| Unit, core (`testrunner-core`) | `RunConfigurationTest`, `AccessTokensTest` (OAuth2 token fetch/renewal with a `MutableClock`), `PathEvaluatorTest`, `ResourceContentTest`, `FhirElementTest`, `UrlEncodingTest`, `CommunicationLogTest`, `ExampleInstanceResolverTest`, `PackageSuitesTest` (cache, download of a hand-built `.tgz` incl. pax long names, concurrent download, path traversal; against `FakePackageServer`: checksum match/mismatch/missing, wrong package in the archive, `2.1.x`, transitive dependencies, `#current` reuse/replace/offline, `#current$branch`, `dev` dependency → `current`, client closed), `TestReportWriterTest`, `HtmlReportWriterTest` (escaping of hostile text, links into `communication/`), `FhirTemporalTest`, `OperatorsTest` (typed comparisons, ADR-0016), `BodyTest` (bytes, charset, binary detection) | config defaults/problems, content helpers (`FhirElement`: JSON/XML alike, exact decimals, `minimumId` containment rules), log format |
 | Version modules (`testrunner-fhir-r4`, `-r5`) | `R4SupportTest`, `R5SupportTest` | every sample TestScript of the version maps exactly; detection cases |
 | Validator (`testrunner-validation-cli`) | `ValidatorCliProfileValidatorTest`, `ValidatorServerProfileValidatorTest` | process handling, arguments, server lifecycle, fallback, parallel use |
 | Spring (`testrunner-spring-boot-autoconfigure`) | `TestRunnerAutoConfigurationTest` (`ApplicationContextRunner`) | binding, defaults, replacing/adding beans |
@@ -68,6 +68,13 @@ Only Java SE + Jetty: no `com.sun.net.httpserver` (the compiler rejects it).
     start that fails via `FAKE_VALIDATOR_SERVER_FAILS` writes no `start` line), `FAKE_VALIDATOR_SERVER_FAILS` (exit 3
     at start), `FAKE_VALIDATOR_STARTUP_MILLIS` (slow start). In tests the JVM arguments go in through the
     `ValidationConfig` constructor (`jvmArguments`); see `ValidatorServerProfileValidatorTest.config(...)`.
+* **`FakePackageServer`** – Jetty on `127.0.0.1`, free port: a package registry under `registry()`
+  (`/registry/<name>` = npm-style versions with `dist.shasum`; `/registry/<name>/<version>` = 302 to `/cdn/…tgz`, as
+  packages.fhir.org redirects) and a CI build server under `ciBuild()` (`/ci/ig/qas.json`,
+  `/ci/ig/<org>/<repo>[/branches/<b>]/package.manifest.json` and `package.tgz`). `publish(name, version, archive)`
+  lists the archive's SHA-1, `publish(…, shasum)` any (or `null` = none); `build(packageId, repo, branch|null,
+  dateIso8601, manifestDate, archive)`; static `archive(name, version, fhirVersion, dependencies, files)`, `tgz(files)`,
+  `sha1(bytes)`; `requests()` = paths asked for. Everything else is 404.
 * **`SampleData`** – finds `testdata/` by walking up from the working directory: `r4()`, `r5()`, `samples()`,
   `testScript(suite, fileName)`; `wikiSamples()` = `docs/wiki/samples/` (the tested samples of the wiki page
   `docs/wiki/samples.md`: `first-suite/`, `mistakes/`, `first-suite.yml`). Changing one means changing the page.

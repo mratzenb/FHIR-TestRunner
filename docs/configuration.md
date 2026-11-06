@@ -64,7 +64,8 @@ testrunner:
         base-url: http://localhost:8081/fhir   # with headers and oauth2 of its own, if needed
       parallel: true                       # false: with parallelism > 1, run this suite's TestScripts one after
                                            # the other before all others, see ADR-0008
-    - package-id: hl7.at.fhir.core.r4#2.1.0  # instead of base-dir: a suite read from a FHIR package, see below
+    - package-id: hl7.at.fhir.core.r4#2.1.0  # instead of base-dir: a suite read from a FHIR package, see below;
+                                           # also #2.1.x, #current, #current$<branch>, #dev
 
   http:
     connect-timeout: 10s
@@ -113,7 +114,9 @@ testrunner:
 
   packages:                                # for suites with package-id
     cache-dir: ~/.fhir/packages            # default; the cache of the validator, IG Publisher and SUSHI
-    registry: https://packages.fhir.org    # default; where missing packages are downloaded from
+    registry: https://packages.fhir.org    # default; where missing released packages are downloaded from,
+                                           # verified against its checksum (dist.shasum)
+    ci-build: https://build.fhir.org       # default; where #current packages (CI builds of IGs) come from
 
   run-on-startup: true                     # app only: false to wire everything without running (tests, embedding)
   mode: run                                # app only: run (default) | check – load and check, send nothing (--check)
@@ -266,26 +269,50 @@ and the examples into its example folder. A suite with `package-id` instead of `
 ```yaml
 testrunner:
   suites:
-    - package-id: hl7.at.fhir.core.r4#2.1.0   # name#version; #dev = built locally by the IG Publisher
+    - package-id: hl7.at.fhir.core.r4#2.1.0   # name#version
       include: ["TestScript-*-create-*.json"] # optional, default all TestScript-*.json|xml of the package
 ```
 
 Before the run (`PackageSuites`), the package is looked up in the package cache (`packages.cache-dir`, as
-`<id>#<version>/package/`); a missing one is downloaded from `packages.registry` and unpacked into the cache, where
-the validator finds it too. A `#dev` package is never downloaded. From the package's `package.json` the suite takes
+`<id>#<version>/package/`), where the validator finds it too. The version says where a missing one comes from:
+
+| Version | Package | When it is not in the cache |
+|---|---|---|
+| `2.1.0` | that release | downloaded from `packages.registry` and verified against the SHA-1 the registry lists for it |
+| `2.1.x` | the highest patch release of 2.1 | the highest one in the cache, else the highest the registry lists |
+| `current` | the latest CI build of the IG | from `packages.ci-build`: the repository with the most recent build in `ig/qas.json`, as the validator finds it |
+| `current$<branch>` | the latest CI build of a branch | `<ci-build>/ig/<org>/<repo>/branches/<branch>/` |
+| `dev` | built locally by the IG Publisher | never downloaded |
+
+A `#current` package in the cache is used while it is the latest build (the `date` of its `package.json` equals the
+build's `package.manifest.json`); a newer build replaces it. If the CI server cannot be reached, the cached build is
+used with a warning. CI builds have no checksum: the log says that such a download is not verified.
+
+From the package's `package.json` the suite takes
 
 | Suite setting | From the package |
 |---|---|
 | TestScripts | `package/`, the files matching `include` (default `TestScript-*.json`, `TestScript-*.xml`) |
 | Example Instances (fixtures, required CapabilityStatements) | `directories.example` (`example/` or `examples/`) |
 | `fhir-version` | `fhirVersions`, unless configured |
-| `igs` | the package itself, its `dependencies` without the core package, then the configured `igs` |
+| `igs` | the package itself, every package it depends on without the core package, then the configured `igs` |
 | `name` | the package id, unless configured |
 
-A package that cannot be found, downloaded or read stops the run before anything is sent (exit code 2), like any
-other configuration problem. The cache can be shared by several runs and the validator at once: a download is
-unpacked into a folder of its own and moved into place, and a package another process put there meanwhile is used.
-Archives with long file names (GNU or pax headers, as npm writes them) are read completely.
+With profile validation on, the dependencies are resolved like the package itself – transitively, each once, verified
+– and passed to the validator with the version found (`hl7.terminology.r4#7.4.x` → `#7.4.2`). So the validator finds
+every package in the cache and downloads nothing unverified. Without validation, and for `--list`, only the suite's
+own package is resolved.
+
+A package that cannot be found, downloaded, verified or read stops the run before anything is sent (exit code 2),
+like any other configuration problem; for a dependency the message names the package that needs it. The cache can be
+shared by several runs and the validator at once: a download is unpacked into a folder of its own and moved into
+place, and a package another process put there meanwhile is used. Archives with long file names (GNU or pax headers,
+as npm writes them) are read completely.
+
+The downloads use one HTTP client per run, with the timeouts of `testrunner.http` and the JVM's proxy and TLS
+settings, the same as for the FHIR server: `-Dhttps.proxyHost=… -Dhttps.proxyPort=…`, `-Dhttp.nonProxyHosts=…`,
+`-Djavax.net.ssl.trustStore=…` (in the container image: the company certificates, see
+[ADR-0015](adr/0015-container-image.md)). Details: [ADR-0018](adr/0018-package-resolution.md).
 
 Relaxed binding applies: `base-dir`, `baseDir` and `BASEDIR` are the same; durations accept `90s`, `2m`, `PT1M`.
 
