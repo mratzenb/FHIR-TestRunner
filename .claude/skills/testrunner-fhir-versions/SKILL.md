@@ -9,8 +9,10 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) reads R4 and R5 T
 
 1. **Version-neutral model** – records in `core.model` (`TestScript`, `Destination`, `CapabilityRequirement`,
    `FixtureDefinition`, `ProfileDeclaration(id, canonical)`, `Operation`, `Assertion` + sealed `Check`,
-   `VariableDefinition`, `TestDefinition`). The engine never sees a version-specific type; `FhirVersion` (`R4` 4.0.1, `R5` 5.0.0, `R6`
-   6.0.0; `parse` accepts `R4`, `r4`, `4.0`, `4.0.1`) only goes to the validator.
+   `VariableDefinition`, `TestDefinition`; the wide ones – `TestScript`, `Operation`, `Assertion` – have
+   `builder(…)`/`toBuilder()`, `withValues` and `withTests` use them). The engine never sees a version-specific
+   type; `FhirVersion` (`R4` 4.0.1, `R5` 5.0.0, `R6` 6.0.0; `parse` accepts `R4`, `r4`, `4.0`, `4.0.1`) only goes to
+   the validator.
 2. **One mapper** – `fhir.hapi.TestScriptMapper` reads the HAPI model of *any* version through `ElementView`
    (children by element name via HAPI runtime definitions). An element missing in a version reads as absent
    (`stopTestOnFail` in R4). Type-only differences in one code path:
@@ -50,7 +52,9 @@ it). `ModelOnlyValidationSupport` keeps `hapi-fhir-validation` (24 MB for R5) of
 
 **Map a new TestScript element** (e.g. a new assert attribute) – it must exist in the HAPI structures of at least
 one version, since `ElementView` reads by FHIR element name (a non-FHIR element would need an extension): add it to
-the neutral model record → read it once in `TestScriptMapper` with `ElementView` (by name; absent in versions that
+the neutral model record (for `TestScript`/`Operation`/`Assertion` also its `Builder` method and the line in
+`toBuilder()`; every creator uses the builders, no positional `new`) → read it once in `TestScriptMapper` with
+`ElementView` and one more builder call (by name; absent in versions that
 lack it) → only if its *meaning* differs per version, add a dialect method with a default → tests: every sample of
 a version is mapped exactly by `R4SupportTest.readsEverySampleR4TestScriptExactly` and
 `R5SupportTest.readsTheR5SamplesExactly`, plus engine tests (`testrunner-execution-engine`).

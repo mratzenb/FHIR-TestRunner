@@ -9,7 +9,6 @@ import at.hl7.testing.runner.core.model.FhirVersion;
 import at.hl7.testing.runner.core.model.FixtureDefinition;
 import at.hl7.testing.runner.core.model.HttpMethod;
 import at.hl7.testing.runner.core.model.Operation;
-import at.hl7.testing.runner.core.model.OperationType;
 import at.hl7.testing.runner.core.model.Operator;
 import at.hl7.testing.runner.core.model.ProfileDeclaration;
 import at.hl7.testing.runner.core.model.RequestHeader;
@@ -21,6 +20,7 @@ import at.hl7.testing.runner.core.spi.TestScriptFormatException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * Maps a HAPI {@code TestScript} of any FHIR version to the runner's version-neutral model.
@@ -40,20 +40,21 @@ public final class TestScriptMapper {
     }
 
     public TestScript map(ElementView testScript) {
-        return new TestScript(version,
-                testScript.string("id"),
-                testScript.string("url"),
-                testScript.string("name"),
-                testScript.string("title"),
-                testScript.children("destination").stream().map(TestScriptMapper::destination).toList(),
-                testScript.child("metadata").map(m -> m.children("capability")).orElse(List.of()).stream()
-                        .map(TestScriptMapper::capability).toList(),
-                testScript.children("fixture").stream().map(this::fixture).toList(),
-                profiles(testScript),
-                testScript.children("variable").stream().map(this::variable).toList(),
-                testScript.child("setup").map(this::actions).orElse(List.of()),
-                testScript.children("test").stream().map(this::test).toList(),
-                testScript.child("teardown").map(this::actions).orElse(List.of()));
+        return TestScript.builder(version)
+                .id(testScript.string("id"))
+                .url(testScript.string("url"))
+                .name(testScript.string("name"))
+                .title(testScript.string("title"))
+                .destinations(testScript.children("destination").stream().map(TestScriptMapper::destination).toList())
+                .capabilities(testScript.child("metadata").map(m -> m.children("capability")).orElse(List.of())
+                        .stream().map(TestScriptMapper::capability).toList())
+                .fixtures(testScript.children("fixture").stream().map(this::fixture).toList())
+                .profiles(profiles(testScript))
+                .variables(testScript.children("variable").stream().map(this::variable).toList())
+                .setup(testScript.child("setup").map(this::actions).orElse(List.of()))
+                .tests(testScript.children("test").stream().map(this::test).toList())
+                .teardown(testScript.child("teardown").map(this::actions).orElse(List.of()))
+                .build();
     }
 
     /** {@code TestScript.destination}: an index and a profile {@code Coding}. */
@@ -139,16 +140,24 @@ public final class TestScriptMapper {
         List<RequestHeader> headers = operation.children("requestHeader").stream()
                 .map(h -> new RequestHeader(h.string("field"), h.string("value")))
                 .toList();
-        return new Operation(OperationType.fromCode(typeCode), typeCode,
-                resourceType(operation.string("resource")),
-                operation.string("label"), operation.string("description"),
-                operation.string("accept"), operation.string("contentType"),
-                operation.bool("encodeRequestUrl", true),
-                method == null ? null : HttpMethod.parse(method),
-                operation.string("params"), headers,
-                operation.string("requestId"), operation.string("responseId"),
-                operation.string("sourceId"), operation.string("targetId"), operation.string("url"),
-                integer(operation.string("destination")));
+        return Operation.builder()
+                .type(typeCode)
+                .resource(resourceType(operation.string("resource")))
+                .label(operation.string("label"))
+                .description(operation.string("description"))
+                .accept(operation.string("accept"))
+                .contentType(operation.string("contentType"))
+                .encodeRequestUrl(operation.bool("encodeRequestUrl", true))
+                .method(method == null ? null : HttpMethod.parse(method))
+                .params(operation.string("params"))
+                .requestHeaders(headers)
+                .requestId(operation.string("requestId"))
+                .responseId(operation.string("responseId"))
+                .sourceId(operation.string("sourceId"))
+                .targetId(operation.string("targetId"))
+                .url(operation.string("url"))
+                .destination(integer(operation.string("destination")))
+                .build();
     }
 
     private Assertion assertion(ElementView assertion) {
@@ -186,11 +195,19 @@ public final class TestScriptMapper {
         } catch (IllegalArgumentException e) {
             throw new TestScriptFormatException(e.getMessage(), e);
         }
-        return new Assertion(checks.getFirst(), assertion.string("label"), assertion.string("description"),
-                assertion.string("direction"), operator, assertion.string("value"), assertion.string("sourceId"),
-                compareToSourceId, compareExpression, comparePath,
-                assertion.bool("warningOnly", false),
-                assertion.bool("stopTestOnFail", dialect.stopTestOnFailDefault()));
+        return Assertion.builder(checks.getFirst())
+                .label(assertion.string("label"))
+                .description(assertion.string("description"))
+                .direction(assertion.string("direction"))
+                .operator(operator)
+                .value(assertion.string("value"))
+                .sourceId(assertion.string("sourceId"))
+                .compareToSourceId(compareToSourceId)
+                .compareToSourceExpression(compareExpression)
+                .compareToSourcePath(comparePath)
+                .warningOnly(assertion.bool("warningOnly", false))
+                .stopTestOnFail(assertion.bool("stopTestOnFail", dialect.stopTestOnFailDefault()))
+                .build();
     }
 
     private Check response(String code) {
@@ -213,7 +230,7 @@ public final class TestScriptMapper {
         return value == null ? null : Integer.valueOf(value);
     }
 
-    private static void add(List<Check> checks, String value, java.util.function.Function<String, Check> factory) {
+    private static void add(List<Check> checks, String value, Function<String, Check> factory) {
         if (value != null) {
             checks.add(factory.apply(value));
         }

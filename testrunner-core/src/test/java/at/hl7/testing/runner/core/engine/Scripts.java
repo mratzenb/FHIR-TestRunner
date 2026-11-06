@@ -8,7 +8,6 @@ import at.hl7.testing.runner.core.model.Destination;
 import at.hl7.testing.runner.core.model.FhirVersion;
 import at.hl7.testing.runner.core.model.FixtureDefinition;
 import at.hl7.testing.runner.core.model.Operation;
-import at.hl7.testing.runner.core.model.OperationType;
 import at.hl7.testing.runner.core.model.Operator;
 import at.hl7.testing.runner.core.model.ProfileDeclaration;
 import at.hl7.testing.runner.core.model.RequestHeader;
@@ -26,71 +25,54 @@ final class Scripts {
     }
 
     static Operation op(String type) {
-        return new Operation(OperationType.fromCode(type), type, null, null, null, "json", null, true, null, null,
-                List.of(), null, null, null, null, null, null);
+        return Operation.builder().type(type).accept("json").build();
     }
 
     static Operation op(String type, String resource, String sourceId, String targetId, String params, String responseId) {
-        return new Operation(OperationType.fromCode(type), type, resource, null, null, "json", null, true, null, params,
-                List.of(), null, responseId, sourceId, targetId, null, null);
+        return Operation.builder().type(type).resource(resource).accept("json").sourceId(sourceId).targetId(targetId)
+                .params(params).responseId(responseId).build();
     }
 
     static Operation toDestination(Operation o, int destination) {
-        return new Operation(o.type(), o.typeCode(), o.resource(), o.label(), o.description(), o.accept(),
-                o.contentType(), o.encodeRequestUrl(), o.method(), o.params(), o.requestHeaders(), o.requestId(),
-                o.responseId(), o.sourceId(), o.targetId(), o.url(), destination);
+        return o.toBuilder().destination(destination).build();
     }
 
     static Operation withHeaders(Operation o, RequestHeader... headers) {
-        return new Operation(o.type(), o.typeCode(), o.resource(), o.label(), o.description(), o.accept(),
-                o.contentType(), o.encodeRequestUrl(), o.method(), o.params(), List.of(headers), o.requestId(),
-                o.responseId(), o.sourceId(), o.targetId(), o.url(), o.destination());
+        return o.toBuilder().requestHeaders(List.of(headers)).build();
     }
 
     /** {@code encodeRequestUrl = false}: the URL is sent as built. */
     static Operation noEncoding(Operation o) {
-        return new Operation(o.type(), o.typeCode(), o.resource(), o.label(), o.description(), o.accept(),
-                o.contentType(), false, o.method(), o.params(), o.requestHeaders(), o.requestId(),
-                o.responseId(), o.sourceId(), o.targetId(), o.url(), o.destination());
+        return o.toBuilder().encodeRequestUrl(false).build();
     }
 
     static Operation withRequestId(Operation o, String requestId) {
-        return new Operation(o.type(), o.typeCode(), o.resource(), o.label(), o.description(), o.accept(),
-                o.contentType(), o.encodeRequestUrl(), o.method(), o.params(), o.requestHeaders(), requestId,
-                o.responseId(), o.sourceId(), o.targetId(), o.url(), o.destination());
+        return o.toBuilder().requestId(requestId).build();
     }
 
     static Assertion check(Check check) {
-        return new Assertion(check, null, null, null, null, null, null, null, null, null, false, false);
+        return Assertion.builder(check).build();
     }
 
     static Assertion check(Check check, Operator operator, String value) {
-        return new Assertion(check, null, null, null, operator, value, null, null, null, null, false, false);
+        return Assertion.builder(check).operator(operator).value(value).build();
     }
 
     static Assertion warningOnly(Assertion a) {
-        return new Assertion(a.check(), a.label(), a.description(), a.direction(), a.operator(), a.value(),
-                a.sourceId(), a.compareToSourceId(), a.compareToSourceExpression(), a.compareToSourcePath(), true,
-                a.stopTestOnFail());
+        return a.toBuilder().warningOnly(true).build();
     }
 
     static Assertion stopTestOnFail(Assertion a) {
-        return new Assertion(a.check(), a.label(), a.description(), a.direction(), a.operator(), a.value(),
-                a.sourceId(), a.compareToSourceId(), a.compareToSourceExpression(), a.compareToSourcePath(),
-                a.warningOnly(), true);
+        return a.toBuilder().stopTestOnFail(true).build();
     }
 
     /** {@code direction = request}: the assertion checks the request sent, not the response. */
     static Assertion onRequest(Assertion a) {
-        return new Assertion(a.check(), a.label(), a.description(), "request", a.operator(), a.value(),
-                a.sourceId(), a.compareToSourceId(), a.compareToSourceExpression(), a.compareToSourcePath(),
-                a.warningOnly(), a.stopTestOnFail());
+        return a.toBuilder().direction("request").build();
     }
 
     static Assertion on(Assertion a, String sourceId) {
-        return new Assertion(a.check(), a.label(), a.description(), a.direction(), a.operator(), a.value(),
-                sourceId, a.compareToSourceId(), a.compareToSourceExpression(), a.compareToSourcePath(),
-                a.warningOnly(), a.stopTestOnFail());
+        return a.toBuilder().sourceId(sourceId).build();
     }
 
     static Assertion responseCode(String codes) {
@@ -167,8 +149,9 @@ final class Scripts {
         }
 
         TestScript build() {
-            return new TestScript(FhirVersion.R4, "ts", url, name, null, destinations,
-                    capabilities, fixtures, profiles, variables, setup, tests, teardown);
+            return TestScript.builder(FhirVersion.R4).id("ts").url(url).name(name).destinations(destinations)
+                    .capabilities(capabilities).fixtures(fixtures).profiles(profiles).variables(variables)
+                    .setup(setup).tests(tests).teardown(teardown).build();
         }
     }
 }

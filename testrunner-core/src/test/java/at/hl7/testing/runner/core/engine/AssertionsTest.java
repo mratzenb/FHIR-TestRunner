@@ -102,9 +102,9 @@ class AssertionsTest extends EngineTestBase {
 
     @Test
     void compareToSourceUsesTheValueOfTheOtherSource() {
-        var compare = new Assertion(
-                new Check.Expression("CapabilityStatement.fhirVersion"), null, null, null, Operator.EQUALS, null,
-                null, "caps", "CapabilityStatement.fhirVersion", null, false, false);
+        var compare = Assertion.builder(new Check.Expression("CapabilityStatement.fhirVersion"))
+                .operator(Operator.EQUALS).compareToSourceId("caps")
+                .compareToSourceExpression("CapabilityStatement.fhirVersion").build();
         harness.add("ts", script().test(test("t",
                 op("capabilities", null, null, null, null, "caps"),
                 op("capabilities"),

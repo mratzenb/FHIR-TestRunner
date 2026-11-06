@@ -99,7 +99,7 @@ class FixturesTest extends EngineTestBase {
 }
 ```
 
-`Scripts`: `script()` builder (`destination`, `requires(canonical)`, `fixture`, `profile`, `variable`, `setup`,
+`Scripts` (helpers on the model builders, `Operation.toBuilder()` etc.): `script()` builder (`destination`, `requires(canonical)`, `fixture`, `profile`, `variable`, `setup`,
 `test`, `teardown`), `op(...)`, `check(Check[, Operator, value])`, `responseCode`, `warningOnly`, `stopTestOnFail`,
 `on(assertion, sourceId)`, `onRequest(assertion)` (`direction = request`), `withHeaders`, `withRequestId`,
 `toDestination`, `test(name, actions...)`. `Harness`: `resource(fixtureId, json)`, `exampleInstance(fileName, json)`

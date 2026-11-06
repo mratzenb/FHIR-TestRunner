@@ -26,6 +26,19 @@ public record Assertion(Check check, String label, String description, String di
                         String value, String sourceId, String compareToSourceId, String compareToSourceExpression,
                         String compareToSourcePath, boolean warningOnly, boolean stopTestOnFail) implements Action {
 
+    /** A builder of an assertion of {@code check}; nothing else is set. */
+    public static Builder builder(Check check) {
+        return new Builder(check);
+    }
+
+    /** A builder with every value of this assertion, to make a copy that differs in a few. */
+    public Builder toBuilder() {
+        return new Builder(check).label(label).description(description).direction(direction).operator(operator)
+                .value(value).sourceId(sourceId).compareToSourceId(compareToSourceId)
+                .compareToSourceExpression(compareToSourceExpression).compareToSourcePath(compareToSourcePath)
+                .warningOnly(warningOnly).stopTestOnFail(stopTestOnFail);
+    }
+
     /** Returns a copy with every value passed through {@code values}, which replaces {@code ${variable}} placeholders. */
     public Assertion withValues(UnaryOperator<String> values) {
         Check resolved = switch (check) {
@@ -42,8 +55,98 @@ public record Assertion(Check check, String label, String description, String di
             case Check.NavigationLinks n -> n;
             case Check.Response r -> r;
         };
-        return new Assertion(resolved, label, description, direction, operator, apply(values, value),
-                apply(values, sourceId), apply(values, compareToSourceId), apply(values, compareToSourceExpression),
-                apply(values, compareToSourcePath), warningOnly, stopTestOnFail);
+        return toBuilder().check(resolved).value(apply(values, value)).sourceId(apply(values, sourceId))
+                .compareToSourceId(apply(values, compareToSourceId))
+                .compareToSourceExpression(apply(values, compareToSourceExpression))
+                .compareToSourcePath(apply(values, compareToSourcePath))
+                .build();
+    }
+
+    /**
+     * Builds an {@link Assertion} by name rather than by the position of its 12 components. Not thread-safe; the
+     * assertion built is immutable.
+     */
+    public static final class Builder {
+        private Check check;
+        private String label;
+        private String description;
+        private String direction;
+        private Operator operator;
+        private String value;
+        private String sourceId;
+        private String compareToSourceId;
+        private String compareToSourceExpression;
+        private String compareToSourcePath;
+        private boolean warningOnly;
+        private boolean stopTestOnFail;
+
+        private Builder(Check check) {
+            this.check = check;
+        }
+
+        public Builder check(Check value) {
+            this.check = value;
+            return this;
+        }
+
+        public Builder label(String value) {
+            this.label = value;
+            return this;
+        }
+
+        public Builder description(String value) {
+            this.description = value;
+            return this;
+        }
+
+        public Builder direction(String value) {
+            this.direction = value;
+            return this;
+        }
+
+        public Builder operator(Operator value) {
+            this.operator = value;
+            return this;
+        }
+
+        public Builder value(String newValue) {
+            this.value = newValue;
+            return this;
+        }
+
+        public Builder sourceId(String value) {
+            this.sourceId = value;
+            return this;
+        }
+
+        public Builder compareToSourceId(String value) {
+            this.compareToSourceId = value;
+            return this;
+        }
+
+        public Builder compareToSourceExpression(String value) {
+            this.compareToSourceExpression = value;
+            return this;
+        }
+
+        public Builder compareToSourcePath(String value) {
+            this.compareToSourcePath = value;
+            return this;
+        }
+
+        public Builder warningOnly(boolean value) {
+            this.warningOnly = value;
+            return this;
+        }
+
+        public Builder stopTestOnFail(boolean value) {
+            this.stopTestOnFail = value;
+            return this;
+        }
+
+        public Assertion build() {
+            return new Assertion(check, label, description, direction, operator, value, sourceId, compareToSourceId,
+                    compareToSourceExpression, compareToSourcePath, warningOnly, stopTestOnFail);
+        }
     }
 }
