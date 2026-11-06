@@ -24,6 +24,11 @@ documents; [next steps](docs/wiki/next-steps.md) has the plan behind them.
 
 ### Added
 
+* TestScripts for several servers (M6.1, ADR-0019): `suites[n].fhir-servers.<index>` maps each
+  `TestScript.destination` index to a server (with its own headers and OAuth2). Each operation goes to the server of
+  its `destination`, autocreated fixtures are created on, and deleted from, every server, a `metadata.capability`
+  with `destination` is checked on that server. Such TestScripts were a `Load` error before; they still are while an
+  index is not mapped – the message names the property to set.
 * Packages (M6.2, ADR-0018): `package-id` takes `#current` (the CI build of an IG), `#current$<branch>` and `#2.1.x`
   (highest patch release). With validation on, the packages a suite's package depends on are resolved transitively
   into the cache and passed to the validator with the version found. Every package from the registry is verified
@@ -41,6 +46,11 @@ documents; [next steps](docs/wiki/next-steps.md) has the plan behind them.
 
 ### Changed – API
 
+* Several servers (M6.1): `TestScriptResult.fhirServer` (a `String`, `null` if nothing was sent) is now
+  `fhirServers`, a list of base URLs (empty if nothing was sent); `TestReportContent.server` is `servers`, one
+  `participant` each. `SuiteConfig` has a twelfth component, `fhirServers` (`withFhirServers(…)`);
+  `CapabilityRequirement` a sixth, `destination` (the five-argument constructor stays). `result.json` gets
+  `fhirServers`.
 * `PackagesConfig` has a third component, `ciBuild`; `PackagesConfig.cache(dir)` is the defaults with another cache
   (M6.2).
 * The public API is annotated with `jakarta.annotation.Nonnull`/`Nullable` (ADR-0017), and five methods that

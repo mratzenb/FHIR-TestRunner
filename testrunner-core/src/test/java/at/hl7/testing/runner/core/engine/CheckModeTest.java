@@ -51,7 +51,7 @@ class CheckModeTest extends EngineTestBase {
             assertThat(load.outcome()).isEqualTo(Outcome.PASS);
             assertThat(load.messages()).isEmpty();
         });
-        assertThat(good.fhirServer()).as("not run against a server").isNull();
+        assertThat(good.fhirServers()).as("not run against a server").isEmpty();
         assertThat(server.requests()).as("not even the autocreate fixture").isEmpty();
         assertThat(result.runId()).as("a folder of its own").startsWith("check_");
         assertThat(result.runDirectory().resolve("communication")).doesNotExist();

@@ -90,6 +90,16 @@ public record RunConfiguration(@Nonnull FhirServerConfig fhirServer, @Nonnull Li
             if (suite.fhirServer() != null) {
                 problems.addAll(suite.fhirServer().problems(prefix + ".fhir-server"));
             }
+            suite.fhirServers().forEach((destination, server) -> {
+                String property = prefix + ".fhir-servers." + destination;
+                if (destination < 1) {
+                    problems.add(property + ": a TestScript.destination index starts at 1");
+                }
+                if (server.base().isEmpty()) {
+                    problems.add(property + ".base-url is not set");
+                }
+                problems.addAll(server.problems(property));
+            });
             if (suite.packageId() != null) {
                 if (suite.baseDir() != null) {
                     problems.add(prefix + " has both base-dir and package-id; a suite comes from one of them");

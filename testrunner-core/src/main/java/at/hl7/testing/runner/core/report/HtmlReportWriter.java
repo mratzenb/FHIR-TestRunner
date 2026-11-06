@@ -140,7 +140,8 @@ public final class HtmlReportWriter implements ReportWriter {
         definition(html, "File", String.valueOf(testScript.source()));
         definition(html, "URL", testScript.url());
         definition(html, "FHIR version", testScript.fhirVersion() == null ? null : testScript.fhirVersion().name());
-        definition(html, "Server", testScript.fhirServer());
+        definition(html, testScript.fhirServers().size() > 1 ? "Servers" : "Server",
+                String.join(", ", testScript.fhirServers()));
         definition(html, "Started", DateTimeFormatter.ISO_INSTANT.format(testScript.started()));
         html.append("</dl>\n");
         for (PhaseResult phase : testScript.phases()) {

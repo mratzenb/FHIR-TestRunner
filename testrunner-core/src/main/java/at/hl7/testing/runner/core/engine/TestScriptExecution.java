@@ -5,6 +5,7 @@ import at.hl7.testing.runner.core.http.FhirHttpClient;
 import at.hl7.testing.runner.core.http.FhirRequest;
 import at.hl7.testing.runner.core.model.Action;
 import at.hl7.testing.runner.core.model.Assertion;
+import at.hl7.testing.runner.core.model.CapabilityRequirement;
 import at.hl7.testing.runner.core.model.HttpMethod;
 import at.hl7.testing.runner.core.model.Operation;
 import at.hl7.testing.runner.core.model.TestDefinition;
@@ -21,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Executes one TestScript: setup, every test, teardown. One instance per execution; it owns all state of that
@@ -35,6 +37,9 @@ import java.util.Locale;
  *   <li>The teardown and the autodelete of fixtures always run once the setup has started.</li>
  *   <li>A server that lacks a required capability ({@code metadata.capability}) skips the whole TestScript before
  *       the setup: nothing is created, so there is nothing to tear down.</li>
+ *   <li>With several servers ({@code TestScript.destination}) each operation goes to the server of its
+ *       {@code destination}; autocreated fixtures are created on, and deleted from, every server; a capability is
+ *       checked on the server of its {@code destination}, or on every server.</li>
  *   <li>A {@link Deadline} that has passed (run stopped, run or TestScript timeout) is checked before every action of
  *       the setup and the tests: the phase ends with {@code error} naming the reason, the remaining tests are
  *       {@code skip}. The teardown and the autodelete still run, so the server is cleaned up.</li>
@@ -46,7 +51,7 @@ final class TestScriptExecution {
 
     private final LoadedTestScript loaded;
     private final TestScript testScript;
-    private final FhirHttpClient http;
+    private final Servers servers;
     private final ExecutionState state = new ExecutionState();
     private final List<String> capabilityWarnings = new ArrayList<>();
     private final List<String> warnings;
@@ -55,7 +60,6 @@ final class TestScriptExecution {
     private final AssertionEvaluator assertions;
     private final FixtureManager fixtures;
     private final CapabilityCheck capabilities;
-    private final String fhirBase;
     private final Deadline deadline;
 
     /**
@@ -64,15 +68,15 @@ final class TestScriptExecution {
     TestScriptExecution(LoadedTestScript loaded, ExecutionEnvironment environment) {
         this.loaded = loaded;
         this.testScript = loaded.testScript();
-        this.http = environment.http();
-        this.fhirBase = environment.fhirBase();
+        this.servers = environment.servers();
         this.capabilities = environment.capabilities();
         this.variables = new VariableResolver(testScript.variables(), environment.builtIn(), state,
                 loaded.support().fhirPath());
-        this.requests = new RequestFactory(fhirBase, state);
+        this.requests = new RequestFactory(state);
         this.assertions = new AssertionEvaluator(state, loaded.support().fhirPath(), environment.validator(),
                 testScript.profiles(), testScript.fhirVersion(), environment.profilesDir(), environment.igs());
-        this.fixtures = new FixtureManager(state, http, fhirBase, variables::resolve, environment.rewriting());
+        this.fixtures = new FixtureManager(state, servers, variables::resolve, environment.rewriting());
+        state.onServer(servers.first().index());
         this.warnings = environment.warnings();
         this.deadline = environment.deadline();
         state.resolveFixturesWith(fixtures::resolve);
@@ -83,7 +87,7 @@ final class TestScriptExecution {
         PhaseResult unsupported = checkCapabilities();
         if (unsupported != null) {
             phases.add(unsupported);
-            String reason = "Skipped: the server lacks a required capability";
+            String reason = "Skipped: " + (servers.several() ? "a server" : "the server") + " lacks a required capability";
             testScript.tests().forEach(t -> phases.add(PhaseResult.skipped(PhaseKind.TEST, t.name(), t.assertionCount(),
                     reason)));
             return phases;
@@ -114,28 +118,42 @@ final class TestScriptExecution {
     }
 
     /**
-     * Checks {@code metadata.capability}.
+     * Checks {@code metadata.capability}, each requirement on the server of its {@code destination}, or on every server.
      *
-     * @return the skipped setup if the server lacks a required capability, {@code null} if the TestScript can run
+     * @return the skipped setup if a server lacks a required capability, {@code null} if the TestScript can run
      */
     private PhaseResult checkCapabilities() {
-        if (testScript.capabilities().stream().noneMatch(c -> c.required())) {
+        if (testScript.capabilities().stream().noneMatch(CapabilityRequirement::required)) {
             return null;
         }
-        CapabilityCheck.Result result;
-        try {
-            result = capabilities.check(testScript.capabilities(), loaded.capabilities(), http, fhirBase);
-        } catch (FhirHttpClient.ExchangeFailedException e) {
-            capabilityWarnings.add("The required capabilities were not checked: " + e.getMessage());
+        List<String> unmet = new ArrayList<>();
+        for (Servers.Endpoint server : servers.all()) {
+            List<CapabilityRequirement> requirements = testScript.capabilities().stream()
+                    .filter(c -> c.destination() == null || !servers.several()
+                            || Objects.equals(c.destination(), server.index()))
+                    .toList();
+            if (requirements.stream().noneMatch(CapabilityRequirement::required)) {
+                continue;
+            }
+            String which = servers.several() ? " of destination " + server.index() : "";
+            CapabilityCheck.Result result;
+            try {
+                result = capabilities.check(requirements, loaded.capabilities(), server.http(), server.base());
+            } catch (FhirHttpClient.ExchangeFailedException e) {
+                capabilityWarnings.add("The required capabilities" + (which.isEmpty() ? "" : " of the server" + which)
+                        + " were not checked: " + e.getMessage());
+                continue;
+            }
+            capabilityWarnings.addAll(result.warnings());
+            result.unmet().forEach(u -> unmet.add(which.isEmpty() ? u
+                    : u.replaceFirst("^The server", "The server" + which)));
+        }
+        if (unmet.isEmpty()) {
             return null;
         }
-        capabilityWarnings.addAll(result.warnings());
-        if (result.unmet().isEmpty()) {
-            return null;
-        }
-        log.warn("--- Setup skipped: the server lacks a required capability");
+        log.warn("--- Setup skipped: {} lacks a required capability", servers.several() ? "a server" : "the server");
         PhaseRecorder phase = setupRecorder();
-        result.unmet().forEach(u -> phase.problem(Outcome.SKIP, u));
+        unmet.forEach(u -> phase.problem(Outcome.SKIP, u));
         return finish(phase);
     }
 
@@ -217,9 +235,11 @@ final class TestScriptExecution {
             }
             Operation operation = template.withValues(variables::resolve);
             described = describe(operation);
-            log.info("Operation {}", described);
-            FhirRequest request = requests.create(operation);
-            Exchange exchange = http.send(request);
+            Servers.Endpoint server = servers.of(operation);
+            state.onServer(server.index());
+            log.info("Operation {}{}", described, servers.several() ? " to destination " + server.index() : "");
+            FhirRequest request = requests.create(operation, server.base());
+            Exchange exchange = server.http().send(request);
             requestId = exchange.requestId();
             state.exchanged(exchange, operation.requestId(), operation.responseId());
             fixtures.sentByOperation(operation, exchange);

@@ -20,18 +20,19 @@ import java.util.List;
  * @param score      percentage of the executed assertions that passed, {@code null} if none was executed
  * @param tester     who ran the TestScript
  * @param issued     when the TestScript was run
- * @param server     base URL of the server tested, {@code null} if nothing was sent
+ * @param servers    base URL of each server tested, one {@code participant} each; empty if nothing was sent
  * @param setup      the setup actions, empty if there are none
  * @param tests      the tests
  * @param teardown   the teardown actions, empty if there are none
  */
 public record TestReportContent(@Nonnull String id, @Nonnull String identifier, @Nonnull String name,
                                 @Nonnull String testScript, @Nonnull String result, @Nullable BigDecimal score,
-                                @Nonnull String tester, @Nonnull Instant issued, @Nullable String server,
+                                @Nonnull String tester, @Nonnull Instant issued, @Nonnull List<String> servers,
                                 @Nonnull List<Action> setup, @Nonnull List<Test> tests,
                                 @Nonnull List<Action> teardown) {
 
     public TestReportContent {
+        servers = List.copyOf(servers);
         setup = List.copyOf(setup);
         tests = List.copyOf(tests);
         teardown = List.copyOf(teardown);

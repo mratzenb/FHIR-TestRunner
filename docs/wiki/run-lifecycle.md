@@ -26,7 +26,7 @@ sequenceDiagram
         TR->>Src: TestScriptLoader.load (detect version, map, load fixtures)
         TR->>TR: TestScriptChecks (ids, variables, destinations)
         TR->>Val: validate the TestScript itself (optional)
-        TR->>TR: ExecutionFactory: client, communication log, ${testrunner.…}
+        TR->>TR: ExecutionFactory: a client per server, communication log, ${testrunner.…}
         TR->>Ex: run()
         Ex->>Http: send requests (setup, tests, teardown)
         Ex->>Val: validateProfileId assertions
@@ -121,10 +121,13 @@ If loading fails, the TestScript gets an `error` in the phase `Load`. Nothing is
 
 ## 6. Checks before sending
 
-* `TestScriptChecks` – unique fixture/response/request ids, well-formed variables, at most one destination.
+* `TestScriptChecks` – unique fixture/response/request ids, well-formed variables; with several destinations, every
+  operation names a declared one.
   It also walks the actions in the order they run, applies the `ActionRules` to each and checks every reference. See
   below.
 * Validation of the TestScript itself against its FHIR version, if `validate-test-scripts` is on.
+* Then, in a run only: the servers of the TestScript (`Destinations.map`). A TestScript for several servers whose
+  destination indexes are not all mapped in `suites[n].fhir-servers` is an `error` naming each property to set.
 * No FHIR server configured → every test is `skip`.
 
 Each problem gives an `error` in the phase `Load`. All problems are listed at once, and nothing is sent. So a typo
@@ -211,7 +214,7 @@ Inside a phase, actions run in order:
 
 | Action | What happens |
 |---|---|
-| Operation | `${…}` placeholders resolved → `RequestFactory` builds the request → `FhirHttpClient` sends it → request and response stored in `ExecutionState` |
+| Operation | `${…}` placeholders resolved → the server of its `destination` chosen (with one server: that one) → `RequestFactory` builds the request for that server's base → that server's `FhirHttpClient` sends it → request and response stored in `ExecutionState` |
 | Assertion | placeholders resolved → `AssertionEvaluator` checks the last response, the last request (`direction: request`), or the fixture, response or request named by `sourceId` |
 
 How outcomes affect the phase:

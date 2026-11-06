@@ -127,7 +127,7 @@ Reference in R4 and a canonical in R5):
 | `testScript` | `TestScript.url`, else the file URI |
 | `result` | `pass`; `pending` if the TestScript was skipped (e.g. a missing capability); `fail` for fail and error (FHIR has no result "error", the actions have it) |
 | `score` | percentage of the tests that passed |
-| `participant` | the server (`type = server`, its base URL), if anything was sent |
+| `participant` | one per server (`type = server`, its base URL), if anything was sent; several for a TestScript with several destinations |
 | `setup` | the Load and Setup phases |
 | `test` | one per test, named like the test |
 | `teardown` | the teardown, operations only |
@@ -145,7 +145,7 @@ With the format `html` (on in the application's defaults) the run folder gets `r
 for readers who do not open `junit.xml` (`HtmlReportWriter`, plain Java, no template engine, no script).
 
 * At the top the run: outcome, start, duration, counts, and a table of every TestScript with its tests passed.
-* Then one section per TestScript: suite, file, url, FHIR version, server, and each phase with its messages and its
+* Then one section per TestScript: suite, file, url, FHIR version, server (or servers), and each phase with its messages and its
   actions. A TestScript that did not pass is open, the others are folded; "only what did not pass" hides the rest.
 * Every request id links to its folder in `communication/`, and to `request.http`, `response.http` or `error.txt` in
   it. The links are relative: the run folder can be zipped, archived or attached to a CI job as a whole. Without

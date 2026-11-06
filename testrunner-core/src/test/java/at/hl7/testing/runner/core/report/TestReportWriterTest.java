@@ -71,7 +71,8 @@ class TestReportWriterTest {
 
     static TestScriptResult script(FhirVersion version, String server, PhaseResult... phases) {
         return new TestScriptResult(3, "suite", "TS", "http://example.org/TestScript/ts", Path.of("Test_Scripts/ts.json"),
-                version, server, Instant.parse("2026-10-26T10:00:00Z"), Duration.ofSeconds(1), List.of(phases));
+                version, server == null ? List.of() : List.of(server), Instant.parse("2026-10-26T10:00:00Z"),
+                Duration.ofSeconds(1), List.of(phases));
     }
 
     RunResult run(TestScriptResult... scripts) {
@@ -102,7 +103,7 @@ class TestReportWriterTest {
         assertThat(report.testScript()).isEqualTo("http://example.org/TestScript/ts");
         assertThat(report.result()).isEqualTo("fail");
         assertThat(report.score()).as("one of three tests passed").isEqualByComparingTo("33.33");
-        assertThat(report.server()).isEqualTo("http://server/fhir");
+        assertThat(report.servers()).containsExactly("http://server/fhir");
         assertThat(report.setup()).extracting(TestReportContent.Action::result).containsExactly("warning", "pass");
         assertThat(report.setup().get(1).detail()).isEqualTo("communication/03_ts/REQ-0001_POST_Patient");
         assertThat(report.tests()).extracting(t -> t.actions().getFirst().result())

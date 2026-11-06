@@ -126,7 +126,8 @@ class R4SupportTest {
 
     static TestReportContent report(String testScript) {
         return new TestReportContent("run-01", "run/01", "TS", testScript, "fail", new java.math.BigDecimal("50"),
-                "tester", java.time.Instant.parse("2026-10-26T10:00:00Z"), "http://localhost:8080/fhir",
+                "tester", java.time.Instant.parse("2026-10-26T10:00:00Z"),
+                List.of("http://localhost:8080/fhir", "http://localhost:8081/fhir"),
                 List.of(new TestReportContent.Action(false, "pass", "create Patient (POST)", "communication/01_ts/REQ-0001_POST_Patient")),
                 List.of(new TestReportContent.Test("t1", List.of(
                                 new TestReportContent.Action(true, "warning", "responseCode '201': Assert failed", "REQ-0001"))),
@@ -146,7 +147,8 @@ class R4SupportTest {
         assertThat(report.getTestScript().getReference()).isEqualTo("http://example.org/TestScript/ts");
         assertThat(report.getResult()).isEqualTo(org.hl7.fhir.r4.model.TestReport.TestReportResult.FAIL);
         assertThat(report.getScore().intValue()).isEqualTo(50);
-        assertThat(report.getParticipantFirstRep().getUri()).isEqualTo("http://localhost:8080/fhir");
+        assertThat(report.getParticipant()).as("one participant per server").extracting(p -> p.getType().toCode() + " "
+                + p.getUri()).containsExactly("server http://localhost:8080/fhir", "server http://localhost:8081/fhir");
         assertThat(report.getSetup().getActionFirstRep().getOperation().getDetail())
                 .isEqualTo("communication/01_ts/REQ-0001_POST_Patient");
         assertThat(report.getTest()).extracting(t -> t.getActionFirstRep().getAssert().getResult().toCode())

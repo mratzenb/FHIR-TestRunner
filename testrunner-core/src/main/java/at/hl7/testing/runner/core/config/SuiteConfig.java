@@ -6,9 +6,12 @@ import jakarta.annotation.Nullable;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 /**
  * A set of TestScripts together with the Example Instances and profiles they use, typically the content of one
@@ -32,7 +35,8 @@ import java.util.Optional;
  *                            version, so pin {@code fhirVersion} when setting them
  * @param include             glob patterns (relative to {@code testScriptsDir}) of the TestScripts to run, default all
  *                            {@code .json} and {@code .xml} files
- * @param fhirServer          FHIR server of this suite; {@code null} to use the server of the run
+ * @param fhirServer          FHIR server of this suite; {@code null} to use the server of the run. A TestScript that
+ *                            addresses one server is sent here, unless {@code fhirServers} maps its destination
  * @param parallel            whether the TestScripts of this suite may run in parallel with others (default true,
  *                            effective with {@code execution.parallelism > 1}); false runs them one after the other,
  *                            while nothing else runs, for TestScripts that share data on the server
@@ -40,12 +44,15 @@ import java.util.Optional;
  *                            {@code hl7.at.fhir.core.r4#2.1.0}, {@code #2.1.x} (highest patch release),
  *                            {@code #current} (CI build), {@code #current$<branch>} or {@code #dev} (built locally);
  *                            see {@link PackagesConfig}
+ * @param fhirServers         the servers of the {@code TestScript.destination} indexes, by index (1, 2, …); default
+ *                            none. A TestScript that addresses several servers is sent to these and needs each of its
+ *                            indexes mapped; one that addresses one server uses its index's entry if there is one
  */
 public record SuiteConfig(@Nullable String name, @Nonnull String fhirVersion, @Nullable Path baseDir,
                           @Nonnull Path testScriptsDir, @Nonnull Path exampleInstancesDir, @Nonnull Path profilesDir,
                           @Nonnull List<String> igs, @Nonnull List<String> include,
                           @Nullable FhirServerConfig fhirServer, @Nonnull Boolean parallel,
-                          @Nullable String packageId) {
+                          @Nullable String packageId, @Nonnull Map<Integer, FhirServerConfig> fhirServers) {
 
     public static final String AUTO = "AUTO";
     private static final List<String> DEFAULT_INCLUDE = List.of("*.json", "*.xml");
@@ -53,7 +60,8 @@ public record SuiteConfig(@Nullable String name, @Nonnull String fhirVersion, @N
     public SuiteConfig(@Nullable String name, @Nullable String fhirVersion, @Nullable Path baseDir,
                        @Nullable Path testScriptsDir, @Nullable Path exampleInstancesDir, @Nullable Path profilesDir,
                        @Nullable List<String> igs, @Nullable List<String> include,
-                       @Nullable FhirServerConfig fhirServer, @Nullable Boolean parallel, @Nullable String packageId) {
+                       @Nullable FhirServerConfig fhirServer, @Nullable Boolean parallel, @Nullable String packageId,
+                       @Nullable Map<Integer, FhirServerConfig> fhirServers) {
         fhirVersion = fhirVersion == null || fhirVersion.isBlank() ? AUTO : fhirVersion.trim();
         testScriptsDir = testScriptsDir == null ? Path.of("Test_Scripts") : testScriptsDir;
         exampleInstancesDir = exampleInstancesDir == null ? Path.of("Example_Instances") : exampleInstancesDir;
@@ -62,6 +70,7 @@ public record SuiteConfig(@Nullable String name, @Nonnull String fhirVersion, @N
         include = include == null || include.isEmpty() ? DEFAULT_INCLUDE : List.copyOf(include);
         parallel = parallel == null || parallel;
         packageId = packageId == null || packageId.isBlank() ? null : packageId.trim();
+        fhirServers = fhirServers == null ? Map.of() : Collections.unmodifiableSortedMap(new TreeMap<>(fhirServers));
         if ((name == null || name.isBlank()) && packageId != null) {
             name = packageId;
         } else if ((name == null || name.isBlank()) && baseDir != null && baseDir.getFileName() != null) {
@@ -78,18 +87,26 @@ public record SuiteConfig(@Nullable String name, @Nonnull String fhirVersion, @N
         this.fhirServer = fhirServer;
         this.parallel = parallel;
         this.packageId = packageId;
+        this.fhirServers = fhirServers;
     }
 
     /** A suite with the default folder layout below {@code baseDir}. */
     @Nonnull
     public static SuiteConfig of(@Nonnull Path baseDir, @Nullable String fhirVersion) {
-        return new SuiteConfig(null, fhirVersion, baseDir, null, null, null, null, null, null, null, null);
+        return new SuiteConfig(null, fhirVersion, baseDir, null, null, null, null, null, null, null, null, null);
+    }
+
+    /** A copy whose TestScripts send to these servers, by {@code TestScript.destination} index. */
+    @Nonnull
+    public SuiteConfig withFhirServers(@Nonnull Map<Integer, FhirServerConfig> newFhirServers) {
+        return new SuiteConfig(name, fhirVersion, baseDir, testScriptsDir, exampleInstancesDir, profilesDir, igs,
+                include, fhirServer, parallel, packageId, newFhirServers);
     }
 
     /**
      * The suite of an unpacked FHIR package: TestScripts in {@code package/}, Example Instances in the package's example
      * folder, no Profiles folder (the package is an IG of its own), the package and what it depends on before the
-     * configured IGs. Name, include, server and parallel are kept; the FHIR version is the package's unless one is
+     * configured IGs. Name, include, servers and parallel are kept; the FHIR version is the package's unless one is
      * configured.
      *
      * @param packageDir  the {@code package/} folder of the unpacked package
@@ -107,7 +124,7 @@ public record SuiteConfig(@Nullable String name, @Nonnull String fhirVersion, @N
         return new SuiteConfig(name, AUTO.equals(fhirVersion) ? version.name() : fhirVersion, packageDir, Path.of("."),
                 examplesDir, packageDir.resolve("other").resolve("no-profiles-folder"), allIgs,
                 include.equals(DEFAULT_INCLUDE) ? List.of("TestScript-*.json", "TestScript-*.xml") : include,
-                fhirServer, parallel, packageId);
+                fhirServer, parallel, packageId, fhirServers);
     }
 
     /** The configured version, or empty for {@code AUTO}. */

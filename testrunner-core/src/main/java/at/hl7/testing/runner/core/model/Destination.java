@@ -6,8 +6,9 @@ import jakarta.annotation.Nullable;
 /**
  * A server a TestScript sends requests to ({@code TestScript.destination}).
  *
- * <p>The runner sends every request to the one FHIR server configured for the suite, so a TestScript may declare at
- * most one destination. Origins are not modelled: the runner plays every client ({@code TestScript.origin}) itself.
+ * <p>A TestScript with one destination is sent to the FHIR server of its suite. One with several is sent to the
+ * servers its suite maps to the indexes ({@code suites[n].fhir-servers}). Origins are not modelled: the runner plays
+ * every client ({@code TestScript.origin}) itself.
  *
  * @param index   the number operations refer to ({@code operation.destination})
  * @param profile the code of the profile, e.g. {@code FHIR-Server}, may be {@code null}

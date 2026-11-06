@@ -51,6 +51,7 @@ final class Harness {
     private List<String> formats = List.of("junit", "summary", "json");
     private SelectConfig select;
     private RunControl control;
+    private final Map<Integer, FhirServerConfig> fhirServers = new LinkedHashMap<>();
     private final Map<String, Error> failing = new LinkedHashMap<>();
     private final List<RunListener> listeners = new java.util.ArrayList<>();
 
@@ -165,6 +166,12 @@ final class Harness {
         return this;
     }
 
+    /** {@code suites[n].fhir-servers.<destination>} of the suite {@code suite}. */
+    Harness destination(int index, FhirServerConfig server) {
+        fhirServers.put(index, server);
+        return this;
+    }
+
     RunResult run() {
         return call(TestRunner::run);
     }
@@ -192,9 +199,9 @@ final class Harness {
         List<SuiteConfig> suites = new java.util.ArrayList<>();
         if (serialSuite) {
             suites.add(new SuiteConfig(null, "R4", dir.resolve("serial"), null, Path.of("../suite/Example_Instances"),
-                    null, null, null, null, false, null));
+                    null, null, null, null, false, null, null));
         }
-        suites.add(SuiteConfig.of(dir.resolve("suite"), "R4"));
+        suites.add(SuiteConfig.of(dir.resolve("suite"), "R4").withFhirServers(fhirServers));
         RunConfiguration configuration = new RunConfiguration(FhirServerConfig.of(fhirBase).withOAuth2(oauth2), suites,
                 HttpConfig.defaults(),
                 new ExecutionConfig(parallelism, rewriting, timeout, testScriptTimeout, failFast),

@@ -102,7 +102,7 @@ out of the build context. Usage and mounts: [Build and test › Container image]
 | `RunCommandTest` | unit | exit codes for every `exit-on-skip` value, the text of `--list` |
 | `EndToEndIT` | failsafe | the whole app on the sample TestScripts, with an in-memory FHIR server and the fake validator; `--check` on the samples without a server; selection by file name, name and test; `--list` |
 | `RealValidatorIT` | failsafe, opt-in | AT Core R4 suite incl. the negative control with the **real** validator, both modes. Runs only with `VALIDATOR_JAR` set. |
-| `HapiServerIT` | failsafe, needs Docker | AT Core R4 and R5 and every sample against a **real** HAPI FHIR server (Testcontainers, `hapiproject/hapi:v8.12.0-1`). Skipped without Docker. |
+| `HapiServerIT` | failsafe, needs Docker | AT Core R4 and R5, every sample and a TestScript for two servers against **real** HAPI FHIR servers (Testcontainers, `hapiproject/hapi:v8.12.0-1`). Skipped without Docker. |
 | `ArchitectureTest` | unit (ArchUnit) | the module boundaries |
 
 `ArchitectureTest` lives here because only this module has every other module on its classpath.

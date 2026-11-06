@@ -18,17 +18,20 @@ import java.util.List;
  * @param url         {@code TestScript.url}, or the file if the TestScript could not be read
  * @param source      the file the TestScript was read from
  * @param fhirVersion the FHIR version, {@code null} if it could not be determined
- * @param fhirServer  base URL of the server the TestScript ran against, {@code null} if it was not run
+ * @param fhirServers base URL of each server the TestScript ran against, in the order of their destination index;
+ *                    empty if it was not run
  * @param started     when the execution started
  * @param duration    how long it took
  * @param phases      the phase results, in order
  */
 public record TestScriptResult(int index, @Nonnull String suite, @Nonnull String name, @Nonnull String url,
-                               @Nonnull Path source, @Nullable FhirVersion fhirVersion, @Nullable String fhirServer,
+                               @Nonnull Path source, @Nullable FhirVersion fhirVersion,
+                               @Nonnull List<String> fhirServers,
                                @Nonnull Instant started, @Nonnull Duration duration,
                                @Nonnull List<PhaseResult> phases) {
 
     public TestScriptResult {
+        fhirServers = List.copyOf(fhirServers);
         phases = List.copyOf(phases);
     }
 

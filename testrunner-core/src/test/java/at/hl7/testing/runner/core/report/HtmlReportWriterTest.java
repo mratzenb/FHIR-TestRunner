@@ -25,7 +25,7 @@ class HtmlReportWriterTest {
 
     static TestScriptResult script(int index, String name, PhaseResult... phases) {
         return new TestScriptResult(index, "suite", name, "javascript:alert(1)", Path.of("Test_Scripts/ts.json"),
-                FhirVersion.R4, "http://localhost:8080/fhir", Instant.parse("2026-11-06T10:00:00Z"),
+                FhirVersion.R4, List.of("http://localhost:8080/fhir"), Instant.parse("2026-11-06T10:00:00Z"),
                 Duration.ofMillis(1200), List.of(phases));
     }
 

@@ -643,6 +643,39 @@ class EndToEndIT {
         }
     }
 
+    /**
+     * A TestScript for two servers through the application: {@code suites[0].fhir-servers} maps destination 1 and 2,
+     * each operation reaches the server of its destination, the autocreated patient is on both, every report names
+     * both servers.
+     */
+    @Test
+    void testScriptForTwoServersSendsEachRequestToTheServerOfItsDestination() throws Exception {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+        r5Server = InMemoryFhirServer.start("4.0.1"); // a second R4 server, the field only closes it
+
+        RunResult run = run("testrunner.validation.enabled=false",
+                "testrunner.suites[0].base-dir=" + SampleData.root().resolve("several-servers"),
+                "testrunner.suites[0].fhir-servers.1.base-url=" + r4Server.baseUrl(),
+                "testrunner.suites[0].fhir-servers.2.base-url=" + r5Server.baseUrl());
+
+        TestScriptResult result = run.testScripts().getFirst();
+        assertThat(result.outcome()).as(String.valueOf(result.phases())).isEqualTo(Outcome.PASS);
+        assertThat(result.fhirServers()).containsExactly(r4Server.baseUrl(), r5Server.baseUrl());
+        assertThat(r4Server.requestLines()).containsExactly("POST /Patient", "GET /Patient/1", "DELETE /Patient/1");
+        assertThat(r5Server.requestLines()).containsExactly("POST /Patient", "GET /Patient/1", "POST /Patient",
+                "GET /Patient/2", "DELETE /Patient/2", "DELETE /Patient/1");
+        assertThat(run.reportFiles().get("json")).content().contains("\"fhirServers\"", r5Server.baseUrl());
+        assertThat(run.reportFiles().get("html")).content().contains("<dt>Servers</dt>");
+        try (var reports = Files.list(run.runDirectory().resolve("testreports"))) {
+            assertThat(reports.findFirst().orElseThrow()).content()
+                    .contains(r4Server.baseUrl(), r5Server.baseUrl());
+        }
+        assertThat(run.runDirectory().resolve("testrunner.log")).content().contains(
+                "Destination 1 (FHIR-Server) is " + r4Server.baseUrl(),
+                "Destination 2 (FHIR-Server) is " + r5Server.baseUrl(),
+                "to destination 2");
+    }
+
     @Test
     void missingPackageStopsTheRunBeforeAnythingIsSent() {
         r4Server = InMemoryFhirServer.start("4.0.1");

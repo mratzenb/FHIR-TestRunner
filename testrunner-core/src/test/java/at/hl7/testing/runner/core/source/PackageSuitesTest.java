@@ -44,7 +44,7 @@ class PackageSuitesTest {
     }
 
     static SuiteConfig suite(String packageId) {
-        return new SuiteConfig(null, null, null, null, null, null, List.of("extra.ig#1.0.0"), null, null, null, packageId);
+        return new SuiteConfig(null, null, null, null, null, null, List.of("extra.ig#1.0.0"), null, null, null, packageId, null);
     }
 
     /** Resolves through the real HTTP client against {@link #packages}. */

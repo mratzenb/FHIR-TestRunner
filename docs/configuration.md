@@ -31,7 +31,8 @@ Precedence (highest first) follows Spring Boot: command line → system properti
 (`TESTRUNNER_FHIRSERVER_BASEURL=…`) → `--config` file → `application.yml` in the jar.
 
 Development configurations live in [`config/`](../config): `dev-r4.yml`, `dev-r5.yml`, `dev-all.yml` (all
-samples, parallel, two servers), `negative-control.yml`. They read the validator location from the
+samples, parallel, an R5 server on 8081, and the TestScript for two servers on 8080 and 8082),
+`negative-control.yml`. They read the validator location from the
 environment variable `VALIDATOR_JAR`; like the defaults they use the validator server mode
 (`--testrunner.validation.mode=process` switches to one process per validation).
 
@@ -62,6 +63,9 @@ testrunner:
       include: ["*.json", "*.xml"]         # glob patterns relative to test-scripts-dir; default all JSON/XML
       fhir-server:                         # optional: own server for this suite (e.g. an R5 server)
         base-url: http://localhost:8081/fhir   # with headers and oauth2 of its own, if needed
+      fhir-servers:                        # optional: the server of each TestScript.destination index, for
+        1: {base-url: http://localhost:8080/fhir}   # TestScripts that address several servers; see below
+        2: {base-url: http://localhost:8082/fhir}
       parallel: true                       # false: with parallelism > 1, run this suite's TestScripts one after
                                            # the other before all others, see ADR-0008
     - package-id: hl7.at.fhir.core.r4#2.1.0  # instead of base-dir: a suite read from a FHIR package, see below;
@@ -260,6 +264,43 @@ testrunner:
 
 For other schemes (mutual TLS, a token from a file that changes), replace the `HttpTransport`, see
 [Extending the pre-defined Spring configuration](#extending-the-pre-defined-spring-configuration).
+
+### TestScripts for several servers
+
+A TestScript can address several servers: it declares them in `TestScript.destination` (index 1, 2, …) and each
+operation names its `destination`. The suite maps every index to a server, with the settings of `fhir-server`:
+
+```yaml
+testrunner:
+  suites:
+    - base-dir: testdata/several-servers
+      fhir-servers:
+        1: {base-url: http://localhost:8080/fhir}
+        2:
+          base-url: http://localhost:8082/fhir
+          headers: {Authorization: "Bearer ${SECOND_TOKEN}"}   # headers and oauth2 per server
+```
+
+| The TestScript names … | It is sent to |
+|---|---|
+| no destination, or one index (declared or not) | `fhir-servers.<index>` if the suite maps that index, else the suite's `fhir-server`, else the run's – as before |
+| several indexes (`TestScript.destination`, `operation.destination`, `metadata.capability.destination`) | each operation to `fhir-servers.<its destination>`; every index must be mapped, else a `Load` error names the property to set, and nothing is sent. `fhir-server` is no fallback: two destinations would end up on one server |
+
+With several servers:
+
+* every operation must name its `destination`, and every index used must be declared, if any are declared – checked
+  before anything is sent, also by `--check`;
+* fixtures with `autocreate` are created on every server (FHIR: "on each server being tested") and deleted there
+  with `autodelete`; a `targetId` naming a fixture addresses its copy on the operation's server, and references to
+  autocreated fixtures are rewritten to that server's ids;
+* a required `metadata.capability` is checked on the server of its `destination`, or on every server without one;
+* one client per server with its own headers and token; the exchanges of all servers are in the TestScript's
+  folder of `communication/`, numbered across the run as always;
+* the reports name every server: `TestScriptResult.fhirServers`, `fhirServers` in `result.json`, *Servers* in
+  `report.html`, one `participant` per server in the FHIR TestReport.
+
+`TestScript.destination.url` is not used: the configuration decides where requests go, not the TestScript. The runner
+plays every `origin` itself. Details: [ADR-0019](adr/0019-several-servers.md).
 
 ### Suites from FHIR packages
 

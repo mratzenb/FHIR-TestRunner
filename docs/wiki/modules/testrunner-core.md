@@ -40,7 +40,7 @@ flowchart BT
 | `content` | Version-independent work on JSON/XML resources | `ResourceContent` (type, id, references), `FhirElement` (`minimumId` comparison), `PathEvaluator` (JSONPath/XPath) |
 | `http` | The HTTP layer, OAuth2 tokens and the communication log | `FhirHttpClient`, `HttpTransport` (port), `JdkHttpTransport`, `AccessTokens`, `CommunicationLog`, `FhirRequest`/`FhirResponse`/`Exchange` |
 | `source` | Finding and loading TestScripts; FHIR packages (cache, registry, CI builds, checksums) | `TestScriptDiscovery`, `TestScriptLoader`, `ExampleInstanceResolver`, `PackageSuites`, `PackageRef` |
-| `engine` | Running a TestScript | `TestRunner`, `TestRunners`, `RunControl`, `RunInfo`, `RunContext`, `RunScheduler`, `ExecutionFactory`, `ReportPublisher`, `TestScriptExecution`, `ExecutionState`, `TestScriptChecks`, `ActionRules`, `AssertionEvaluator`, `RequestFactory`, `VariableResolver`, `FixtureManager`, `CapabilityCheck` |
+| `engine` | Running a TestScript | `TestRunner`, `TestRunners`, `RunControl`, `RunInfo`, `RunContext`, `RunScheduler`, `ExecutionFactory`, `ReportPublisher`, `TestScriptExecution`, `ExecutionState`, `TestScriptChecks`, `ActionRules`, `Destinations`, `Servers`, `AssertionEvaluator`, `RequestFactory`, `VariableResolver`, `FixtureManager`, `CapabilityCheck` |
 | `report` | Results and report writers | `Outcome`, `ActionResult`, `PhaseResult`, `TestScriptResult`, `RunResult`, `ReportWriter` (port) and its four implementations |
 
 ## The model
@@ -116,7 +116,7 @@ do the rest:
 | Class | Job |
 |---|---|
 | `RunScheduler` | which TestScript runs when: serial suites first, then the pool of `execution.parallelism` threads |
-| `ExecutionFactory` | what one execution gets from its run, as an `ExecutionEnvironment`: the `FhirHttpClient` with its communication log, default headers and OAuth2 token, and the `${testrunner.…}` values |
+| `ExecutionFactory` | what one execution gets from its run, as an `ExecutionEnvironment`: a `FhirHttpClient` per server (`Servers`, by destination index) with the default headers and OAuth2 token of that server and the TestScript's communication log, and the `${testrunner.…}` values. Which servers those are decides `Destinations.map` ([ADR-0019](../../adr/0019-several-servers.md)) |
 | `ReportPublisher` | writes the reports in the configured formats and logs the summary; no FHIR TestReports for a check |
 
 ### The public API
@@ -165,7 +165,7 @@ response. Decimals keep their precision (`100.0` ≠ `100`).
 
 | Test | Covers |
 |---|---|
-| Engine tests, one class per concern, all on `EngineTestBase`: `FixturesTest`, `OperationsTest`, `AssertionsTest`, `CapabilitiesTest`, `ReferenceRewritingTest`, `KeptRequestsTest`, `ChecksBeforeSendingTest`, `CheckModeTest`, `SelectionTest`, `PhasesTest`, `PlaceholdersTest`, `TestRunnerTest`, `RunControlTest`, `RunFolderTest`, `OAuth2Test` | phase rules, operations, assertions, fixtures, capabilities, variables, kept requests, checks before sending, check mode, selection and list, parallel runs, run control, the run folder, OAuth2 – through the real `TestRunner` with an in-memory server |
+| Engine tests, one class per concern, all on `EngineTestBase`: `FixturesTest`, `OperationsTest`, `AssertionsTest`, `CapabilitiesTest`, `ReferenceRewritingTest`, `KeptRequestsTest`, `ChecksBeforeSendingTest`, `CheckModeTest`, `SelectionTest`, `PhasesTest`, `PlaceholdersTest`, `TestRunnerTest`, `RunControlTest`, `RunFolderTest`, `OAuth2Test`, `SeveralServersTest` | phase rules, operations, assertions, fixtures, capabilities, variables, kept requests, checks before sending, check mode, selection and list, parallel runs, run control, the run folder, OAuth2, TestScripts for several servers – through the real `TestRunner` with in-memory servers |
 | `RunConfigurationTest` | defaults and `problems()` |
 | `AccessTokensTest` | fetching and renewing OAuth2 access tokens |
 | `FhirElementTest`, `PathEvaluatorTest`, `ResourceContentTest`, `UrlEncodingTest` | content helpers |

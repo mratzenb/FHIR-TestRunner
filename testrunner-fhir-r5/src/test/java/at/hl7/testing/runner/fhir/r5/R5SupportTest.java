@@ -2,7 +2,9 @@ package at.hl7.testing.runner.fhir.r5;
 
 import at.hl7.testing.runner.core.model.Assertion;
 import at.hl7.testing.runner.core.model.Body;
+import at.hl7.testing.runner.core.model.Destination;
 import at.hl7.testing.runner.core.model.FhirVersion;
+import at.hl7.testing.runner.core.model.Operation;
 import at.hl7.testing.runner.core.model.TestScript;
 import at.hl7.testing.runner.core.spi.TestReportContent;
 import at.hl7.testing.runner.testsupport.SampleData;
@@ -60,10 +62,37 @@ class R5SupportTest {
         assertThat(ts.destinations()).isEmpty();
     }
 
+    /** The multi-system example of the specification, shortened: two destinations, a capability for each. */
+    @Test
+    void mapsSeveralDestinationsAndTheDestinationOfEachCapability() {
+        Body multisystem = Body.json("""
+                {"resourceType":"TestScript","id":"multisystem","url":"http://example.org/TestScript/multisystem",
+                 "name":"Multisystem","status":"draft",
+                 "origin":[{"index":1,"profile":{"code":"FHIR-Client"}}],
+                 "destination":[{"index":1,"profile":{"code":"FHIR-Server"},"url":"http://acme.com/fhir/test"},
+                                {"index":2,"profile":{"code":"FHIR-Server"}}],
+                 "metadata":{"capability":[
+                   {"required":true,"validated":false,"origin":[1],"destination":1,
+                    "capabilities":"http://hl7.org/fhir/CapabilityStatement/example"},
+                   {"required":true,"validated":false,"origin":[1],"destination":2,
+                    "capabilities":"http://hl7.org/fhir/CapabilityStatement/example"}]},
+                 "test":[{"name":"read","action":[
+                   {"operation":{"type":{"system":"http://terminology.hl7.org/CodeSystem/testscript-operation-codes",
+                     "code":"read"},"resource":"Patient","encodeRequestUrl":true,"origin":1,"destination":2,
+                     "params":"/example"}}]}]}""");
+
+        TestScript ts = support.readTestScript(multisystem).testScript();
+
+        assertThat(ts.destinations()).containsExactly(new Destination(1, "FHIR-Server"),
+                new Destination(2, "FHIR-Server"));
+        assertThat(ts.capabilities()).extracting(c -> c.destination()).containsExactly(1, 2);
+        assertThat(((Operation) ts.tests().getFirst().actions().getFirst()).destination()).isEqualTo(2);
+    }
+
     @Test
     void writesAValidR5TestReportWithTheTestScriptAsCanonical() {
         TestReportContent content = new TestReportContent("run-02", "run/02", "TS", "http://example.org/TestScript/ts",
-                "pending", null, "tester", java.time.Instant.parse("2026-10-26T10:00:00Z"), null,
+                "pending", null, "tester", java.time.Instant.parse("2026-10-26T10:00:00Z"), List.of(),
                 List.of(new TestReportContent.Action(false, "skip", "The server does not support ...", null)),
                 List.of(new TestReportContent.Test("t", List.of(
                         new TestReportContent.Action(false, "skip", "Skipped: the server lacks a capability", null)))),

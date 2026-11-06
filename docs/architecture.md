@@ -194,7 +194,7 @@ Taken over from the PoC (and its README/VALIDATION-NOTES), now encoded in one pl
 | Action cannot be executed (invalid TestScript, unknown id, no response, validator unavailable) | `error` | Current phase stops |
 | Setup does not pass | — | All tests are `skip`, teardown still runs |
 | TestScript cannot be loaded or is invalid | `error` (phase `Load`) | Nothing is sent; other TestScripts continue |
-| TestScript addresses more than one server (`destination`) | `error` (phase `Load`) | Nothing is sent |
+| TestScript addresses several servers (`destination`) and an index is not mapped (`suites[n].fhir-servers`), or an operation names no or an undeclared destination | `error` (phase `Load`) | Nothing is sent |
 | TestScript refers to something that cannot exist when it is used (unknown id or variable, response kept later, undeclared profile) | `error` (phase `Load`), every problem listed | Nothing is sent |
 | An action can never be executed (operator the check does not allow, operation without method, URL or body) | `error` (phase `Load`), every problem listed | Nothing is sent |
 | Assertion the runner cannot evaluate (`requestMethod`, `requestURL`, operator `manualEval`) | warning on the Setup before anything is sent; `error` when it runs | Its phase stops; the other phases run |
@@ -272,10 +272,14 @@ CapabilityStatement is looked up like a fixture resource (by the last segments o
 package keeps its conformance resources; if it is in neither, the requirement is reported as a warning and the
 TestScript runs. Capabilities with `required = false` (only `validated`) are not checked.
 
-The runner sends every request itself (it plays every `origin`) to the one server configured for the suite. A
-TestScript that addresses more than one server – several `TestScript.destination`s or several
-`operation.destination` values – cannot run as written and is invalid. A single destination, declared or not, is the
-configured server.
+The runner sends every request itself (it plays every `origin`). A TestScript that addresses one server – no
+destination, or a single index, declared or not – is sent to `fhir-servers.<index>` of its suite if mapped, else to
+the suite's or the run's `fhir-server`. One that addresses several – several `TestScript.destination`s or
+`operation.destination` values – is sent to the servers its suite maps to the indexes (`suites[n].fhir-servers`), each
+operation to the server of its `destination`; every index must be mapped, every operation must name its destination.
+Autocreated fixtures are created on, and deleted from, every server; a `metadata.capability` with `destination` is
+checked on that server only ([ADR-0019](adr/0019-several-servers.md),
+[configuration.md](configuration.md#testscripts-for-several-servers)).
 
 ## Deliberate differences to the Python PoC
 
@@ -312,9 +316,10 @@ configured server.
   as a warning on the Setup before anything is sent (`TestScriptChecks.unsupportedWarnings`). No `Load` error: the
   rest of the TestScript still runs, and a TestScript written for an engine that supports them stays usable.
   `direction = request` and `operation.requestId` are supported: they read the runner's own request as sent.
-* **Several servers, client tests.** TestScripts addressing more than one `destination` need a test engine that
-  manages several servers; the runner rejects them. It plays every `origin` itself, so TestScripts that expect another
-  client to send a request (testing a client rather than a server) cannot be run.
+* **Client tests.** TestScripts for several servers run once each `destination` is mapped
+  ([ADR-0019](adr/0019-several-servers.md)). The runner plays every `origin` itself, so TestScripts that expect
+  another client to send a request (testing a client rather than a server) cannot be run. `destination.url` is not
+  used, and destinations are mapped by index, not by profile code.
 * **Validator start-up.** The default server mode starts one validator per FHIR version and IGs (5–7 s, then
   0.1–0.5 s per validation, [ADR-0011](adr/0011-validator-server-mode.md)); process mode pays 5–15 s per validation.
   An in-process `org.hl7.fhir.validation` validator would remove the start-up too; it is a drop-in

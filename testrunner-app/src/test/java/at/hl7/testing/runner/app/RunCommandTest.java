@@ -126,8 +126,8 @@ class RunCommandTest {
         List<TestScriptResult> results = new ArrayList<>();
         for (int i = 0; i < outcomes.length; i++) {
             PhaseResult phase = new PhaseResult(PhaseKind.TEST, "t", outcomes[i], Duration.ZERO, 0, List.of(), List.of());
-            results.add(new TestScriptResult(i + 1, "suite", "ts" + i, null, Path.of("ts" + i + ".json"), null, null,
-                    Instant.EPOCH, Duration.ZERO, List.of(phase)));
+            results.add(new TestScriptResult(i + 1, "suite", "ts" + i, null, Path.of("ts" + i + ".json"), null,
+                    List.of(), Instant.EPOCH, Duration.ZERO, List.of(phase)));
         }
         return new RunResult("run", Path.of("run"), Instant.EPOCH, Duration.ZERO, results, Map.of());
     }

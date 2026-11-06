@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,7 +45,7 @@ class RunConfigurationTest {
     @Test
     void reportsEveryProblem(@TempDir Path dir) {
         RunConfiguration config = new RunConfiguration(null,
-                List.of(new SuiteConfig(null, "R7", dir.resolve("missing"), null, null, null, null, null, null, null, null)),
+                List.of(new SuiteConfig(null, "R7", dir.resolve("missing"), null, null, null, null, null, null, null, null, null)),
                 null, ExecutionConfig.parallel(0), null,
                 new ReportingConfig(null, List.of("pdf"), null, null, "LOUD", null), null, null);
 
@@ -86,8 +87,8 @@ class RunConfigurationTest {
     void igsNeedAPinnedFhirVersion(@TempDir Path dir) throws Exception {
         Files.createDirectories(dir.resolve("Test_Scripts"));
         List<String> igs = List.of("hl7.at.fhir.core.r4#2.0.0");
-        SuiteConfig auto = new SuiteConfig(null, null, dir, null, null, null, igs, null, null, null, null);
-        SuiteConfig pinned = new SuiteConfig(null, "R4", dir, null, null, null, igs, null, null, null, null);
+        SuiteConfig auto = new SuiteConfig(null, null, dir, null, null, null, igs, null, null, null, null, null);
+        SuiteConfig pinned = new SuiteConfig(null, "R4", dir, null, null, null, igs, null, null, null, null, null);
 
         assertThat(new RunConfiguration(null, List.of(auto), null, null, ValidationConfig.disabled(), null, null, null).problems())
                 .singleElement().asString().contains("testrunner.suites[0].igs", "fhir-version");
@@ -99,9 +100,9 @@ class RunConfigurationTest {
     @Test
     void suiteFromAPackageNeedsNoFolderButNotBoth(@TempDir Path dir) {
         SuiteConfig fromPackage = new SuiteConfig(null, null, null, null, null, null, null, null, null, null,
-                "hl7.at.fhir.core.r4#dev");
+                "hl7.at.fhir.core.r4#dev", null);
         SuiteConfig both = new SuiteConfig(null, null, dir, null, null, null, null, null, null, null,
-                "hl7.at.fhir.core.r4#dev");
+                "hl7.at.fhir.core.r4#dev", null);
 
         assertThat(fromPackage.name()).isEqualTo("hl7.at.fhir.core.r4#dev");
         assertThat(new RunConfiguration(null, List.of(fromPackage), null, null, ValidationConfig.disabled(), null, null, null)
@@ -109,7 +110,7 @@ class RunConfigurationTest {
         assertThat(new RunConfiguration(null, List.of(both), null, null, ValidationConfig.disabled(), null, null, null).problems())
                 .singleElement().asString().contains("both base-dir and package-id");
         SuiteConfig unknownVersion = new SuiteConfig(null, "R7", null, null, null, null, null, null, null, null,
-                "hl7.at.fhir.core.r4#dev");
+                "hl7.at.fhir.core.r4#dev", null);
         assertThat(new RunConfiguration(null, List.of(unknownVersion), null, null, ValidationConfig.disabled(), null, null, null)
                 .problems()).singleElement().asString().contains("testrunner.suites[0].fhir-version", "R7");
         PackagesConfig packages = new RunConfiguration(null, null, null, null, null, null, null, null).packages();
@@ -119,9 +120,24 @@ class RunConfigurationTest {
     }
 
     @Test
+    void serversOfTheDestinationsNeedAnIndexFromOneAndABaseUrl(@TempDir Path dir) throws Exception {
+        Files.createDirectories(dir.resolve("Test_Scripts"));
+        SuiteConfig suite = SuiteConfig.of(dir, null).withFhirServers(Map.of(
+                1, FhirServerConfig.of("http://one/fhir"),
+                0, FhirServerConfig.of("http://zero/fhir"),
+                2, FhirServerConfig.of(null)));
+
+        assertThat(new RunConfiguration(null, List.of(suite), null, null, ValidationConfig.disabled(), null, null, null)
+                .problems()).containsExactly(
+                "testrunner.suites[0].fhir-servers.0: a TestScript.destination index starts at 1",
+                "testrunner.suites[0].fhir-servers.2.base-url is not set");
+        assertThat(suite.fhirServers().keySet()).as("in index order").containsExactly(0, 1, 2);
+    }
+
+    @Test
     void suiteFallsBackToTheServerOfTheRun(@TempDir Path dir) {
         SuiteConfig own = new SuiteConfig("own", null, dir, null, null, null, null, null,
-                FhirServerConfig.of("http://own/fhir/"), null, null);
+                FhirServerConfig.of("http://own/fhir/"), null, null, null);
         SuiteConfig shared = SuiteConfig.of(dir, null);
         RunConfiguration config = new RunConfiguration(FhirServerConfig.of("http://shared/fhir"), List.of(own, shared),
                 null, null, null, null, null, null);

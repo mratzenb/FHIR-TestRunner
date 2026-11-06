@@ -1,6 +1,5 @@
 package at.hl7.testing.runner.core.engine;
 
-import at.hl7.testing.runner.core.config.FhirServerConfig;
 import at.hl7.testing.runner.core.config.RunConfiguration;
 import at.hl7.testing.runner.core.config.SelectConfig;
 import at.hl7.testing.runner.core.http.HttpTransport;
@@ -39,7 +38,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -353,7 +351,7 @@ public final class TestRunner {
                 ? PhaseResult.error(PhaseKind.LOAD, "Load", Duration.ZERO, "Did not end: " + reason)
                 : PhaseResult.skipped(PhaseKind.LOAD, "Load", 0, "Not started: " + reason);
         return new TestScriptResult(index, source.suite().name(), source.baseName(), source.file().toString(),
-                source.file(), null, null, clock.instant(), Duration.ZERO, List.of(phase));
+                source.file(), null, List.of(), clock.instant(), Duration.ZERO, List.of(phase));
     }
 
     /**
@@ -363,7 +361,7 @@ public final class TestRunner {
     private TestScriptResult notRun(RunContext run, int index, TestScriptSource source, String reason) {
         log.warn("TestScript {} not started: {}", source.file().getFileName(), reason);
         TestScriptResult result = new TestScriptResult(index, source.suite().name(), source.baseName(),
-                source.file().toString(), source.file(), null, null, clock.instant(), Duration.ZERO,
+                source.file().toString(), source.file(), null, List.of(), clock.instant(), Duration.ZERO,
                 List.of(PhaseResult.skipped(PhaseKind.LOAD, "Load", 0, "Not started: " + reason)));
         notify(listener -> listener.testScriptFinished(run.info(), result));
         return result;
@@ -419,13 +417,13 @@ public final class TestRunner {
                 log.error("TestScript {} could not be loaded: {}", source.file().getFileName(), e.getMessage());
                 var version = e instanceof TestScriptFormatException format ? format.fhirVersion().orElse(null) : null;
                 result = new TestScriptResult(index, source.suite().name(), source.baseName(), source.file().toString(),
-                        source.file(), version, null, started, Duration.between(started, clock.instant()),
+                        source.file(), version, List.of(), started, Duration.between(started, clock.instant()),
                         List.of(PhaseResult.error(PhaseKind.LOAD, "Load", Duration.between(started, clock.instant()),
                                 "TestScript could not be loaded: " + e.getMessage())));
             } catch (RuntimeException e) {
                 log.error("Unexpected error in TestScript {}: {}", source.file().getFileName(), e.toString(), e);
                 result = new TestScriptResult(index, source.suite().name(), source.baseName(), source.file().toString(),
-                        source.file(), null, null, started, Duration.between(started, clock.instant()),
+                        source.file(), null, List.of(), started, Duration.between(started, clock.instant()),
                         List.of(PhaseResult.error(PhaseKind.LOAD, "Unexpected error",
                                 Duration.between(started, clock.instant()), "Unexpected error: " + e)));
             }
@@ -492,20 +490,32 @@ public final class TestRunner {
             if (mode == Mode.RUN) {
                 skipAll(testScript.tests(), "Skipped: the TestScript is not valid", phases);
             }
-            return result(index, loaded, null, started, phases);
+            return result(index, loaded, List.of(), started, phases);
         }
         if (mode == Mode.CHECK) {
             return checked(index, loaded, started, unsupported);
         }
 
-        FhirServerConfig server = run.configuration().fhirServerOf(suite);
-        Optional<String> base = server.base();
-        if (base.isEmpty()) {
+        Destinations.Mapping servers = Destinations.map(run.configuration(), suite, testScript);
+        if (!servers.problems().isEmpty()) {
+            servers.problems().forEach(p -> log.error("{}", p));
+            List<PhaseResult> phases = new ArrayList<>();
+            phases.add(new PhaseResult(PhaseKind.LOAD, "Load", Outcome.ERROR, Duration.between(started, clock.instant()),
+                    0, List.of(), List.of("The servers of the TestScript are not configured: "
+                    + String.join("; ", servers.problems()))));
+            skipAll(testScript.tests(), "Skipped: the servers of the TestScript are not configured", phases);
+            return result(index, loaded, List.of(), started, phases);
+        }
+        if (servers.servers().isEmpty()) {
             log.warn("TestScript '{}' skipped: no FHIR server configured", testScript.displayName());
             List<PhaseResult> phases = new ArrayList<>();
             phases.add(PhaseResult.skipped(PhaseKind.SETUP, "Setup", 0, "Skipped: no FHIR server configured"));
             skipAll(testScript.tests(), "Skipped: no FHIR server configured", phases);
-            return result(index, loaded, null, started, phases);
+            return result(index, loaded, List.of(), started, phases);
+        }
+        if (servers.several()) {
+            servers.servers().forEach((destination, server) -> log.info("Destination {} is {}",
+                    Destinations.describe(testScript, destination), server.base().orElseThrow()));
         }
 
         List<String> orderWarnings = TestScriptChecks.orderWarnings(testScript, loaded.fixtureResources());
@@ -516,10 +526,10 @@ public final class TestRunner {
         Deadline deadline = new Deadline(control, clock, testScriptTimeout == null ? null : started.plus(testScriptTimeout),
                 "the TestScript timeout of " + (testScriptTimeout == null ? "" : RunControl.describe(testScriptTimeout))
                         + " has passed");
-        ExecutionEnvironment environment = executions.create(run, label, suite, server, base.get(), capabilities,
-                builtIn, warnings, deadline);
+        ExecutionEnvironment environment = executions.create(run, label, suite, servers, capabilities, builtIn,
+                warnings, deadline);
         List<PhaseResult> phases = new TestScriptExecution(loaded, environment).run();
-        return result(index, loaded, base.get(), started, phases);
+        return result(index, loaded, servers.bases(), started, phases);
     }
 
     /**
@@ -534,7 +544,7 @@ public final class TestRunner {
         warnings.addAll(orderWarnings);
         log.info("TestScript '{}' has no problems ({} test(s); check mode, nothing sent)",
                 loaded.testScript().displayName(), loaded.testScript().tests().size());
-        return result(index, loaded, null, started, List.of(new PhaseResult(PhaseKind.LOAD, "Load", Outcome.PASS,
+        return result(index, loaded, List.of(), started, List.of(new PhaseResult(PhaseKind.LOAD, "Load", Outcome.PASS,
                 Duration.between(started, clock.instant()), 0, List.of(),
                 warnings.stream().map(w -> "WARNING: " + w).toList())));
     }
@@ -563,12 +573,13 @@ public final class TestRunner {
         return List.of();
     }
 
-    private TestScriptResult result(int index, LoadedTestScript loaded, String fhirServer, Instant started,
+    /** @param fhirServers the base URLs of the servers it ran against, empty if it did not run */
+    private TestScriptResult result(int index, LoadedTestScript loaded, List<String> fhirServers, Instant started,
                                     List<PhaseResult> phases) {
         var testScript = loaded.testScript();
         return new TestScriptResult(index, loaded.source().suite().name(), testScript.displayName(),
                 testScript.url() != null ? testScript.url() : loaded.source().file().toString(), loaded.source().file(),
-                testScript.fhirVersion(), fhirServer, started, Duration.between(started, clock.instant()), phases);
+                testScript.fhirVersion(), fhirServers, started, Duration.between(started, clock.instant()), phases);
     }
 
     private static void skipAll(List<TestDefinition> tests, String reason, List<PhaseResult> phases) {
