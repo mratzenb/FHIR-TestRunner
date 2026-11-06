@@ -9,7 +9,7 @@ description: Logging and reporting in the FHIR TestScript Runner (TestRunnerOnJa
 
 ```
 testrunner.log                 run log (RunLogFileListener), level reporting.log-file-level (DEBUG)
-junit.xml  summary.txt  result.json   one file per selected format
+junit.xml  summary.txt  result.json  report.html   one file per selected format
 testreports/TestReport-<NN>_<TestScript base name>.json   format testreport: a FHIR TestReport per TestScript
 communication/<NN>_<TestScript base name>/<REQ-id>_<METHOD>_<path>/   (characters outside [A-Za-z0-9._-] ⇒ _)
     request.http               request line, headers, body – as sent
@@ -60,7 +60,15 @@ switches the files off; ids stay.
 * Writers: `JUnitXmlReportWriter` `junit` (a testsuite per TestScript, property `fhirVersion`, warnings in
   `system-out`), `SummaryReportWriter` `summary` (counts and reasons), `JsonReportWriter` `json` (every action with
   its request id), `TestReportWriter` `testreport` (a FHIR TestReport per TestScript in `testreports/`, in the
-  TestScript's version; returns the folder). Defaults: `TestRunners.defaultReportWriters(FhirVersionRegistry)`.
+  TestScript's version; returns the folder), `HtmlReportWriter` `html` (`report.html`, see below). Defaults:
+  `TestRunners.defaultReportWriters(FhirVersionRegistry)`; the app's `application.yml` selects all five.
+* **HTML report** (`HtmlReportWriter`, plain Java, `ReportingConfig.HTML`): run header + counts, overview table,
+  one `<section>` per TestScript (`<details open>` unless PASS; CSS-only checkbox "only what did not pass"), each phase
+  with its own messages (those of an action are shown next to the action) and an action table. Request ids link to
+  `communication/<NN>_…/<REQ-id>_…/` and its `request.http`/`response.http`/`error.txt` (`ExchangeFolders.of(run
+  folder)`, also used by `TestReportWriter`; relative, `href()` percent-encodes); no folder ⇒ plain text. Security:
+  `escape()` on every text (also `'`, control chars ⇒ U+FFFD), CSP `default-src 'none'; style-src 'unsafe-inline'`,
+  `TestScript.url` never a link. Tests: `HtmlReportWriterTest` (hostile text, links exist), `RunFolderTest`.
 * **TestReport**: the core maps a `TestScriptResult` to `spi.TestReportContent` (result pass/pending/fail, score = %
   tests passed, action `warning` for passed-with-warning, `detail` = communication folder of the request, phase
   messages outside actions become actions); `FhirVersionSupport.testReport(content)` encodes it (default throws
@@ -77,6 +85,7 @@ switches the files off; ids stay.
   appear as `error` "Did not end: …" or `skip` "Not started: …".
 
 Tests: `CommunicationLogTest`, `RunFolderTest` (`communicationLogHasOneFolderPerRequest`,
-`communicationLogMasksCredentialsByDefault`), `TestReportWriterTest`
+`communicationLogMasksCredentialsByDefault`, `htmlReportLinksTheRequestsToTheirCommunicationFolders`),
+`HtmlReportWriterTest`, `TestReportWriterTest`
 (content mapping), `R4SupportTest`/`R5SupportTest.writesAValid…TestReport…` (HAPI parses it back),
 `EndToEndIT.communicationLogsAndReportsAreWrittenPerRun`, `EndToEndIT.writesAFhirTestReportPerTestScriptInItsVersion`.

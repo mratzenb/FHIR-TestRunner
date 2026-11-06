@@ -68,7 +68,7 @@ class EndToEndIT {
                 "--testrunner.run-on-startup=false",
                 "--testrunner.validation.validator-jar=" + validatorJar,
                 "--testrunner.reporting.output-dir=" + dir.resolve("results"),
-                "--testrunner.reporting.formats=junit,summary,json,testreport"));
+                "--testrunner.reporting.formats=junit,summary,json,testreport,html"));
         for (String property : properties) {
             args.add("--" + property);
         }
@@ -608,6 +608,9 @@ class EndToEndIT {
         assertThat(run.reportFiles().get("junit")).content()
                 .contains("<testsuite name=\"TestScriptATCorePatientUpdate\"", "<property name=\"fhirVersion\" value=\"R4\"");
         assertThat(run.reportFiles().get("summary")).content().contains("passed:          1");
+        assertThat(run.reportFiles().get("html")).content().contains("<title>" + run.runId() + " – PASS</title>",
+                "<a href=\"communication/01_TestScript-testscript-patient-update-at-core/"
+                        + "REQ-0002_PUT_Patient_HL7ATCorePatientUpdateTestExample/\">REQ-0002</a>");
     }
 
     @Test

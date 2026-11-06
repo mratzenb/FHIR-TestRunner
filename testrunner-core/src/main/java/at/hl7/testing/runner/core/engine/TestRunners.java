@@ -2,6 +2,7 @@ package at.hl7.testing.runner.core.engine;
 
 import at.hl7.testing.runner.core.config.HttpConfig;
 import at.hl7.testing.runner.core.http.JdkHttpTransport;
+import at.hl7.testing.runner.core.report.HtmlReportWriter;
 import at.hl7.testing.runner.core.report.JUnitXmlReportWriter;
 import at.hl7.testing.runner.core.report.JsonReportWriter;
 import at.hl7.testing.runner.core.report.ReportWriter;
@@ -26,7 +27,7 @@ public final class TestRunners {
      */
     public static List<ReportWriter> defaultReportWriters(FhirVersionRegistry versions) {
         return List.of(new JUnitXmlReportWriter(), new SummaryReportWriter(), new JsonReportWriter(),
-                new TestReportWriter(versions));
+                new TestReportWriter(versions), new HtmlReportWriter());
     }
 
     /**

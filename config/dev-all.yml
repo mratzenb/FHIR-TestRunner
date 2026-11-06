@@ -31,6 +31,6 @@ testrunner:
     timeout: 3m
   reporting:
     output-dir: target/testrunner-results
-    formats: [junit, summary, json, testreport]
+    formats: [junit, summary, json, testreport, html]
     communication-log: true
     log-file-level: DEBUG

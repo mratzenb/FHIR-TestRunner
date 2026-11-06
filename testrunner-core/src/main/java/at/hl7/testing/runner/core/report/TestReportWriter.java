@@ -14,13 +14,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * Writes one FHIR {@code TestReport} per TestScript into {@code testreports/}, in the FHIR version of the TestScript,
@@ -64,7 +62,7 @@ public final class TestReportWriter implements ReportWriter {
     public Path write(RunResult result, Path runDirectory) throws IOException {
         Path folder = runDirectory.resolve(FOLDER);
         Files.createDirectories(folder);
-        Map<String, String> exchanges = exchangeFolders(runDirectory);
+        Map<String, String> exchanges = ExchangeFolders.of(runDirectory);
         for (TestScriptResult testScript : result.testScripts()) {
             Optional<FhirVersionSupport> support = Optional.ofNullable(testScript.fhirVersion()).flatMap(versions::get);
             if (support.isEmpty()) {
@@ -143,27 +141,6 @@ public final class TestReportWriter implements ReportWriter {
             actions.add(phase.kind() == PhaseKind.TEARDOWN ? actions.size() : 0, phaseAction);
         }
         return actions;
-    }
-
-    /** The folder of every exchange in {@code communication/}, relative to the run folder, by request id. */
-    private static Map<String, String> exchangeFolders(Path runDirectory) {
-        Map<String, String> folders = new HashMap<>();
-        Path communication = runDirectory.resolve("communication");
-        if (!Files.isDirectory(communication)) {
-            return folders;
-        }
-        try (Stream<Path> paths = Files.walk(communication, 2)) {
-            paths.filter(Files::isDirectory).forEach(folder -> {
-                String name = folder.getFileName().toString();
-                int end = name.indexOf('_');
-                if (name.startsWith("REQ-") && end > 0) {
-                    folders.put(name.substring(0, end), runDirectory.relativize(folder).toString().replace('\\', '/'));
-                }
-            });
-        } catch (IOException e) {
-            log.debug("Cannot list {}: {}", communication, e.toString());
-        }
-        return folders;
     }
 
     private static String code(Outcome outcome) {

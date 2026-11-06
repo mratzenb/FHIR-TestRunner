@@ -312,6 +312,7 @@ A listener that throws is logged and does not stop the run. See [ADR-0013](../ad
 | `summary` | `summary.txt` | `SummaryReportWriter` |
 | `json` | `result.json` | `JsonReportWriter` |
 | `testreport` | `testreports/TestReport-NN_….json` | `TestReportWriter` + the version module's encoder |
+| `html` | `report.html`, request ids linked into `communication/` | `HtmlReportWriter` |
 
 ## 10. Exit code
 

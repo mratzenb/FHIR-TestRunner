@@ -99,7 +99,8 @@ testrunner:
   reporting:
     output-dir: testrunner-results         # every run gets output-dir/run_<timestamp>/
     formats: [junit, summary]              # junit | summary | json | testreport (FHIR TestReports, logging.md)
-                                           # | any format of an added ReportWriter; the app sets all four
+                                           # | html (report.html, one page) | any format of an added
+                                           # ReportWriter; the app sets all five
     communication-log: true                # one folder per request/response, see logging.md
     redact-headers: [Authorization, Proxy-Authorization, Cookie, Set-Cookie]
                                            # values masked in the communication log ([] = none)
@@ -339,7 +340,7 @@ part by declaring its own bean, and adds to the lists by declaring more:
 | `HttpTransport` | add a proxy, mutual TLS, a token scheme other than `fhir-server.oauth2`, a recorder | `JdkHttpTransport` |
 | `ProfileValidator` | use another validator, e.g. in-process | `ValidatorCliProfileValidator` or `ValidatorServerProfileValidator` by `validation.mode` (if on classpath and enabled); Spring stops the servers when the context closes |
 | `FhirVersionSupport` (any number) | override a version's mapping | modules found by `ServiceLoader` |
-| `ReportWriter` (any number) | add a format, e.g. HTML; select it in `reporting.formats` | junit, summary, json, testreport |
+| `ReportWriter` (any number) | add a format, e.g. CSV; select it in `reporting.formats` | junit, summary, json, testreport, html |
 | `RunListener` (any number) | react to run/TestScript events (notifications, metrics) | `RunLogFileListener` |
 | `Clock` | fixed time in tests | system clock |
 | `TestRunner` | wire everything yourself | — |
@@ -356,8 +357,8 @@ class MyRunnerConfiguration {
     }
 
     @Bean
-    ReportWriter htmlReport() {
-        return new MyHtmlReportWriter();   // format() = "html", then: testrunner.reporting.formats=junit,html
+    ReportWriter csvReport() {
+        return new CsvReportWriter();      // format() = "csv", then: testrunner.reporting.formats=junit,csv
     }
 }
 ```

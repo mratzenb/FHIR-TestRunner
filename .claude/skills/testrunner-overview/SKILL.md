@@ -33,7 +33,7 @@ Other folders: `testrunner-app/Dockerfile` + root `docker-compose.yml` (containe
 | `spi.FhirVersionSupport` | read TestScripts of one version, FHIRPath for it, write its TestReports | `R4Support`, `R5Support` via `ServiceLoader` |
 | `spi.ProfileValidator` | `validateProfileId` + check of each TestScript | `ValidatorCliProfileValidator`, `ValidatorServerProfileValidator`, `ProfileValidator.DISABLED` |
 | `http.HttpTransport` | send one request (functional interface) | `JdkHttpTransport` |
-| `report.ReportWriter` | one report format, selected by `format()` | `JUnitXmlReportWriter` (`junit`), `SummaryReportWriter` (`summary`), `JsonReportWriter` (`json`), `TestReportWriter` (`testreport`) |
+| `report.ReportWriter` | one report format, selected by `format()` | `JUnitXmlReportWriter` (`junit`), `SummaryReportWriter` (`summary`), `JsonReportWriter` (`json`), `TestReportWriter` (`testreport`), `HtmlReportWriter` (`html`) |
 | `engine.RunListener` | run / TestScript events, with a read-only `RunInfo` (not `RunContext`) | `RunLogFileListener` |
 
 Entry points: `TestRunner.run(RunConfiguration)` or `run(RunConfiguration, RunControl)` (stoppable, ADR-0013);
