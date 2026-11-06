@@ -8,12 +8,12 @@
 # cache are mounted: docs/wiki/build-and-test.md#container-image.
 
 # the exec jar split into its layers: a new build of the runner changes only the small application layer
-FROM eclipse-temurin:25.0.5_8-jre-noble AS layers
+FROM eclipse-temurin:26.0.2.1_1-jre-noble AS layers
 WORKDIR /layers
 COPY target/testrunner-app-*-exec.jar testrunner.jar
 RUN java -Djarmode=tools -jar testrunner.jar extract --layers --destination extracted
 
-FROM eclipse-temurin:25.0.5_8-jre-noble
+FROM eclipse-temurin:26.0.2.1_1-jre-noble
 LABEL org.opencontainers.image.title="FHIR TestScript Runner" \
       org.opencontainers.image.description="Executes FHIR TestScripts (R4, R5) against a FHIR server" \
       org.opencontainers.image.source="https://github.com/mratzenb/testrunner"
