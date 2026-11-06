@@ -41,6 +41,45 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
 
 Results land in `target/testrunner-results/run_<timestamp>/`.
 
+## Container image
+
+`testrunner-app/Dockerfile` puts the executable jar on a Java 25 JRE (`eclipse-temurin:25.0.5_8-jre-noble`). The image
+holds the runner only; what changes per project is mounted ([ADR-0015](../adr/0015-container-image.md)).
+
+```sh
+mvn -B -DskipTests package                         # the image is built from the exec jar
+docker build -t testrunner testrunner-app
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/workspace" testrunner --config=config/dev-r4.yml --check --novalidator
+```
+
+| Mount | Container path | Why |
+|---|---|---|
+| the project folder | `/workspace` (the working directory) | configuration, suites and results; relative paths in a configuration start here |
+| `validator_cli.jar` | anywhere, e.g. `/opt/validator/validator_cli.jar`, named by `VALIDATOR_JAR` or `testrunner.validation.validator-jar` | profile validation; not in the image, its version is yours |
+| `~/.fhir/packages` | `/home/runner/.fhir/packages` | the FHIR package cache of the validator and of `package-id` suites; without it every container downloads the packages again |
+
+* The container runs as user `runner` (10001). With `--user "$(id -u):$(id -g)"` the results belong to you.
+* A FHIR server on the host is `http://host.docker.internal:8080/fhir` from inside the container (Docker Desktop,
+  Rancher Desktop; on Linux add `--add-host=host.docker.internal:host-gateway`).
+* A server whose certificate a company CA signed: mount the CA certificates at `/certificates` and set
+  `USE_SYSTEM_CA_CERTS=1`. The base image adds them to Java's trust store at start.
+
+### With HAPI FHIR: docker compose
+
+[`docker-compose.yml`](../../docker-compose.yml) starts HAPI FHIR `v8.12.0-1` (R4, the lenient settings of
+`HapiServerIT`) and runs the runner against it, with the project folder, `validator_cli.jar` and the package cache
+mounted:
+
+```sh
+mvn -B -DskipTests package
+docker compose run --rm testrunner                                   # config/dev-r4.yml, with validation
+docker compose run --rm testrunner --config=config/dev-r4.yml --novalidator --testscript='*update*'
+docker compose down                                                  # HAPI keeps its data in memory only
+```
+
+The runner waits until HAPI answers `/fhir/metadata` (~15 s on first start). `docker compose build` rebuilds the image
+after a new `mvn package`. The validator jar is taken from the project folder, or from `VALIDATOR_JAR` on the host.
+
 ## Test levels
 
 ```mermaid
@@ -143,7 +182,7 @@ otherwise the report leaves it out.
 
 | Job | When | What |
 |---|---|---|
-| `verify` | every push to `main`, every pull request | `mvn -B verify` on Temurin 25, including `HapiServerIT` (the runner has Docker). The coverage report is attached as `coverage`, the SBOM as `sbom`. If the build fails, the surefire and failsafe reports are attached as `test-reports`. |
+| `verify` | every push to `main`, every pull request | `mvn -B verify` on Temurin 25, including `HapiServerIT` (the runner has Docker). Then it builds the container image and checks the AT Core R4 suite with it (`--check`); the image is not published. The coverage report is attached as `coverage`, the SBOM as `sbom`. If the build fails, the surefire and failsafe reports are attached as `test-reports`. |
 | `real-validator` | nightly (03:17 UTC) and on demand (*Run workflow*) | `RealValidatorIT` with the real validator, both modes. The negative control must fail. |
 
 The real validator is pinned (`VALIDATOR_VERSION`, now 7.0.2, the version the docs were verified with). The job
@@ -166,7 +205,8 @@ A failed nightly run is a signal about the validator or the packages, not about 
 dependencies, the Maven plugins and the GitHub Actions. Spring Boot, HAPI FHIR and the Maven plugins each come as one
 grouped pull request. Major versions of Spring Boot and HAPI FHIR are left out: they are decisions of their own. The
 `verify` job tests each pull request like any other. A HAPI FHIR update should also raise the image tag in
-`HapiServerIT` to the matching `hapiproject/hapi` release.
+`HapiServerIT` and in `docker-compose.yml` to the matching `hapiproject/hapi` release. Dependabot also watches the
+base image of the Dockerfile.
 
 `mvn package` writes the software bill of materials of the executable jar to `testrunner-app/target/bom.json` and
 `bom.xml` (CycloneDX 1.6): every library the jar ships, with version, hashes and license, test libraries excluded.

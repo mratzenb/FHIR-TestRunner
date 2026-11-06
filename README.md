@@ -32,6 +32,13 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
 
 A local HAPI server: `docker run -p 8080:8080 -e hapi.fhir.fhir_version=R4 hapiproject/hapi:v8.12.0-1`.
 
+In a container, together with HAPI FHIR (after `mvn -DskipTests package`; details in
+[Build and test › Container image](docs/wiki/build-and-test.md#container-image)):
+
+```sh
+docker compose run --rm testrunner --config=config/dev-r4.yml --novalidator
+```
+
 Writing a TestScript of your own: start with the walk-through in [docs/wiki/samples.md](docs/wiki/samples.md).
 
 Results go to `target/testrunner-results/run_<timestamp>/` (`junit.xml`, `summary.txt`, `result.json`, a FHIR
@@ -48,9 +55,10 @@ testrunner-fhir-hapi/                   generic TestScript mapping and FHIRPath 
 testrunner-fhir-r4/  testrunner-fhir-r5/   one FHIR version each (FhirContext + dialect)
 testrunner-validation-cli/              profile validation with validator_cli.jar (process or server mode)
 testrunner-spring-boot-autoconfigure/   pre-defined Spring configuration (testrunner.* properties)
-testrunner-app/                         executable jar, end-to-end ITs, architecture rules
+testrunner-app/                         executable jar, Dockerfile, end-to-end ITs, architecture rules
 testrunner-test-support/                test doubles (src/test, test-jar): in-memory FHIR server, fake validator, sample data
 config/                                 development configurations
+docker-compose.yml                      the runner in a container next to HAPI FHIR
 testdata/                               TestScripts, Example Instances, profiles from the PoC (r4, r5, samples)
 docs/                                   architecture, decisions, configuration, logging, validation, FHIR versions
 .claude/skills/                         condensed project knowledge for coding agents (Claude Code skills)

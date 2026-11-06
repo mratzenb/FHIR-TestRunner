@@ -20,7 +20,7 @@ design most.
 | IG/profile validation like the PoC; jar path configurable | `ProfileValidator` port, HL7 Validator CLI adapter, `testrunner.validation.validator-jar` ([ADR-0006](adr/0006-validator-cli.md)); server mode (default) with fallback to a process per validation ([ADR-0011](adr/0011-validator-server-mode.md)) |
 | R4 and R5 now, R6 later; mapping understandable, extensible, no duplication | Version-neutral model, one generic HAPI-based mapper, a tiny module per version ([ADR-0005](adr/0005-fhir-version-mapping.md)) |
 | Tests without a FHIR server, using the PoC TestScripts | In-memory FHIR server and fake validator jar in `testrunner-test-support`; PoC data in `testdata/` ([ADR-0009](adr/0009-testing.md)) |
-| A JAR taking a configuration object and a modifiable Spring configuration | `testrunner-app-*-exec.jar`; `TestRunner.run(RunConfiguration)` (and `check`, which sends nothing, ADR-0014); every auto-configured bean is `@ConditionalOnMissingBean` |
+| A JAR taking a configuration object and a modifiable Spring configuration | `testrunner-app-*-exec.jar`; `TestRunner.run(RunConfiguration)` (and `check`, which sends nothing, ADR-0014); every auto-configured bean is `@ConditionalOnMissingBean`; the same jar as container image, with a compose file next to HAPI FHIR ([ADR-0015](adr/0015-container-image.md)) |
 
 ## Modules
 

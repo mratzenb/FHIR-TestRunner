@@ -35,6 +35,13 @@ jobs:
           cache: maven
       - name: mvn verify
         run: mvn -B -ntp verify
+      # the image is built and tried, not published (ADR-0015); --user, so that the results belong to the runner
+      - name: Build the container image
+        run: docker build -t testrunner:ci testrunner-app
+      - name: Check the AT Core suite with the image
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/workspace" testrunner:ci \
+            --config=config/dev-r4.yml --novalidator --check
       - name: Keep the coverage report
         uses: actions/upload-artifact@v7
         with:

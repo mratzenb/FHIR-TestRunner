@@ -1,0 +1,46 @@
+# The runner and a HAPI FHIR server, both in containers (ADR-0015, docs/wiki/build-and-test.md#container-image).
+#
+#   mvn -B -DskipTests package                               # the image is built from the executable jar
+#   docker compose run --rm testrunner                       # AT Core R4 against HAPI, results in target/
+#   docker compose run --rm testrunner --config=config/dev-r4.yml --testscript='*update*'
+#   docker compose down                                      # stops HAPI; its data is in memory and gone
+#
+# Profile validation needs validator_cli.jar in this folder (VALIDATOR_JAR=… for another place); without it, add
+# --novalidator. The FHIR packages the validator loads stay in ~/.fhir/packages of the host.
+services:
+  hapi:
+    # the release HapiServerIT tests against; raise both together with hapi-fhir.version
+    image: hapiproject/hapi:v8.12.0-1
+    ports:
+      - "8080:8080"
+    environment:
+      hapi.fhir.fhir_version: R4
+      # the samples assume a lenient server, as in HapiServerIT: fixtures reference resources that are not on the
+      # server, autodelete removes fixtures others still reference, deletes by search may match several resources
+      hapi.fhir.enforce_referential_integrity_on_write: "false"
+      hapi.fhir.enforce_referential_integrity_on_delete: "false"
+      hapi.fhir.allow_multiple_delete: "true"
+
+  # HAPI's image has no shell for a health check; this waits until the server answers
+  hapi-ready:
+    image: curlimages/curl:8.17.0
+    command: ["--silent", "--fail", "--output", "/dev/null", "--retry", "60", "--retry-delay", "3",
+              "--retry-all-errors", "http://hapi:8080/fhir/metadata"]
+    depends_on:
+      - hapi
+
+  testrunner:
+    build: testrunner-app
+    image: testrunner:0.1.0-SNAPSHOT
+    depends_on:
+      hapi-ready:
+        condition: service_completed_successfully
+    # the project folder: configuration, suites and results (target/testrunner-results) are relative to it
+    volumes:
+      - .:/workspace
+      - ${VALIDATOR_JAR:-./validator_cli.jar}:/opt/validator/validator_cli.jar:ro
+      - ${HOME}/.fhir/packages:/home/runner/.fhir/packages
+    environment:
+      TESTRUNNER_FHIRSERVER_BASEURL: http://hapi:8080/fhir
+      VALIDATOR_JAR: /opt/validator/validator_cli.jar
+    command: ["--config=config/dev-r4.yml"]
