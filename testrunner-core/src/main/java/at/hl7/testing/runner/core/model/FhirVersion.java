@@ -1,5 +1,7 @@
 package at.hl7.testing.runner.core.model;
 
+import jakarta.annotation.Nonnull;
+
 import java.util.Locale;
 
 /**
@@ -23,11 +25,13 @@ public enum FhirVersion {
     }
 
     /** Full release number, e.g. {@code 4.0.1}. */
+    @Nonnull
     public String release() {
         return release;
     }
 
     /** Major and minor release number, e.g. {@code 4.0}, as expected by the HL7 validator's {@code -version}. */
+    @Nonnull
     public String majorMinor() {
         return release.substring(0, release.lastIndexOf('.'));
     }
@@ -37,7 +41,8 @@ public enum FhirVersion {
      *
      * @throws IllegalArgumentException if the text names no known version
      */
-    public static FhirVersion parse(String text) {
+    @Nonnull
+    public static FhirVersion parse(@Nonnull String text) {
         String value = text.trim().toUpperCase(Locale.ROOT);
         for (FhirVersion version : values()) {
             if (version.name().equals(value) || version.release.equals(value) || version.majorMinor().equals(value)) {

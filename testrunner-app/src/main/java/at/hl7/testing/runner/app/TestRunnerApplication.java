@@ -1,5 +1,6 @@
 package at.hl7.testing.runner.app;
 
+import jakarta.annotation.Nonnull;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -34,7 +35,7 @@ import java.util.List;
 @SpringBootApplication
 public class TestRunnerApplication {
 
-    public static void main(String[] args) {
+    public static void main(@Nonnull String[] args) {
         SpringApplication application = new SpringApplication(TestRunnerApplication.class);
         System.exit(SpringApplication.exit(application.run(translate(args))));
     }

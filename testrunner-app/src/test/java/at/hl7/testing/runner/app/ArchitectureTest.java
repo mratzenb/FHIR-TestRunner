@@ -3,11 +3,22 @@ package at.hl7.testing.runner.app;
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaCodeUnit;
+import com.tngtech.archunit.core.domain.JavaConstructor;
+import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Parameter;
+import java.lang.reflect.RecordComponent;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.tngtech.archunit.base.DescribedPredicate.not;
@@ -15,6 +26,7 @@ import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPac
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /** The module boundaries of docs/architecture.md, enforced. */
 class ArchitectureTest {
@@ -88,6 +100,97 @@ class ArchitectureTest {
         noClasses().that().resideOutsideOfPackage("at.hl7.testing.runner.core..")
                 .should().dependOnClassesThat(resideInAPackage("at.hl7.testing.runner.core..").and(not(api)))
                 .check(classes);
+    }
+
+    /**
+     * The public API says where {@code null} is allowed: every parameter, return value and record component of a
+     * reference type is {@code @Nonnull} or {@code @Nullable} (jakarta.annotation, ADR-0017). Absent values are
+     * returned as {@code Optional} where that reads better; a null that is not declared is a bug.
+     */
+    @Test
+    void publicApiDeclaresWhereNullIsAllowed() {
+        List<String> missing = new ArrayList<>();
+        for (JavaClass type : classes) {
+            if (!isPublicApi(type)) {
+                continue;
+            }
+            for (JavaMethod method : type.getMethods()) {
+                if (!isApiMember(method) || method.getModifiers().contains(JavaModifier.SYNTHETIC)
+                        || method.getModifiers().contains(JavaModifier.BRIDGE) || isGenerated(type, method)) {
+                    continue;
+                }
+                if (!method.getRawReturnType().isPrimitive() && !hasNullness(method.reflect().getAnnotations())) {
+                    missing.add(method.getFullName() + ": return value");
+                }
+                checkParameters(method.reflect().getParameters(), method.getFullName(), missing);
+            }
+            for (JavaConstructor constructor : type.getConstructors()) {
+                if (isApiMember(constructor) && !constructor.getModifiers().contains(JavaModifier.SYNTHETIC)) {
+                    checkParameters(constructor.reflect().getParameters(), constructor.getFullName(), missing);
+                }
+            }
+            if (type.isRecord()) {
+                for (RecordComponent component : type.reflect().getRecordComponents()) {
+                    if (!component.getType().isPrimitive() && !hasNullness(component.getAnnotations())) {
+                        missing.add(type.getName() + "." + component.getName() + ": record component");
+                    }
+                }
+            }
+        }
+        assertThat(missing).as("public API without @Nonnull or @Nullable").isEmpty();
+    }
+
+    /**
+     * The public types of the API: the core API above, and every public type of the other modules – not the test
+     * doubles of testrunner-test-support, whose test-jar the import finds on the class path.
+     */
+    private static boolean isPublicApi(JavaClass type) {
+        if (!type.getModifiers().contains(JavaModifier.PUBLIC) || type.isAnnotation()
+                || type.getPackageName().startsWith("at.hl7.testing.runner.testsupport")
+                || type.getEnclosingClass().map(outer -> !outer.getModifiers().contains(JavaModifier.PUBLIC))
+                        .orElse(false)) {
+            return false;
+        }
+        if (!type.getPackageName().startsWith("at.hl7.testing.runner.core")) {
+            return true;
+        }
+        return CORE_API_PACKAGES.stream().anyMatch(p -> type.getPackageName().startsWith(p.replace("..", "")))
+                || CORE_API_TYPES.stream().anyMatch(t -> t.getName().equals(type.getName())
+                        || type.getName().startsWith(t.getName() + "$"));
+    }
+
+    private static boolean isApiMember(JavaCodeUnit member) {
+        return member.getModifiers().contains(JavaModifier.PUBLIC)
+                || member.getModifiers().contains(JavaModifier.PROTECTED)
+                || member.getOwner().isInterface() && !member.getModifiers().contains(JavaModifier.PRIVATE);
+    }
+
+    /**
+     * What the compiler writes, not the source: {@code values} and {@code valueOf} of an enum, and {@code equals},
+     * {@code hashCode} and {@code toString} of a record unless the record declares them itself (then they carry
+     * their annotations like any other method).
+     */
+    private static boolean isGenerated(JavaClass type, JavaMethod method) {
+        String name = method.getName();
+        if (type.isEnum()) {
+            return name.equals("values") || name.equals("valueOf");
+        }
+        boolean objectMethod = name.equals("equals") && method.getParameters().size() == 1
+                || (name.equals("hashCode") || name.equals("toString")) && method.getParameters().isEmpty();
+        return type.isRecord() && objectMethod && !hasNullness(method.reflect().getAnnotations())
+                && Arrays.stream(method.reflect().getParameters()).noneMatch(p -> hasNullness(p.getAnnotations()));
+    }
+
+    private static void checkParameters(Parameter[] parameters, String owner, List<String> missing) {
+        for (Parameter parameter : parameters) {
+            if (!parameter.getType().isPrimitive() && !hasNullness(parameter.getAnnotations())) {
+                missing.add(owner + ": parameter " + parameter.getName());
+            }
+        }
+    }
+
+    private static boolean hasNullness(Annotation[] annotations) {
+        return Arrays.stream(annotations).anyMatch(a -> a instanceof Nonnull || a instanceof Nullable);
     }
 
     @Test

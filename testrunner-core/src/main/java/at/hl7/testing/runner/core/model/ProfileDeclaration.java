@@ -1,5 +1,7 @@
 package at.hl7.testing.runner.core.model;
 
+import jakarta.annotation.Nonnull;
+
 /**
  * A profile declared by a TestScript, referenced by {@code assert.validateProfileId}.
  *
@@ -9,5 +11,5 @@ package at.hl7.testing.runner.core.model;
  * @param id        the id {@code validateProfileId} refers to
  * @param canonical the canonical URL of the StructureDefinition
  */
-public record ProfileDeclaration(String id, String canonical) {
+public record ProfileDeclaration(@Nonnull String id, @Nonnull String canonical) {
 }

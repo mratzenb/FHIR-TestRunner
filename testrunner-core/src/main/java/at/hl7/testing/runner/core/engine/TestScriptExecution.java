@@ -5,6 +5,7 @@ import at.hl7.testing.runner.core.http.FhirHttpClient;
 import at.hl7.testing.runner.core.http.FhirRequest;
 import at.hl7.testing.runner.core.model.Action;
 import at.hl7.testing.runner.core.model.Assertion;
+import at.hl7.testing.runner.core.model.HttpMethod;
 import at.hl7.testing.runner.core.model.Operation;
 import at.hl7.testing.runner.core.model.TestDefinition;
 import at.hl7.testing.runner.core.model.TestScript;
@@ -282,10 +283,8 @@ final class TestScriptExecution {
     }
 
     private static String describe(Operation operation) {
-        String method = operation.method() != null ? operation.method().name()
-                : operation.type() != null && operation.type().defaultMethod() != null
-                ? operation.type().defaultMethod().name() : "?";
-        return Describe.operation(operation, method);
+        HttpMethod method = ActionRules.method(operation);
+        return Describe.operation(operation, method == null ? "?" : method.name());
     }
 
     private static PhaseResult finish(PhaseRecorder phase) {

@@ -124,8 +124,8 @@ class RunConfigurationTest {
         RunConfiguration config = new RunConfiguration(FhirServerConfig.of("http://shared/fhir"), List.of(own, shared),
                 null, null, null, null, null, null);
 
-        assertThat(config.fhirServerOf(own).base()).isEqualTo("http://own/fhir");
-        assertThat(config.fhirServerOf(shared).base()).isEqualTo("http://shared/fhir");
+        assertThat(config.fhirServerOf(own).base()).contains("http://own/fhir");
+        assertThat(config.fhirServerOf(shared).base()).contains("http://shared/fhir");
         assertThat(shared.name()).isEqualTo(dir.getFileName().toString());
         assertThat(shared.pinnedFhirVersion()).isEmpty();
     }

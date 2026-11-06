@@ -16,6 +16,7 @@ import at.hl7.testing.runner.core.model.TestDefinition;
 import at.hl7.testing.runner.core.model.TestScript;
 import at.hl7.testing.runner.core.model.VariableDefinition;
 import at.hl7.testing.runner.core.spi.TestScriptFormatException;
+import jakarta.annotation.Nonnull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,12 +35,13 @@ public final class TestScriptMapper {
     private final FhirVersion version;
     private final TestScriptDialect dialect;
 
-    public TestScriptMapper(FhirVersion version, TestScriptDialect dialect) {
+    public TestScriptMapper(@Nonnull FhirVersion version, @Nonnull TestScriptDialect dialect) {
         this.version = version;
         this.dialect = dialect;
     }
 
-    public TestScript map(ElementView testScript) {
+    @Nonnull
+    public TestScript map(@Nonnull ElementView testScript) {
         return TestScript.builder(version)
                 .id(testScript.string("id"))
                 .url(testScript.string("url"))

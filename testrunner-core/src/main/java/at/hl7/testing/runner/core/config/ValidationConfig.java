@@ -1,5 +1,8 @@
 package at.hl7.testing.runner.core.config;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
@@ -22,11 +25,17 @@ import java.util.List;
  *                            per suite ({@link SuiteConfig#profilesDir()}, {@link SuiteConfig#igs()})
  * @param server              settings of the server mode
  */
-public record ValidationConfig(Boolean enabled, ValidatorMode mode, Path validatorJar, Path javaExecutable,
-                               List<String> jvmArguments, String terminologyServer, String locale, Duration timeout,
-                               Boolean validateTestScripts, List<String> extraArguments, ServerModeConfig server) {
+public record ValidationConfig(@Nonnull Boolean enabled, @Nonnull ValidatorMode mode, @Nullable Path validatorJar,
+                               @Nullable Path javaExecutable, @Nonnull List<String> jvmArguments,
+                               @Nonnull String terminologyServer, @Nonnull String locale, @Nonnull Duration timeout,
+                               @Nonnull Boolean validateTestScripts, @Nonnull List<String> extraArguments,
+                               @Nonnull ServerModeConfig server) {
 
-    public ValidationConfig {
+    public ValidationConfig(@Nullable Boolean enabled, @Nullable ValidatorMode mode, @Nullable Path validatorJar,
+                            @Nullable Path javaExecutable, @Nullable List<String> jvmArguments,
+                            @Nullable String terminologyServer, @Nullable String locale, @Nullable Duration timeout,
+                            @Nullable Boolean validateTestScripts, @Nullable List<String> extraArguments,
+                            @Nullable ServerModeConfig server) {
         enabled = enabled == null || enabled;
         mode = mode == null ? ValidatorMode.SERVER : mode;
         jvmArguments = jvmArguments == null ? List.of() : List.copyOf(jvmArguments);
@@ -36,41 +45,59 @@ public record ValidationConfig(Boolean enabled, ValidatorMode mode, Path validat
         validateTestScripts = validateTestScripts == null || validateTestScripts;
         extraArguments = extraArguments == null ? List.of() : List.copyOf(extraArguments);
         server = server == null ? ServerModeConfig.defaults() : server;
+        this.enabled = enabled;
+        this.mode = mode;
+        this.validatorJar = validatorJar;
+        this.javaExecutable = javaExecutable;
+        this.jvmArguments = jvmArguments;
+        this.terminologyServer = terminologyServer;
+        this.locale = locale;
+        this.timeout = timeout;
+        this.validateTestScripts = validateTestScripts;
+        this.extraArguments = extraArguments;
+        this.server = server;
     }
 
     /** All defaults; validation enabled, but the validator jar still has to be set. */
+    @Nonnull
     public static ValidationConfig defaults() {
         return enabled(null);
     }
 
     /** Validation with the given validator jar and otherwise the defaults. */
-    public static ValidationConfig enabled(Path validatorJar) {
+    @Nonnull
+    public static ValidationConfig enabled(@Nonnull Path validatorJar) {
         return new ValidationConfig(true, null, validatorJar, null, null, null, null, null, null, null, null);
     }
 
+    @Nonnull
     public static ValidationConfig disabled() {
         return new ValidationConfig(false, null, null, null, null, null, null, null, false, null, null);
     }
 
     /** A copy with another mode. */
-    public ValidationConfig withMode(ValidatorMode newMode) {
+    @Nonnull
+    public ValidationConfig withMode(@Nonnull ValidatorMode newMode) {
         return new ValidationConfig(enabled, newMode, validatorJar, javaExecutable, jvmArguments, terminologyServer,
                 locale, timeout, validateTestScripts, extraArguments, server);
     }
 
     /** A copy with other server settings. */
-    public ValidationConfig withServer(ServerModeConfig newServer) {
+    @Nonnull
+    public ValidationConfig withServer(@Nonnull ServerModeConfig newServer) {
         return new ValidationConfig(enabled, mode, validatorJar, javaExecutable, jvmArguments, terminologyServer,
                 locale, timeout, validateTestScripts, extraArguments, newServer);
     }
 
     /** A copy with other extra arguments. */
-    public ValidationConfig withExtraArguments(List<String> newExtraArguments) {
+    @Nonnull
+    public ValidationConfig withExtraArguments(@Nonnull List<String> newExtraArguments) {
         return new ValidationConfig(enabled, mode, validatorJar, javaExecutable, jvmArguments, terminologyServer,
                 locale, timeout, validateTestScripts, newExtraArguments, server);
     }
 
     /** The java executable to start the validator with. */
+    @Nonnull
     public Path resolvedJavaExecutable() {
         return javaExecutable != null ? javaExecutable : Path.of(System.getProperty("java.home"), "bin", "java");
     }

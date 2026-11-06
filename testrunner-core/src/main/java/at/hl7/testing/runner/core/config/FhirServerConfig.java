@@ -1,9 +1,13 @@
 package at.hl7.testing.runner.core.config;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * The FHIR server the TestScripts are run against.
@@ -13,18 +17,25 @@ import java.util.Map;
  * @param oauth2  get an access token with the OAuth 2.0 client credentials grant and send it with every request;
  *                {@code null} for none
  */
-public record FhirServerConfig(URI baseUrl, Map<String, String> headers, OAuth2Config oauth2) {
+public record FhirServerConfig(@Nullable URI baseUrl, @Nonnull Map<String, String> headers,
+                               @Nullable OAuth2Config oauth2) {
 
-    public FhirServerConfig {
+    public FhirServerConfig(@Nullable URI baseUrl, @Nullable Map<String, String> headers,
+                            @Nullable OAuth2Config oauth2) {
         headers = headers == null ? Map.of() : Map.copyOf(headers);
+        this.baseUrl = baseUrl;
+        this.headers = headers;
+        this.oauth2 = oauth2;
     }
 
-    public static FhirServerConfig of(String baseUrl) {
+    @Nonnull
+    public static FhirServerConfig of(@Nullable String baseUrl) {
         return new FhirServerConfig(baseUrl == null ? null : URI.create(baseUrl), Map.of(), null);
     }
 
     /** A copy that gets its access token with {@code newOAuth2}. */
-    public FhirServerConfig withOAuth2(OAuth2Config newOAuth2) {
+    @Nonnull
+    public FhirServerConfig withOAuth2(@Nullable OAuth2Config newOAuth2) {
         return new FhirServerConfig(baseUrl, headers, newOAuth2);
     }
 
@@ -41,12 +52,13 @@ public record FhirServerConfig(URI baseUrl, Map<String, String> headers, OAuth2C
         return problems;
     }
 
-    /** Base URL without a trailing slash, or {@code null}. */
-    public String base() {
+    /** Base URL without a trailing slash; empty if none is configured. */
+    @Nonnull
+    public Optional<String> base() {
         if (baseUrl == null) {
-            return null;
+            return Optional.empty();
         }
         String value = baseUrl.toString();
-        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
+        return Optional.of(value.endsWith("/") ? value.substring(0, value.length() - 1) : value);
     }
 }

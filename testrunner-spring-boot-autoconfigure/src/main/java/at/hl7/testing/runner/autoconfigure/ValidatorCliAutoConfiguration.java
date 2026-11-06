@@ -3,6 +3,7 @@ package at.hl7.testing.runner.autoconfigure;
 import at.hl7.testing.runner.core.config.RunConfiguration;
 import at.hl7.testing.runner.core.spi.ProfileValidator;
 import at.hl7.testing.runner.validation.cli.ProfileValidators;
+import jakarta.annotation.Nonnull;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -20,7 +21,8 @@ public class ValidatorCliAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public ProfileValidator profileValidator(RunConfiguration configuration) {
+    @Nonnull
+    public ProfileValidator profileValidator(@Nonnull RunConfiguration configuration) {
         return ProfileValidators.create(configuration.validation());
     }
 }

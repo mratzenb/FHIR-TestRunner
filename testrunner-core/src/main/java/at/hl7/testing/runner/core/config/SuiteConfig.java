@@ -1,6 +1,8 @@
 package at.hl7.testing.runner.core.config;
 
 import at.hl7.testing.runner.core.model.FhirVersion;
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -37,14 +39,19 @@ import java.util.Optional;
  *                            {@code hl7.at.fhir.core.r4#2.1.0} or {@code hl7.at.fhir.core.r4#dev}; see
  *                            {@link PackagesConfig}
  */
-public record SuiteConfig(String name, String fhirVersion, Path baseDir, Path testScriptsDir,
-                          Path exampleInstancesDir, Path profilesDir, List<String> igs, List<String> include,
-                          FhirServerConfig fhirServer, Boolean parallel, String packageId) {
+public record SuiteConfig(@Nullable String name, @Nonnull String fhirVersion, @Nullable Path baseDir,
+                          @Nonnull Path testScriptsDir, @Nonnull Path exampleInstancesDir, @Nonnull Path profilesDir,
+                          @Nonnull List<String> igs, @Nonnull List<String> include,
+                          @Nullable FhirServerConfig fhirServer, @Nonnull Boolean parallel,
+                          @Nullable String packageId) {
 
     public static final String AUTO = "AUTO";
     private static final List<String> DEFAULT_INCLUDE = List.of("*.json", "*.xml");
 
-    public SuiteConfig {
+    public SuiteConfig(@Nullable String name, @Nullable String fhirVersion, @Nullable Path baseDir,
+                       @Nullable Path testScriptsDir, @Nullable Path exampleInstancesDir, @Nullable Path profilesDir,
+                       @Nullable List<String> igs, @Nullable List<String> include,
+                       @Nullable FhirServerConfig fhirServer, @Nullable Boolean parallel, @Nullable String packageId) {
         fhirVersion = fhirVersion == null || fhirVersion.isBlank() ? AUTO : fhirVersion.trim();
         testScriptsDir = testScriptsDir == null ? Path.of("Test_Scripts") : testScriptsDir;
         exampleInstancesDir = exampleInstancesDir == null ? Path.of("Example_Instances") : exampleInstancesDir;
@@ -58,10 +65,22 @@ public record SuiteConfig(String name, String fhirVersion, Path baseDir, Path te
         } else if ((name == null || name.isBlank()) && baseDir != null && baseDir.getFileName() != null) {
             name = baseDir.getFileName().toString();
         }
+        this.name = name;
+        this.fhirVersion = fhirVersion;
+        this.baseDir = baseDir;
+        this.testScriptsDir = testScriptsDir;
+        this.exampleInstancesDir = exampleInstancesDir;
+        this.profilesDir = profilesDir;
+        this.igs = igs;
+        this.include = include;
+        this.fhirServer = fhirServer;
+        this.parallel = parallel;
+        this.packageId = packageId;
     }
 
     /** A suite with the default folder layout below {@code baseDir}. */
-    public static SuiteConfig of(Path baseDir, String fhirVersion) {
+    @Nonnull
+    public static SuiteConfig of(@Nonnull Path baseDir, @Nullable String fhirVersion) {
         return new SuiteConfig(null, fhirVersion, baseDir, null, null, null, null, null, null, null, null);
     }
 
@@ -75,7 +94,9 @@ public record SuiteConfig(String name, String fhirVersion, Path baseDir, Path te
      * @param version      the FHIR version of the package
      * @param dependencies further IGs the package depends on, as package ids
      */
-    public SuiteConfig withPackage(Path packageDir, Path examplesDir, FhirVersion version, List<String> dependencies) {
+    @Nonnull
+    public SuiteConfig withPackage(@Nonnull Path packageDir, @Nonnull Path examplesDir, @Nonnull FhirVersion version,
+                                   @Nonnull List<String> dependencies) {
         List<String> packageIgs = new ArrayList<>();
         packageIgs.add(packageId);
         packageIgs.addAll(dependencies);
@@ -88,6 +109,7 @@ public record SuiteConfig(String name, String fhirVersion, Path baseDir, Path te
     }
 
     /** The configured version, or empty for {@code AUTO}. */
+    @Nonnull
     public Optional<FhirVersion> pinnedFhirVersion() {
         if (AUTO.equals(fhirVersion.toUpperCase(Locale.ROOT))) {
             return Optional.empty();
@@ -95,14 +117,17 @@ public record SuiteConfig(String name, String fhirVersion, Path baseDir, Path te
         return Optional.of(FhirVersion.parse(fhirVersion));
     }
 
+    @Nonnull
     public Path resolvedTestScriptsDir() {
         return baseDir.resolve(testScriptsDir).normalize();
     }
 
+    @Nonnull
     public Path resolvedExampleInstancesDir() {
         return baseDir.resolve(exampleInstancesDir);
     }
 
+    @Nonnull
     public Path resolvedProfilesDir() {
         return baseDir.resolve(profilesDir);
     }

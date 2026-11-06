@@ -35,6 +35,10 @@ documents; [next steps](docs/wiki/next-steps.md) has the plan behind them.
 
 ### Changed – API
 
+* The public API is annotated with `jakarta.annotation.Nonnull`/`Nullable` (ADR-0017), and five methods that
+  returned `null` for "absent" return an `Optional` now: `FhirServerConfig.base()`, `OperationType.defaultMethod()`,
+  `ContentFormat.fromMimeType(…)`, `ContentFormat.fromFileName(…)`, `TestScriptFormatException.fhirVersion()`. Add
+  `.orElse(null)` where the old value is needed. New: `Body.ofFile(path)`.
 * The bodies of `FhirRequest` and `FhirResponse` are a `model.Body` (bytes, charset, format), not a `String`
   (M5.3). Use `body().text()` (or `FhirResponse.bodyText()`) for the text, `FhirResponse.text(…)` to create a text
   response in a test, `request.withHeaders(…)` in a wrapping `HttpTransport`. `FhirResponse.asBody()` is gone:

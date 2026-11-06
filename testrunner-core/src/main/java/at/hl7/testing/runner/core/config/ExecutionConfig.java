@@ -1,5 +1,8 @@
 package at.hl7.testing.runner.core.config;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 import java.time.Duration;
 
 /**
@@ -19,31 +22,44 @@ import java.time.Duration;
  * @param failFast          stop the run after the first TestScript that failed or had an error; default false.
  *                          The running TestScripts finish, those not started yet are skipped
  */
-public record ExecutionConfig(Integer parallelism, ReferenceRewriting rewriteReferences, Duration timeout,
-                              Duration testScriptTimeout, Boolean failFast) {
+public record ExecutionConfig(@Nonnull Integer parallelism, @Nonnull ReferenceRewriting rewriteReferences,
+                              @Nullable Duration timeout, @Nullable Duration testScriptTimeout,
+                              @Nonnull Boolean failFast) {
 
-    public ExecutionConfig {
+    public ExecutionConfig(@Nullable Integer parallelism, @Nullable ReferenceRewriting rewriteReferences,
+                           @Nullable Duration timeout, @Nullable Duration testScriptTimeout,
+                           @Nullable Boolean failFast) {
         parallelism = parallelism == null ? 1 : parallelism;
         rewriteReferences = rewriteReferences == null ? ReferenceRewriting.AUTOCREATE : rewriteReferences;
         failFast = failFast != null && failFast;
+        this.parallelism = parallelism;
+        this.rewriteReferences = rewriteReferences;
+        this.timeout = timeout;
+        this.testScriptTimeout = testScriptTimeout;
+        this.failFast = failFast;
     }
 
+    @Nonnull
     public static ExecutionConfig defaults() {
         return new ExecutionConfig(null, null, null, null, null);
     }
 
     /** Settings with {@code parallelism} TestScripts at the same time and otherwise the defaults. */
+    @Nonnull
     public static ExecutionConfig parallel(int parallelism) {
         return new ExecutionConfig(parallelism, null, null, null, null);
     }
 
     /** A copy with another reference rewriting. */
-    public ExecutionConfig withRewriteReferences(ReferenceRewriting newRewriteReferences) {
+    @Nonnull
+    public ExecutionConfig withRewriteReferences(@Nonnull ReferenceRewriting newRewriteReferences) {
         return new ExecutionConfig(parallelism, newRewriteReferences, timeout, testScriptTimeout, failFast);
     }
 
     /** A copy with other limits: for the run, for each TestScript, and whether to stop after the first failure. */
-    public ExecutionConfig withLimits(Duration newTimeout, Duration newTestScriptTimeout, boolean newFailFast) {
+    @Nonnull
+    public ExecutionConfig withLimits(@Nullable Duration newTimeout, @Nullable Duration newTestScriptTimeout,
+                                      boolean newFailFast) {
         return new ExecutionConfig(parallelism, rewriteReferences, newTimeout, newTestScriptTimeout, newFailFast);
     }
 }

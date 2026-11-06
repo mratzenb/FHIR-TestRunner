@@ -1,5 +1,8 @@
 package at.hl7.testing.runner.core.model;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 import java.math.BigDecimal;
 import java.time.DateTimeException;
 import java.time.LocalDate;
@@ -45,7 +48,8 @@ public final class FhirTemporal {
     }
 
     /** The value of {@code text} if it is a FHIR date, dateTime, instant or time; empty otherwise. */
-    public static Optional<FhirTemporal> parse(String text) {
+    @Nonnull
+    public static Optional<FhirTemporal> parse(@Nullable String text) {
         if (text == null) {
             return Optional.empty();
         }
@@ -73,6 +77,7 @@ public final class FhirTemporal {
     }
 
     /** The value as written. */
+    @Nonnull
     public String text() {
         return text;
     }
@@ -86,7 +91,7 @@ public final class FhirTemporal {
      *                                  one of them has, only one has a time zone offset, or one is a time and the
      *                                  other a date
      */
-    public int compare(FhirTemporal other) {
+    public int compare(@Nonnull FhirTemporal other) {
         if (timeOnly != other.timeOnly) {
             throw new IllegalArgumentException("'" + text + "' and '" + other.text + "' cannot be compared: a time"
                     + " of day and a date");
@@ -159,7 +164,7 @@ public final class FhirTemporal {
 
     /** Equal if written the same; {@link #compare} decides whether two values are the same point in time. */
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         return o instanceof FhirTemporal other && text.equals(other.text);
     }
 
@@ -170,6 +175,7 @@ public final class FhirTemporal {
 
     /** The value as written, so that messages show what the TestScript or the server wrote. */
     @Override
+    @Nonnull
     public String toString() {
         return text;
     }

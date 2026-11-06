@@ -1,5 +1,8 @@
 package at.hl7.testing.runner.core.config;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 import java.net.URI;
 import java.nio.file.Path;
 
@@ -12,13 +15,16 @@ import java.nio.file.Path;
  * @param registry the package registry a package missing in the cache is downloaded from, default
  *                 {@code https://packages.fhir.org}
  */
-public record PackagesConfig(Path cacheDir, URI registry) {
+public record PackagesConfig(@Nonnull Path cacheDir, @Nonnull URI registry) {
 
-    public PackagesConfig {
+    public PackagesConfig(@Nullable Path cacheDir, @Nullable URI registry) {
         cacheDir = cacheDir == null ? Path.of(System.getProperty("user.home"), ".fhir", "packages") : cacheDir;
         registry = registry == null ? URI.create("https://packages.fhir.org") : registry;
+        this.cacheDir = cacheDir;
+        this.registry = registry;
     }
 
+    @Nonnull
     public static PackagesConfig defaults() {
         return new PackagesConfig(null, null);
     }

@@ -7,6 +7,7 @@ import at.hl7.testing.runner.core.engine.RunControl;
 import at.hl7.testing.runner.core.engine.TestRunner;
 import at.hl7.testing.runner.core.report.Outcome;
 import at.hl7.testing.runner.core.report.RunResult;
+import jakarta.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -88,7 +89,8 @@ public class RunCommand implements ApplicationRunner, ExitCodeGenerator, Applica
     private int exitCode = EXIT_PASSED;
 
     @Autowired
-    public RunCommand(TestRunner runner, RunConfiguration configuration, Environment environment) {
+    public RunCommand(@Nonnull TestRunner runner, @Nonnull RunConfiguration configuration,
+                      @Nonnull Environment environment) {
         this(runner, configuration, environment, System.out);
     }
 
@@ -104,7 +106,7 @@ public class RunCommand implements ApplicationRunner, ExitCodeGenerator, Applica
     }
 
     @Override
-    public void run(ApplicationArguments args) {
+    public void run(@Nonnull ApplicationArguments args) {
         try {
             if (mode == Mode.LIST) {
                 List<TestRunner.Listed> listed = runner.list(configuration);
@@ -162,7 +164,7 @@ public class RunCommand implements ApplicationRunner, ExitCodeGenerator, Applica
      * still going and is stopped. Runs before any bean is destroyed, so the run can still send its teardown.
      */
     @Override
-    public void onApplicationEvent(ContextClosedEvent event) {
+    public void onApplicationEvent(@Nonnull ContextClosedEvent event) {
         RunControl running = control;
         if (running != null) {
             stop(running, shutdownGrace);

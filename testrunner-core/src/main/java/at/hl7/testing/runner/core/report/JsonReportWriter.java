@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import jakarta.annotation.Nonnull;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -15,12 +16,14 @@ public final class JsonReportWriter implements ReportWriter {
     private static final ObjectMapper JSON = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
     @Override
+    @Nonnull
     public String format() {
         return ReportingConfig.JSON;
     }
 
     @Override
-    public Path write(RunResult result, Path runDirectory) throws IOException {
+    @Nonnull
+    public Path write(@Nonnull RunResult result, @Nonnull Path runDirectory) throws IOException {
         Path file = runDirectory.resolve("result.json");
         ObjectNode root = JSON.createObjectNode()
                 .put("runId", result.runId())

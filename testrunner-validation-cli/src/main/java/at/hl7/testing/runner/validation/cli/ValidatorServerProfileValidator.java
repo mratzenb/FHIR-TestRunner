@@ -6,6 +6,7 @@ import at.hl7.testing.runner.core.spi.ProfileValidator;
 import at.hl7.testing.runner.core.spi.ValidationRequest;
 import at.hl7.testing.runner.core.spi.ValidationResult;
 import at.hl7.testing.runner.core.spi.ValidatorUnavailableException;
+import jakarta.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +47,7 @@ public final class ValidatorServerProfileValidator implements ProfileValidator, 
     private final Thread shutdownHook = Thread.ofPlatform().unstarted(this::destroyAll);
     private volatile boolean closed;
 
-    public ValidatorServerProfileValidator(ValidationConfig config) {
+    public ValidatorServerProfileValidator(@Nonnull ValidationConfig config) {
         this(config, new ValidatorCliProfileValidator(config));
     }
 
@@ -62,6 +63,7 @@ public final class ValidatorServerProfileValidator implements ProfileValidator, 
     }
 
     @Override
+    @Nonnull
     public String description() {
         return "HL7 validator in server mode, one server per FHIR version, profiles folder and IGs ("
                 + config.validatorJar() + "; fallback to one process per validation: "
@@ -69,17 +71,20 @@ public final class ValidatorServerProfileValidator implements ProfileValidator, 
     }
 
     /** Problems that keep the validator from running, for the start of the run; empty if it looks usable. */
+    @Nonnull
     public List<String> problems() {
         return ValidatorArguments.problems(config);
     }
 
     @Override
+    @Nonnull
     public List<String> configurationProblems() {
         return ValidatorArguments.configurationProblems(config);
     }
 
     @Override
-    public ValidationResult validate(ValidationRequest request) {
+    @Nonnull
+    public ValidationResult validate(@Nonnull ValidationRequest request) {
         if (closed) {
             throw new ValidatorUnavailableException("The validator has been closed");
         }

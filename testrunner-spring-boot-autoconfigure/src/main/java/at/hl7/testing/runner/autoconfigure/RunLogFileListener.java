@@ -10,6 +10,7 @@ import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.filter.ThresholdFilter;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.FileAppender;
+import jakarta.annotation.Nonnull;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
@@ -33,7 +34,7 @@ public class RunLogFileListener implements RunListener {
     private final Map<String, Attached> appenders = new ConcurrentHashMap<>();
 
     @Override
-    public void runStarted(RunInfo run) {
+    public void runStarted(@Nonnull RunInfo run) {
         if (!run.configuration().reporting().logFile()
                 || !(LoggerFactory.getILoggerFactory() instanceof LoggerContext context)) {
             return;
@@ -68,7 +69,7 @@ public class RunLogFileListener implements RunListener {
     }
 
     @Override
-    public void runFinished(RunInfo run, RunResult result) {
+    public void runFinished(@Nonnull RunInfo run, @Nonnull RunResult result) {
         Attached attached = appenders.remove(run.runId());
         if (attached != null) {
             attached.logger().detachAppender(attached.appender());

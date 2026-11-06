@@ -1,5 +1,7 @@
 package at.hl7.testing.runner.core.spi;
 
+import jakarta.annotation.Nonnull;
+
 import java.util.List;
 
 /**
@@ -12,6 +14,7 @@ public interface ProfileValidator {
     boolean isEnabled();
 
     /** How validation is done, for the log at the start of a run. */
+    @Nonnull
     default String description() {
         return isEnabled() ? "enabled" : "disabled";
     }
@@ -23,6 +26,7 @@ public interface ProfileValidator {
      *
      * @return the problems, empty if there are none (the default)
      */
+    @Nonnull
     default List<String> configurationProblems() {
         return List.of();
     }
@@ -33,7 +37,8 @@ public interface ProfileValidator {
      * @throws ValidatorUnavailableException if the validation could not be performed at all; this must never be
      *                                       reported as a successful validation
      */
-    ValidationResult validate(ValidationRequest request);
+    @Nonnull
+    ValidationResult validate(@Nonnull ValidationRequest request);
 
     /** A validator that validates nothing, used when validation is switched off. */
     ProfileValidator DISABLED = new ProfileValidator() {

@@ -2,6 +2,7 @@ package at.hl7.testing.runner.validation.cli;
 
 import at.hl7.testing.runner.core.config.ValidationConfig;
 import at.hl7.testing.runner.core.spi.ProfileValidator;
+import jakarta.annotation.Nonnull;
 
 import java.util.List;
 
@@ -14,7 +15,8 @@ public final class ProfileValidators {
     private ProfileValidators() {
     }
 
-    public static ProfileValidator create(ValidationConfig config) {
+    @Nonnull
+    public static ProfileValidator create(@Nonnull ValidationConfig config) {
         if (!config.enabled()) {
             return ProfileValidator.DISABLED;
         }
@@ -25,7 +27,8 @@ public final class ProfileValidators {
     }
 
     /** Problems that keep the validator from running, e.g. a missing jar; empty if it looks usable. */
-    public static List<String> problems(ValidationConfig config) {
+    @Nonnull
+    public static List<String> problems(@Nonnull ValidationConfig config) {
         return config.enabled() ? ValidatorArguments.problems(config) : List.of();
     }
 }

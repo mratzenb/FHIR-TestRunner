@@ -9,7 +9,8 @@ description: Configuration of the FHIR TestScript Runner (TestRunnerOnJava) – 
 `fhirServer: FhirServerConfig`, `suites: List<SuiteConfig>`, `http: HttpConfig`, `execution: ExecutionConfig`,
 `validation: ValidationConfig` (+ `ServerModeConfig server`, `ValidatorMode mode`), `reporting: ReportingConfig`,
 `packages: PackagesConfig`, `select: SelectConfig` (8 components; `withSuites`, `withSelect`).
-Defaults are applied in the **compact constructors** (null ⇒ default), so binding, code and tests share them.
+Defaults are applied in the **canonical constructors** (null ⇒ default; `@Nullable` parameters, `@Nonnull`
+components, ADR-0017), so binding, code and tests share them. `FhirServerConfig.base()` is an `Optional<String>`.
 `problems()` lists everything that blocks a run, all at once (exit code 2).
 
 ## Properties (prefix `testrunner`, relaxed binding, durations `90s`/`2m`/`PT1M`)
@@ -90,7 +91,9 @@ Dev configs in `config/`: `dev-r4.yml`, `dev-r5.yml`, `dev-all.yml` (samples + r
 ## Adding a setting
 
 1. Record component in the right `*Config` record, as a **boxed** type (`Integer`, `Boolean`, `Duration`, …) so that
-   absent means null, + default in its compact constructor (null ⇒ default).
+   absent means null, + default in its canonical constructor (null ⇒ default). The config records have an explicit
+   canonical constructor (ADR-0017): the parameter is `@Nullable`, the component `@Nonnull` if it has a default
+   (`@Nullable` if "not set" stays null, like `execution.timeout`), plus `this.x = x;` at its end.
 2. If it can be wrong: a check in `RunConfiguration.problems()` naming the property path (`testrunner.x.y`).
 3. Use it where needed – components get their part of the configuration, never a global.
 4. Binding works automatically (Binder, relaxed names). Test it in `TestRunnerAutoConfigurationTest`

@@ -1,11 +1,9 @@
 package at.hl7.testing.runner.core.source;
 
 import at.hl7.testing.runner.core.model.Body;
-import at.hl7.testing.runner.core.model.ContentFormat;
 import at.hl7.testing.runner.core.model.FixtureDefinition;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -96,9 +94,7 @@ public final class ExampleInstanceResolver {
 
     private static Body read(Path file) {
         try {
-            String text = Files.readString(file, StandardCharsets.UTF_8);
-            ContentFormat format = ContentFormat.fromFileName(file.getFileName().toString());
-            return new Body(text, format != null ? format : ContentFormat.sniff(text));
+            return Body.ofFile(file);
         } catch (IOException e) {
             throw new FixtureNotFoundException("Could not read " + file + ": " + e.getMessage());
         }

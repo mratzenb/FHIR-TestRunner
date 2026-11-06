@@ -10,6 +10,7 @@ import at.hl7.testing.runner.core.report.ReportWriter;
 import at.hl7.testing.runner.core.spi.FhirVersionRegistry;
 import at.hl7.testing.runner.core.spi.FhirVersionSupport;
 import at.hl7.testing.runner.core.spi.ProfileValidator;
+import jakarta.annotation.Nonnull;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -51,7 +52,8 @@ public class TestRunnerAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    public RunConfiguration testRunnerConfiguration(Environment environment) {
+    @Nonnull
+    public RunConfiguration testRunnerConfiguration(@Nonnull Environment environment) {
         Binder binder = Binder.get(environment);
         // the binder ignores unknown properties; this one moved and would otherwise silently stop loading the IGs
         binder.bind(PREFIX + ".validation.igs", Bindable.listOf(String.class)).ifBound(igs -> {
@@ -71,7 +73,8 @@ public class TestRunnerAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    public FhirVersionRegistry fhirVersionRegistry(ObjectProvider<FhirVersionSupport> beans) {
+    @Nonnull
+    public FhirVersionRegistry fhirVersionRegistry(@Nonnull ObjectProvider<FhirVersionSupport> beans) {
         List<FhirVersionSupport> supports = new ArrayList<>(beans.orderedStream().toList());
         ServiceLoader.load(FhirVersionSupport.class).forEach(found -> {
             if (supports.stream().noneMatch(s -> s.version() == found.version())) {
@@ -83,28 +86,33 @@ public class TestRunnerAutoConfiguration {
 
     @Bean(destroyMethod = "close")
     @ConditionalOnMissingBean(HttpTransport.class)
-    public JdkHttpTransport httpTransport(RunConfiguration configuration) {
+    @Nonnull
+    public JdkHttpTransport httpTransport(@Nonnull RunConfiguration configuration) {
         return new JdkHttpTransport(configuration.http());
     }
 
     /** Validation is off unless a module (e.g. testrunner-validation-cli) or the application provides a validator. */
     @Bean
     @ConditionalOnMissingBean
+    @Nonnull
     public ProfileValidator profileValidator() {
         return ProfileValidator.DISABLED;
     }
 
     @Bean
     @ConditionalOnMissingBean
+    @Nonnull
     public Clock testRunnerClock() {
         return Clock.systemDefaultZone();
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public TestRunner testRunner(FhirVersionRegistry versions, HttpTransport transport, ProfileValidator validator,
-                                 ObjectProvider<ReportWriter> reportWriters, ObjectProvider<RunListener> listeners,
-                                 Clock clock) {
+    @Nonnull
+    public TestRunner testRunner(@Nonnull FhirVersionRegistry versions, @Nonnull HttpTransport transport,
+                                 @Nonnull ProfileValidator validator,
+                                 @Nonnull ObjectProvider<ReportWriter> reportWriters,
+                                 @Nonnull ObjectProvider<RunListener> listeners, @Nonnull Clock clock) {
         List<ReportWriter> writers = new ArrayList<>(reportWriters.orderedStream().toList());
         for (ReportWriter builtIn : TestRunners.defaultReportWriters(versions)) {
             if (writers.stream().noneMatch(w -> w.format().equals(builtIn.format()))) {

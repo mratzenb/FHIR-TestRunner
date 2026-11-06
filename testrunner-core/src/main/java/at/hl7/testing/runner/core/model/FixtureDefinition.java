@@ -1,5 +1,8 @@
 package at.hl7.testing.runner.core.model;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 /**
  * A fixture declared by a TestScript ({@code TestScript.fixture}).
  *
@@ -8,5 +11,6 @@ package at.hl7.testing.runner.core.model;
  * @param autodelete whether the runner deletes the fixture from the server after the teardown
  * @param reference  {@code fixture.resource.reference}, or {@code null} for a fixture without a static resource
  */
-public record FixtureDefinition(String id, boolean autocreate, boolean autodelete, String reference) {
+public record FixtureDefinition(@Nonnull String id, boolean autocreate, boolean autodelete,
+                                @Nullable String reference) {
 }

@@ -1,6 +1,7 @@
 package at.hl7.testing.runner.core.engine;
 
 import at.hl7.testing.runner.core.config.RunConfiguration;
+import jakarta.annotation.Nonnull;
 
 import java.nio.file.Path;
 import java.time.Instant;
@@ -14,9 +15,11 @@ import java.time.Instant;
  * @param configuration the configuration of the run (immutable)
  * @param runDirectory  folder of the run's results and logs
  */
-public record RunInfo(String runId, Instant started, RunConfiguration configuration, Path runDirectory) {
+public record RunInfo(@Nonnull String runId, @Nonnull Instant started, @Nonnull RunConfiguration configuration,
+                      @Nonnull Path runDirectory) {
 
     /** Folder of the communication logs of this run. */
+    @Nonnull
     public Path communicationDirectory() {
         return runDirectory.resolve("communication");
     }
