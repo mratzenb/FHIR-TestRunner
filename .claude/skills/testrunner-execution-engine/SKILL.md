@@ -38,7 +38,10 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
    `metadata.capability` (`CapabilityCheck`, see below), then runs setup → tests → teardown with its own
    `ExecutionState` (fixtures, responses by `responseId`, last response). Helpers:
    `VariableResolver`, `RequestFactory`, `AssertionEvaluator`, `FixtureManager`, `PhaseRecorder`.
-6. Every request goes through `http.FhirHttpClient` (request id, log line, communication folder).
+6. Every request goes through `http.FhirHttpClient` (request id, log line, communication folder). Bodies are
+   `model.Body` throughout (bytes + charset + format, `text()` lazily decoded, `isText()`; M5.3): `FhirRequest.body()`
+   and `FhirResponse.body()` are `Body`s, `JdkHttpTransport` sends/reads bytes (`FhirResponse.of(…, byte[])`), so a
+   binary response kept by `responseId` is re-sent unchanged by `sourceId` (`RequestFactory` passes the `Body`).
 7. `TestScriptResult`s → `RunResult` (in discovery order) → `ReportPublisher` (`ReportWriter`s, summary log) →
    `RunListener.runFinished` – exactly once per started run, whatever ends it (see Run control).
 

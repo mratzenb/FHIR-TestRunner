@@ -1,6 +1,7 @@
 package at.hl7.testing.runner.core.http;
 
 import at.hl7.testing.runner.core.config.OAuth2Config;
+import at.hl7.testing.runner.core.model.Body;
 import at.hl7.testing.runner.core.model.HttpMethod;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -67,7 +68,7 @@ public final class AccessTokens {
         }
         JsonNode answer;
         try {
-            answer = JSON.readTree(response.body());
+            answer = JSON.readTree(response.bodyText());
         } catch (IOException e) {
             throw new IOException(where + ": the answer is no JSON", e);
         }
@@ -108,13 +109,14 @@ public final class AccessTokens {
             case POST -> form.add("client_id=" + encode(config.clientId()))
                     .add("client_secret=" + encode(config.clientSecret()));
         }
-        return new FhirRequest(HttpMethod.POST, config.tokenUrl(), headers, form.toString());
+        return new FhirRequest(HttpMethod.POST, config.tokenUrl(), headers,
+                Body.of(form.toString(), "application/x-www-form-urlencoded"));
     }
 
     /** {@code error} and {@code error_description} of an OAuth error answer (RFC 6749, section 5.2), if there are. */
     private static String error(FhirResponse response) {
         try {
-            JsonNode answer = JSON.readTree(response.body());
+            JsonNode answer = JSON.readTree(response.bodyText());
             String error = answer.path("error").asText("");
             String description = answer.path("error_description").asText("");
             return error.isEmpty() ? "" : ", " + error + (description.isEmpty() ? "" : " - " + description);

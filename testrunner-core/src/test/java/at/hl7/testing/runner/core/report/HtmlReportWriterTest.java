@@ -67,6 +67,7 @@ class HtmlReportWriterTest {
         Path exchange = Files.createDirectories(dir.resolve("communication/01_ts/REQ-0001_POST_Patient"));
         Files.writeString(exchange.resolve("request.http"), "POST …");
         Files.writeString(exchange.resolve("response.http"), "HTTP/1.1 201 Created");
+        Files.write(exchange.resolve("response.body.pdf"), new byte[] {'%', 'P', 'D', 'F'});
         Path failed = Files.createDirectories(dir.resolve("communication/01_ts/REQ-0002_GET_Patient_a b"));
         Files.writeString(failed.resolve("error.txt"), "No response received.");
         RunResult run = run(script(1, "TS",
@@ -84,6 +85,7 @@ class HtmlReportWriterTest {
                 "communication/01_ts/REQ-0001_POST_Patient/",
                 "communication/01_ts/REQ-0001_POST_Patient/request.http",
                 "communication/01_ts/REQ-0001_POST_Patient/response.http",
+                "communication/01_ts/REQ-0001_POST_Patient/response.body.pdf",
                 "communication/01_ts/REQ-0002_GET_Patient_a%20b/",
                 "communication/01_ts/REQ-0002_GET_Patient_a%20b/error.txt");
         // every link points to something that exists in the run folder

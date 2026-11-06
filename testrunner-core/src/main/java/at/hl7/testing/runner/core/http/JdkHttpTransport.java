@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
 /**
@@ -33,7 +32,7 @@ public final class JdkHttpTransport implements HttpTransport, AutoCloseable {
     public FhirResponse send(FhirRequest request) throws IOException {
         HttpRequest.BodyPublisher body = request.body() == null
                 ? HttpRequest.BodyPublishers.noBody()
-                : HttpRequest.BodyPublishers.ofString(request.body(), StandardCharsets.UTF_8);
+                : HttpRequest.BodyPublishers.ofByteArray(request.body().bytes());
         HttpRequest.Builder builder = HttpRequest.newBuilder(request.uri())
                 .timeout(config.requestTimeout())
                 .method(request.method().name(), body);
@@ -43,10 +42,10 @@ public final class JdkHttpTransport implements HttpTransport, AutoCloseable {
             }
         });
         try {
-            HttpResponse<String> response = client.send(builder.build(),
-                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            // bytes, not text: a Binary in its native content type (a PDF, an image) must arrive unchanged
+            HttpResponse<byte[]> response = client.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
             String version = response.version() == HttpClient.Version.HTTP_2 ? "HTTP/2" : "HTTP/1.1";
-            return new FhirResponse(response.statusCode(), ReasonPhrases.of(response.statusCode()), version,
+            return FhirResponse.of(response.statusCode(), ReasonPhrases.of(response.statusCode()), version,
                     HttpHeaders.of(response.headers().map()), response.body());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

@@ -32,7 +32,7 @@ Why this way?
 
 | Class | What it is |
 |---|---|
-| `InMemoryFhirServer` | A real HTTP server (Jetty) on a free local port with enough FHIR behaviour: create, read, vread, update, delete, search, history, metadata, batch/transaction. Tests use the real HTTP client and communication log. |
+| `InMemoryFhirServer` | A real HTTP server (Jetty) on a free local port with enough FHIR behaviour: create, read, vread, update, delete, search, history, metadata, batch/transaction. Tests use the real HTTP client and communication log. `on(…, Answer.bytes(…))` answers with raw bytes, e.g. a PDF; `requests()` keeps the bytes received. |
 | `FakeValidatorJar` | Writes a `validator_cli.jar` that is only a manifest. Its `Main-Class` is `FakeValidator`, its `Class-Path` points at the test classes. The adapters start it with `java -jar`, like the real one. |
 | `FakeValidator` | Behaves like the HL7 validator in process mode (`-output`) and server mode (`/validateResource`, `/stop`). Markers in the resource text simulate invalid resources, a silent validator, a crash or a hang. |
 | `SampleData` | Finds `testdata/` from the working directory: `r4()`, `r5()`, `samples()`. |

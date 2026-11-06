@@ -88,7 +88,7 @@ public final class FhirHttpClient {
                 headers = headers.with(field.getKey(), field.getValue().getFirst());
             }
         }
-        return new FhirRequest(request.method(), request.uri(), headers, request.body());
+        return request.withHeaders(headers);
     }
 
     /** A TestScript that sets {@code Authorization} itself, e.g. to test a wrong token, keeps it. */
@@ -96,8 +96,7 @@ public final class FhirHttpClient {
         if (accessTokens == null || request.headers().contains("Authorization")) {
             return request;
         }
-        return new FhirRequest(request.method(), request.uri(),
-                request.headers().with("Authorization", "Bearer " + accessTokens.token()), request.body());
+        return request.withHeaders(request.headers().with("Authorization", "Bearer " + accessTokens.token()));
     }
 
     private static String reference(String where) {

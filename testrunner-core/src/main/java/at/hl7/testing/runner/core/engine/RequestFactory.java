@@ -60,7 +60,7 @@ final class RequestFactory {
                 body = ResourceContent.withId(body, id);
             }
         }
-        return new FhirRequest(method, uri(url), headers(operation, body), body == null ? null : body.text());
+        return new FhirRequest(method, uri(url), headers(operation, body), body);
     }
 
     private Body body(Operation operation) {

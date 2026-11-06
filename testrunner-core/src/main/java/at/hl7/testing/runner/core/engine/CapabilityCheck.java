@@ -163,7 +163,7 @@ final class CapabilityCheck {
             return new ServerStatement(exchange.requestId(), null);
         }
         try {
-            FhirElement statement = FhirElement.of(exchange.response().asBody());
+            FhirElement statement = FhirElement.of(exchange.response().body());
             boolean capabilityStatement = statement.valueOf("resourceType").filter("CapabilityStatement"::equals).isPresent();
             return new ServerStatement(exchange.requestId(), capabilityStatement ? statement : null);
         } catch (IllegalArgumentException e) {

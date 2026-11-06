@@ -1,5 +1,6 @@
 package at.hl7.testing.runner.core.http;
 
+import at.hl7.testing.runner.core.model.Body;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -8,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
  *     request.http    request line, headers and body as sent
  *     response.http   status line, headers and body as received
  *     error.txt       instead of response.http when no response was received
+ *     request.body.pdf, response.body.png, …   a body that is no text, as exchanged; the .http file names it
  * </pre>
  *
  * <p>One instance per TestScript execution. The full exchange also goes to the logger
@@ -85,29 +88,36 @@ public final class CommunicationLog {
      * @return where the exchange was written, relative to the run's communication folder, or {@code null}
      */
     public String record(String requestId, FhirRequest request, FhirResponse response) {
-        String requestText = requestMessage(request);
-        String responseText = responseMessage(response);
+        Map<String, byte[]> files = new LinkedHashMap<>();
+        String requestText = requestMessage(request, binaryFile("request", request.body(), request.headers()), files);
+        String responseText = responseMessage(response, binaryFile("response", response.body(), response.headers()),
+                files);
         logExchange(requestId, requestText, responseText);
-        return write(requestId, request, Map.of("request.http", requestText, "response.http", responseText));
+        files.put("request.http", requestText.getBytes(StandardCharsets.UTF_8));
+        files.put("response.http", responseText.getBytes(StandardCharsets.UTF_8));
+        return write(requestId, request, files);
     }
 
     /** Records a request for which no response was received. */
     public String recordFailure(String requestId, FhirRequest request, Exception failure) {
-        String requestText = requestMessage(request);
+        Map<String, byte[]> files = new LinkedHashMap<>();
+        String requestText = requestMessage(request, binaryFile("request", request.body(), request.headers()), files);
         String errorText = "No response received.\n" + failure.getClass().getName() + ": " + failure.getMessage() + "\n";
         logExchange(requestId, requestText, errorText);
-        return write(requestId, request, Map.of("request.http", requestText, "error.txt", errorText));
+        files.put("request.http", requestText.getBytes(StandardCharsets.UTF_8));
+        files.put("error.txt", errorText.getBytes(StandardCharsets.UTF_8));
+        return write(requestId, request, files);
     }
 
-    private String write(String requestId, FhirRequest request, Map<String, String> files) {
+    private String write(String requestId, FhirRequest request, Map<String, byte[]> files) {
         if (folder == null) {
             return null;
         }
         Path exchangeFolder = folder.resolve(folderName(requestId, request));
         try {
             Files.createDirectories(exchangeFolder);
-            for (Map.Entry<String, String> file : files.entrySet()) {
-                Files.writeString(exchangeFolder.resolve(file.getKey()), file.getValue(), StandardCharsets.UTF_8);
+            for (Map.Entry<String, byte[]> file : files.entrySet()) {
+                Files.write(exchangeFolder.resolve(file.getKey()), file.getValue());
             }
         } catch (IOException e) {
             log.warn("Could not write the communication log of {} to {}: {}", requestId, exchangeFolder, e.toString());
@@ -145,17 +155,27 @@ public final class CommunicationLog {
     }
 
     String requestMessage(FhirRequest request) {
+        return requestMessage(request, binaryFile("request", request.body(), request.headers()), new LinkedHashMap<>());
+    }
+
+    String responseMessage(FhirResponse response) {
+        return responseMessage(response, binaryFile("response", response.body(), response.headers()),
+                new LinkedHashMap<>());
+    }
+
+    /** @param binary the file of a body that is no text, {@code null} for a text body; {@code files} gets it */
+    private String requestMessage(FhirRequest request, String binary, Map<String, byte[]> files) {
         StringBuilder text = new StringBuilder()
                 .append(request.method()).append(' ').append(request.uri()).append(" HTTP/1.1\n");
         appendHeaders(text, request.headers());
         text.append('\n');
         if (request.body() != null) {
-            text.append(request.body());
+            appendBody(text, request.body(), binary, files);
         }
         return text.toString();
     }
 
-    String responseMessage(FhirResponse response) {
+    private String responseMessage(FhirResponse response, String binary, Map<String, byte[]> files) {
         StringBuilder text = new StringBuilder()
                 .append(response.httpVersion()).append(' ').append(response.status());
         if (!response.reason().isEmpty()) {
@@ -163,7 +183,39 @@ public final class CommunicationLog {
         }
         text.append('\n');
         appendHeaders(text, response.headers());
-        return text.append('\n').append(response.body()).toString();
+        text.append('\n');
+        appendBody(text, response.body(), binary, files);
+        return text.toString();
+    }
+
+    /** A text body as it is; any other in a file of its own, named in the message instead. */
+    private static void appendBody(StringBuilder text, Body body, String binary, Map<String, byte[]> files) {
+        if (binary == null) {
+            text.append(body.text());
+        } else {
+            files.put(binary, body.bytes());
+            text.append("[").append(body.length()).append(" bytes, not text: ").append(binary).append(']');
+        }
+    }
+
+    /**
+     * {@code request.body.pdf}: the file of a body that is no text, named by the media type of its
+     * {@code Content-Type}; {@code null} for a text body.
+     */
+    static String binaryFile(String kind, Body body, HttpHeaders headers) {
+        if (body == null || body.length() == 0 || body.isText()) {
+            return null;
+        }
+        String type = headers.first("Content-Type").orElse("").split(";", 2)[0].trim().toLowerCase(Locale.ROOT);
+        String subtype = type.substring(type.indexOf('/') + 1).replaceFirst("^.*\\+", "");
+        String extension = switch (subtype) {
+            case "", "octet-stream" -> "bin";
+            case "jpeg" -> "jpg";
+            case "svg" -> "svg";
+            case "plain" -> "txt";
+            default -> subtype.replaceAll("[^a-z0-9]", "");
+        };
+        return kind + ".body." + (extension.isEmpty() ? "bin" : extension);
     }
 
     private void appendHeaders(StringBuilder text, HttpHeaders headers) {

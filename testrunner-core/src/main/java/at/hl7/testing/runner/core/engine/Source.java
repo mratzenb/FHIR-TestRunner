@@ -45,7 +45,7 @@ public sealed interface Source {
 
         @Override
         public Body body() {
-            return exchange.response().asBody();
+            return exchange.response().body();
         }
 
         @Override
@@ -64,8 +64,8 @@ public sealed interface Source {
 
         @Override
         public Body body() {
-            String body = exchange.request().body();
-            return Body.of(body == null ? "" : body, exchange.request().headers().first("Content-Type").orElse(null));
+            Body body = exchange.request().body();
+            return body != null ? body : Body.of(new byte[0], null);
         }
 
         @Override

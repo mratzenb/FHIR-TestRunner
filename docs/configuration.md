@@ -352,8 +352,8 @@ class MyRunnerConfiguration {
     @Bean
     HttpTransport httpTransport(RunConfiguration configuration, TokenService tokens) {
         JdkHttpTransport delegate = new JdkHttpTransport(configuration.http());
-        return request -> delegate.send(new FhirRequest(request.method(), request.uri(),
-                request.headers().with("Authorization", "Bearer " + tokens.current()), request.body()));
+        return request -> delegate.send(request.withHeaders(
+                request.headers().with("Authorization", "Bearer " + tokens.current())));
     }
 
     @Bean
