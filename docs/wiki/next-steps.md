@@ -105,7 +105,7 @@ promise.
 | A9 | The public API of the core is undefined; `RunContext` hands mutable run state to listeners (done, M2.5) | medium | S |
 | A10 | Package download: new `HttpClient` per download, no proxy, no integrity check | low | S |
 | A11 | `TestRunner` filters configuration problems by property-name prefix (done, M2.2) | low | S |
-| A12 | A body is parsed again for every assertion and variable | low | S |
+| A12 | A body is parsed again for every assertion and variable (measured in M5.4: not worth a cache) | low | S |
 
 Effort: S ≤ 1 day, M 2–5 days, L more than a week.
 
@@ -220,7 +220,7 @@ TestScripts are sent to servers, so the integrity of the package matters.
 
 ### A11 and A12 – Small things
 
-**Status:** A11 done in M2.2.
+**Status:** A11 done in M2.2. A12 measured in M5.4: a cache is not worth it, see the table there.
 
 * `TestRunner.run` removes problems whose text starts with `testrunner.validation.validator-jar` when validation is
   off. The engine knows an adapter's property name and matches on message text. Let the validator adapter report its
@@ -422,7 +422,20 @@ Done, plus `RunFolderTest.htmlReportLinksTheRequestsToTheirCommunicationFolders`
    the `.http` file; `report.html` links it. Tests: `BodyTest`,
    `RunFolderTest.binaryContentIsKeptSentAndLoggedAsTheBytesExchanged` (`InMemoryFhirServer.Answer.bytes`). This
    changes the public `http` API: the body is a `Body`, not a `String` (CHANGELOG).
-4. **A12**, if a measurement with a large Bundle shows it is needed.
+4. ~~**A12**, if a measurement with a large Bundle shows it is needed.~~ Measured on 2026-11-06 (R4 searchset
+   Bundles of Patients, HAPI 8.12.1, JDK 25, warm JVM) – **not needed, no cache built**:
+
+   | Bundle | 10 FHIRPath assertions, as today (10 parses) | 10 evaluations on one parse | 10 JSONPath | `FhirElement` once |
+   |---|---|---|---|---|
+   | 100 entries (30 KB) | 10 ms | 4 ms | 16 ms | 4 ms |
+   | 1,000 entries (0.3 MB) | 35 ms | 11 ms | 25 ms | 8 ms |
+   | 5,000 entries (1.5 MB) | 135 ms | 25 ms | 53 ms | 22 ms |
+   | 20,000 entries (6 MB) | 658 ms | – | 147 ms | 65 ms |
+
+   A cache would save about 2–3 ms per assertion on a Bundle of 1,000 entries. One request to a server costs more, one
+   validation 100–500 ms ([ADR-0011](../adr/0011-validator-server-mode.md)). Against that stand state in
+   `ExecutionState`, a key per body and format, and memory for every kept response. Measure again if a suite asserts
+   many times on Bundles of tens of thousands of entries.
 
 *Docs:* [Variables](variables.md), [architecture.md](../architecture.md), skill `testrunner-execution-engine`.
 
