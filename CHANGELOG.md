@@ -36,9 +36,9 @@ documents; [next steps](docs/wiki/next-steps.md) has the plan behind them.
 ### Changed – API
 
 * The bodies of `FhirRequest` and `FhirResponse` are a `model.Body` (bytes, charset, format), not a `String`
-  (M5.3). Use `body().text()` or `bodyText()` for the text, `FhirResponse.text(…)` to create a text response in a
-  test, `request.withHeaders(…)` in a wrapping `HttpTransport`. `FhirResponse.asBody()` is gone: `body()` is the
-  `Body`.
+  (M5.3). Use `body().text()` (or `FhirResponse.bodyText()`) for the text, `FhirResponse.text(…)` to create a text
+  response in a test, `request.withHeaders(…)` in a wrapping `HttpTransport`. `FhirResponse.asBody()` is gone:
+  `body()` is the `Body`.
 * `TestScript`, `Operation` and `Assertion` have builders (`builder()`, `toBuilder()`); create them by name, not by
   position (M5.1).
 * `RunListener` gets a read-only `RunInfo` instead of `RunContext` (M2.5).

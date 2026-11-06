@@ -30,15 +30,8 @@ public final class FhirHttpClient {
      * @param requestCounter   the run's request counter
      * @param communicationLog where the exchanges are written
      * @param defaultHeaders   headers added to every request unless the request sets them itself
-     */
-    public FhirHttpClient(HttpTransport transport, AtomicInteger requestCounter, CommunicationLog communicationLog,
-                          HttpHeaders defaultHeaders) {
-        this(transport, requestCounter, communicationLog, defaultHeaders, null);
-    }
-
-    /**
-     * @param accessTokens the OAuth2 access token sent as {@code Authorization: Bearer} unless the request sets an
-     *                     {@code Authorization} header itself; {@code null} for none
+     * @param accessTokens     the OAuth2 access token sent as {@code Authorization: Bearer} unless the request sets an
+     *                         {@code Authorization} header itself; {@code null} for none
      */
     public FhirHttpClient(HttpTransport transport, AtomicInteger requestCounter, CommunicationLog communicationLog,
                           HttpHeaders defaultHeaders, AccessTokens accessTokens) {

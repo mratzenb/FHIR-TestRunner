@@ -72,11 +72,6 @@ public abstract class HapiFhirVersionSupport implements FhirVersionSupport {
         return testReports.encode(content);
     }
 
-    /** The HAPI context of this version, e.g. for subclasses that need more than the defaults. */
-    protected final FhirContext context() {
-        return context;
-    }
-
     private Parsed parse(Body content) {
         IParser parser = switch (content.format()) {
             case JSON -> context.newJsonParser();

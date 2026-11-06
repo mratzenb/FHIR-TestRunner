@@ -26,9 +26,4 @@ public record FhirRequest(HttpMethod method, URI uri, HttpHeaders headers, Body 
     public FhirRequest withHeaders(HttpHeaders newHeaders) {
         return new FhirRequest(method, uri, newHeaders, body);
     }
-
-    /** The body as text, {@code null} if there is none. */
-    public String bodyText() {
-        return body == null ? null : body.text();
-    }
 }

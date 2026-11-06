@@ -46,7 +46,7 @@ class AccessTokensTest {
 
         assertThat(sent).singleElement().satisfies(request -> {
             assertThat(request.uri()).hasToString("https://auth.example/token");
-            assertThat(request.bodyText()).isEqualTo("grant_type=client_credentials&scope=system%2F*.rs+system%2F*.cud");
+            assertThat(request.body().text()).isEqualTo("grant_type=client_credentials&scope=system%2F*.rs+system%2F*.cud");
             assertThat(request.headers().first("Content-Type")).contains("application/x-www-form-urlencoded");
             String basic = request.headers().first("Authorization").orElseThrow();
             assertThat(new String(Base64.getDecoder().decode(basic.substring("Basic ".length())), StandardCharsets.UTF_8))
@@ -74,7 +74,7 @@ class AccessTokensTest {
 
         new AccessTokens(post, answering("{\"access_token\":\"t1\"}"), clock).token();
 
-        assertThat(sent.getFirst().bodyText()).isEqualTo("grant_type=client_credentials&client_id=runner&client_secret=s3cr%3At");
+        assertThat(sent.getFirst().body().text()).isEqualTo("grant_type=client_credentials&client_id=runner&client_secret=s3cr%3At");
         assertThat(sent.getFirst().headers().contains("Authorization")).isFalse();
     }
 
