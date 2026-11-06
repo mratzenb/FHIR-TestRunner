@@ -84,7 +84,8 @@ middle exists once; the engine on the right never sees a version-specific type.<
 Three layers, each with one job:
 
 1. **Version-neutral model** (`testrunner-core`, `at.hl7.testing.runner.core.model`). Records holding exactly what
-   the engine executes: `TestScript`, `Destination`, `CapabilityRequirement` (`metadata.capability`),
+   the engine executes: `TestScript`, `Destination`, `CapabilityRequirement` (`metadata.capability`, with its
+   `destination`),
    `FixtureDefinition`, `ProfileDeclaration(id, canonical)`, `Operation`, `Assertion` with a sealed `Check` (one of
    contentType, expression, …), `VariableDefinition`. Nothing in the
    engine refers to a FHIR version except `fhirVersion` passed through to the validator. The three wide records –

@@ -41,6 +41,7 @@ public final class JsonReportWriter implements ReportWriter {
                     .put("fhirVersion", testScript.fhirVersion() == null ? null : testScript.fhirVersion().name())
                     .put("outcome", testScript.outcome().name())
                     .put("durationMs", testScript.duration().toMillis());
+            testScript.fhirServers().forEach(node.putArray("fhirServers")::add);
             ArrayNode phases = node.putArray("phases");
             for (PhaseResult phase : testScript.phases()) {
                 ObjectNode phaseNode = phases.addObject()

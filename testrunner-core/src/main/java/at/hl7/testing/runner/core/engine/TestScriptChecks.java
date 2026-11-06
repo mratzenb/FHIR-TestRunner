@@ -5,7 +5,9 @@ import at.hl7.testing.runner.core.content.ResourceContent;
 import at.hl7.testing.runner.core.model.Action;
 import at.hl7.testing.runner.core.model.Assertion;
 import at.hl7.testing.runner.core.model.Body;
+import at.hl7.testing.runner.core.model.CapabilityRequirement;
 import at.hl7.testing.runner.core.model.Check;
+import at.hl7.testing.runner.core.model.Destination;
 import at.hl7.testing.runner.core.model.FixtureDefinition;
 import at.hl7.testing.runner.core.model.Operation;
 import at.hl7.testing.runner.core.model.ProfileDeclaration;
@@ -482,24 +484,43 @@ final class TestScriptChecks {
     }
 
     /**
-     * The runner sends every request to the one server configured for the suite. A TestScript written for several
-     * servers cannot run as written; running it against one server anyway would test something else. A single
-     * destination index that is not declared is accepted: many TestScripts use {@code destination: 1} without
-     * declaring it, and they address one server all the same.
+     * The destinations of a TestScript for several servers ({@link Destinations#several}): every operation must name
+     * its {@code destination} – the specification defines no default –, and every index an operation or a capability
+     * names must be declared in {@code TestScript.destination}, if any are declared; no index may be declared twice.
+     * Whether the indexes are mapped to servers is checked when the TestScript is about to be sent
+     * ({@link Destinations#map}), so a check needs no server. A TestScript for one server may name its destination or
+     * not, declared or not.
      */
     private static List<String> destinationProblems(TestScript testScript) {
-        Set<Integer> used = new TreeSet<>();
-        allActions(testScript).forEach(action -> {
-            if (action instanceof Operation operation && operation.destination() != null) {
-                used.add(operation.destination());
+        List<String> problems = new ArrayList<>();
+        Set<Integer> declared = new TreeSet<>();
+        for (Destination destination : testScript.destinations()) {
+            if (!declared.add(destination.index())) {
+                problems.add("TestScript.destination " + destination.index() + " is declared twice");
             }
-        });
-        if (testScript.destinations().size() <= 1 && used.size() <= 1) {
-            return List.of();
         }
-        return List.of("The TestScript sends requests to more than one server (TestScript.destination "
-                + testScript.destinations() + ", operation.destination " + used + "); the runner sends every request"
-                + " to the one FHIR server configured for the suite");
+        if (!Destinations.several(testScript)) {
+            return problems;
+        }
+        for (Step step : Step.all(testScript)) {
+            if (step.action() instanceof Operation operation) {
+                if (operation.destination() == null) {
+                    problems.add(step.where() + ": the operation names no destination, but the TestScript addresses"
+                            + " several servers (destinations " + Destinations.indexes(testScript) + ")");
+                } else if (!declared.isEmpty() && !declared.contains(operation.destination())) {
+                    problems.add(step.where() + ": destination " + operation.destination() + " is not declared in"
+                            + " TestScript.destination (declared: " + declared + ")");
+                }
+            }
+        }
+        for (CapabilityRequirement capability : testScript.capabilities()) {
+            if (capability.destination() != null && !declared.isEmpty() && !declared.contains(capability.destination())) {
+                problems.add("metadata.capability" + (capability.description() == null ? ""
+                        : " '" + capability.description() + "'") + ": destination " + capability.destination()
+                        + " is not declared in TestScript.destination (declared: " + declared + ")");
+            }
+        }
+        return problems;
     }
 
     private static void unique(Map<String, String> ids, String id, String kind, List<String> problems) {

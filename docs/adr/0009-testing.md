@@ -70,7 +70,7 @@ may be used.
 
 ## Consequences
 * `mvn verify` runs ~210 tests in about half a minute, offline (after dependencies are cached), with
-  `HapiServerIT` skipped. With Docker it adds three tests and ~40 s, most of it starting the two HAPI servers;
+  `HapiServerIT` skipped. With Docker it adds four tests and ~60 s, most of it starting the three HAPI servers;
   the first run also pulls the image (~600 MB).
 * The fake validator jar works only on the machine and class path it was created on (absolute `Class-Path`
   entries); it is created per test run in a temporary folder, so that is all it needs.

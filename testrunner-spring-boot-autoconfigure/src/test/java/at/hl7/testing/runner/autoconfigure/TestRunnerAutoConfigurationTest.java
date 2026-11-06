@@ -50,6 +50,9 @@ class TestRunnerAutoConfigurationTest {
                 "testrunner.suites[1].fhir-server.oauth2.client-authentication=post",
                 "testrunner.suites[1].parallel=false",
                 "testrunner.suites[2].package-id=hl7.at.fhir.core.r4#dev",
+                "testrunner.suites[2].fhir-servers.1.base-url=http://one/fhir",
+                "testrunner.suites[2].fhir-servers.2.base-url=http://two/fhir",
+                "testrunner.suites[2].fhir-servers.2.headers.X-Api-Key=k",
                 "testrunner.packages.cache-dir=/tmp/fhir-packages",
                 "testrunner.packages.registry=https://registry.example",
                 "testrunner.packages.ci-build=https://ci.example",
@@ -71,6 +74,10 @@ class TestRunnerAutoConfigurationTest {
                     assertThat(config.fhirServer().headers()).containsEntry("Authorization", "Bearer x");
                     assertThat(config.suites()).hasSize(3);
                     assertThat(config.suites().get(2).packageId()).isEqualTo("hl7.at.fhir.core.r4#dev");
+                    assertThat(config.suites().get(2).fhirServers()).containsOnlyKeys(1, 2);
+                    assertThat(config.suites().get(2).fhirServers().get(2).base()).contains("http://two/fhir");
+                    assertThat(config.suites().get(2).fhirServers().get(2).headers()).containsEntry("X-Api-Key", "k");
+                    assertThat(config.suites().getFirst().fhirServers()).as("default").isEmpty();
                     assertThat(config.packages().cacheDir()).isEqualTo(Path.of("/tmp/fhir-packages"));
                     assertThat(config.packages().registry()).hasToString("https://registry.example");
                     assertThat(config.packages().ciBuild()).hasToString("https://ci.example");

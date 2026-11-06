@@ -34,6 +34,10 @@ testrunner:
                                              # pinned fhir-version (problems()), see testrunner-validation
       include: ["*.json", "*.xml"]           # globs relative to test-scripts-dir
       fhir-server: {base-url: }              # optional own server per suite (own headers/oauth2)
+      fhir-servers:                          # Map<Integer, FhirServerConfig> by TestScript.destination index (ADR-0019);
+        1: {base-url: }                      # required for every index of a TestScript with several destinations
+        2: {base-url: , headers: {}, oauth2: }   # (no fallback); a one-destination TestScript uses its index's entry
+                                             # if any, else fhir-server; problems(): index ≥ 1, base-url set
       parallel: true                         # false: TestScripts one after the other, before the parallel ones
       package-id:                            # instead of base-dir: name#version of a FHIR package (PackageSuites,
                                              # ADR-0018): 2.1.0 | 2.1.x | current | current$<branch> | dev;
@@ -90,8 +94,8 @@ file → `testrunner-app/src/main/resources/application.yml`. CLI shortcuts (`Te
 `--testscript=<glob>` / `--test=<glob>` (repeatable or comma-separated; `--opt value` too) =
 `--testrunner.select.test-scripts[i]=…` / `--testrunner.select.tests[i]=…` (indexed, collected over all options). Console logging is ordinary Spring Boot (`logging.level.*`).
 
-Dev configs in `config/`: `dev-r4.yml`, `dev-r5.yml`, `dev-all.yml` (samples + r4 + r5, parallelism 4, R5 on
-`:8081`), `negative-control.yml` (expected FAIL). All take `validator-jar: ${VALIDATOR_JAR:validator_cli.jar}`,
+Dev configs in `config/`: `dev-r4.yml`, `dev-r5.yml`, `dev-all.yml` (samples + r4 + r5 + several-servers,
+parallelism 4, R5 on `:8081`, second R4 for destination 2 on `:8082`), `negative-control.yml` (expected FAIL). All take `validator-jar: ${VALIDATOR_JAR:validator_cli.jar}`,
 `mode: server`, `output-dir: target/testrunner-results`.
 
 ## Adding a setting
@@ -108,7 +112,9 @@ Dev configs in `config/`: `dev-r4.yml`, `dev-r5.yml`, `dev-all.yml` (samples + r
 
 Constructors with all components are positional – adding a component changes every `new XxxConfig(...)` call
 (tests, `Harness`, docs examples); prefer factories like `ValidationConfig.enabled(jar)`, `withMode`, `withServer`,
-`SuiteConfig.of`, `FhirServerConfig.of`, `HttpConfig.defaults()`.
+`SuiteConfig.of`, `SuiteConfig.withFhirServers`, `FhirServerConfig.of`, `HttpConfig.defaults()`,
+`PackagesConfig.cache(dir)`. `SuiteConfig` has 12 components (last: `fhirServers`); keep a **single** public
+constructor on config records – Spring's binder needs it.
 
 ## Spring wiring (`testrunner-spring-boot-autoconfigure`)
 

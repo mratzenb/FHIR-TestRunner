@@ -32,15 +32,17 @@ import java.util.Map;
  */
 final class RequestFactory {
 
-    private final String base;
     private final ExecutionState state;
 
-    RequestFactory(String base, ExecutionState state) {
-        this.base = base;
+    RequestFactory(ExecutionState state) {
         this.state = state;
     }
 
-    FhirRequest create(Operation operation) {
+    /**
+     * The request of an operation to the server with base URL {@code base}. A {@code targetId} or {@code sourceId}
+     * naming a fixture uses it as it is on the server the state answers for ({@link ExecutionState#onServer}).
+     */
+    FhirRequest create(Operation operation, String base) {
         List<String> problems = ActionRules.problems(operation);
         if (!problems.isEmpty()) {
             // reported before the run by TestScriptChecks already; repeated for callers that skip those checks
@@ -48,7 +50,7 @@ final class RequestFactory {
         }
         HttpMethod method = ActionRules.method(operation);
         Body body = body(operation);
-        String url = url(operation, body);
+        String url = url(operation, body, base);
         if (operation.encodeRequestUrl()) {
             url = UrlEncoding.encode(url);
         }
@@ -68,7 +70,7 @@ final class RequestFactory {
     }
 
     /** The URL; {@link ActionRules#problems(Operation)} ensures there is enough to build one, unless from the body. */
-    private String url(Operation operation, Body body) {
+    private String url(Operation operation, Body body, String base) {
         if (operation.url() != null) {
             return operation.url();
         }
@@ -87,7 +89,7 @@ final class RequestFactory {
             return base + "/metadata";
         }
         if (operation.targetId() != null) {
-            return targetUrl(operation);
+            return targetUrl(operation, base);
         }
         String resource = operation.resource();
         if (resource == null && body != null && body.format() != ContentFormat.OTHER) {
@@ -104,7 +106,7 @@ final class RequestFactory {
         return base + "/" + resource;
     }
 
-    private String targetUrl(Operation operation) {
+    private String targetUrl(Operation operation, String base) {
         Source target = state.require(operation.targetId(), "targetId");
         String type;
         String id;

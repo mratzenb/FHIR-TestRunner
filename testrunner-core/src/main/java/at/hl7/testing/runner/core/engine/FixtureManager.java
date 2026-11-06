@@ -42,14 +42,17 @@ import java.util.function.UnaryOperator;
  * <p>Rewriting references is a convenience of this runner, the TestScript specification sends fixtures as written.
  * {@link ReferenceRewriting} switches it off ({@code NONE}: declaration order, nothing rewritten) or extends it to
  * fixtures a create or update operation sent ({@code ALL}, {@link #sentByOperation}).
+ *
+ * <p>A TestScript for several servers has its autocreated fixtures created "on each server being tested" (FHIR
+ * TestScript), one server after the other, and deleted there; references are rewritten to the ids of the server the
+ * fixture is sent to ({@link ExecutionState#onServer}).
  */
 final class FixtureManager {
 
     private static final Logger log = LoggerFactory.getLogger(FixtureManager.class);
 
     private final ExecutionState state;
-    private final FhirHttpClient http;
-    private final String base;
+    private final Servers servers;
     private final UnaryOperator<String> values;
     private final ReferenceRewriting rewriting;
     /** Fixtures being resolved, to detect a variable that reads the fixture it is used in. */
@@ -59,11 +62,9 @@ final class FixtureManager {
      * @param values    replaces {@code ${variable}} placeholders in the text values of the fixture resources
      * @param rewriting which references are rewritten to the ids the server assigned
      */
-    FixtureManager(ExecutionState state, FhirHttpClient http, String base, UnaryOperator<String> values,
-                   ReferenceRewriting rewriting) {
+    FixtureManager(ExecutionState state, Servers servers, UnaryOperator<String> values, ReferenceRewriting rewriting) {
         this.state = state;
-        this.http = http;
-        this.base = base;
+        this.servers = servers;
         this.values = values;
         this.rewriting = rewriting;
     }
@@ -199,12 +200,12 @@ final class FixtureManager {
     }
 
     /**
-     * Creates the fixtures with {@code autocreate} in dependency order. Their placeholders are resolved now, before
-     * any operation has run. With {@link ReferenceRewriting#NONE} they are created in declaration order and sent as
-     * written.
+     * Creates the fixtures with {@code autocreate} in dependency order, on every server. Their placeholders are resolved
+     * now, before any operation has run. With {@link ReferenceRewriting#NONE} they are created in declaration order and
+     * sent as written.
      *
-     * @throws TestScriptException if a placeholder cannot be resolved, the references form a cycle or the server does
-     *                             not create a fixture
+     * @throws TestScriptException if a placeholder cannot be resolved, the references form a cycle or a server does not
+     *                             create a fixture
      */
     void autocreate(List<FixtureDefinition> fixtures) {
         Map<String, Source.Fixture> toCreate = new LinkedHashMap<>();
@@ -224,22 +225,28 @@ final class FixtureManager {
         }
         List<String> order = rewriting == ReferenceRewriting.NONE ? List.copyOf(toCreate.keySet())
                 : dependencyOrder(toCreate);
-        for (String fixtureId : order) {
-            Source.Fixture fixture = toCreate.get(fixtureId);
-            Body body = ResourceContent.replaceReferences(fixture.body(),
-                    reference -> state.serverReference(localReference(reference)).orElse(reference));
-            String originalId = ResourceContent.id(fixture.body());
-            log.info("Creating fixture '{}' ({}/{})", fixtureId, fixture.resourceType(), originalId);
-            Exchange exchange = http.send(new FhirRequest(HttpMethod.POST, URI.create(base + "/" + fixture.resourceType()),
-                    HttpHeaders.of(Map.of("Content-Type", List.of(body.format().fhirMimeType()),
-                            "Accept", List.of(body.format().fhirMimeType()))),
-                    body));
-            String serverId = createdId(exchange, fixtureId);
-            state.fixtureCreated(fixture.created(body, serverId, exchange.requestId()),
-                    originalId == null || rewriting == ReferenceRewriting.NONE ? null
-                            : fixture.resourceType() + "/" + originalId);
-            log.info("Fixture '{}' created as {}/{}", fixtureId, fixture.resourceType(), serverId);
+        for (Servers.Endpoint server : servers.all()) {
+            state.onServer(server.index());
+            String on = servers.several() ? " on the server of destination " + server.index() : "";
+            for (String fixtureId : order) {
+                Source.Fixture fixture = toCreate.get(fixtureId);
+                Body body = ResourceContent.replaceReferences(fixture.body(),
+                        reference -> state.serverReference(localReference(reference)).orElse(reference));
+                String originalId = ResourceContent.id(fixture.body());
+                log.info("Creating fixture '{}' ({}/{}){}", fixtureId, fixture.resourceType(), originalId, on);
+                Exchange exchange = server.http().send(new FhirRequest(HttpMethod.POST,
+                        URI.create(server.base() + "/" + fixture.resourceType()),
+                        HttpHeaders.of(Map.of("Content-Type", List.of(body.format().fhirMimeType()),
+                                "Accept", List.of(body.format().fhirMimeType()))),
+                        body));
+                String serverId = createdId(exchange, "Fixture '" + fixtureId + "'" + on);
+                state.fixtureCreated(fixture.created(body, serverId, exchange.requestId()),
+                        originalId == null || rewriting == ReferenceRewriting.NONE ? null
+                                : fixture.resourceType() + "/" + originalId);
+                log.info("Fixture '{}' created as {}/{}{}", fixtureId, fixture.resourceType(), serverId, on);
+            }
         }
+        state.onServer(servers.first().index());
     }
 
     /** The order in which the autocreated fixtures are created: those referenced by others first. */
@@ -272,7 +279,8 @@ final class FixtureManager {
     }
 
     /**
-     * Deletes the fixtures with {@code autodelete} that were created, in reverse creation order.
+     * Deletes the fixtures with {@code autodelete} that were created, in reverse creation order, each on the server it
+     * was created on.
      *
      * @return a problem for every fixture that could not be deleted
      */
@@ -280,32 +288,39 @@ final class FixtureManager {
         Set<String> autodelete = new LinkedHashSet<>();
         fixtures.stream().filter(FixtureDefinition::autodelete).forEach(f -> autodelete.add(f.id()));
         List<String> problems = new ArrayList<>();
-        List<Source.Fixture> created = new ArrayList<>(state.createdFixtures());
+        List<ExecutionState.Created> created = new ArrayList<>(state.createdFixtures());
         java.util.Collections.reverse(created);
-        for (Source.Fixture fixture : created) {
+        Map<Integer, Servers.Endpoint> byIndex = new HashMap<>();
+        servers.all().forEach(s -> byIndex.put(s.index(), s));
+        for (ExecutionState.Created entry : created) {
+            Source.Fixture fixture = entry.fixture();
             if (!autodelete.contains(fixture.id())) {
                 continue;
             }
-            log.info("Deleting fixture '{}' ({}/{})", fixture.id(), fixture.resourceType(), fixture.serverId());
+            Servers.Endpoint server = byIndex.get(entry.server());
+            String on = servers.several() ? " on the server of destination " + server.index() : "";
+            log.info("Deleting fixture '{}' ({}/{}){}", fixture.id(), fixture.resourceType(), fixture.serverId(), on);
             try {
-                Exchange exchange = http.send(new FhirRequest(HttpMethod.DELETE,
-                        URI.create(base + "/" + fixture.resourceType() + "/" + fixture.serverId()), HttpHeaders.empty(), null));
+                Exchange exchange = server.http().send(new FhirRequest(HttpMethod.DELETE,
+                        URI.create(server.base() + "/" + fixture.resourceType() + "/" + fixture.serverId()),
+                        HttpHeaders.empty(), null));
                 if (!exchange.response().isSuccessful()) {
-                    problems.add("Autodelete of fixture '" + fixture.id() + "' returned HTTP "
+                    problems.add("Autodelete of fixture '" + fixture.id() + "'" + on + " returned HTTP "
                             + exchange.response().status() + " [" + exchange.requestId() + "]");
                 }
             } catch (FhirHttpClient.ExchangeFailedException e) {
-                problems.add("Autodelete of fixture '" + fixture.id() + "' failed: " + e.getMessage());
+                problems.add("Autodelete of fixture '" + fixture.id() + "'" + on + " failed: " + e.getMessage());
             }
         }
         problems.forEach(log::warn);
         return problems;
     }
 
-    private static String createdId(Exchange exchange, String fixtureId) {
+    /** @param fixture {@code Fixture 'x'} or {@code Fixture 'x' on the server of destination 2}, for messages */
+    private static String createdId(Exchange exchange, String fixture) {
         var response = exchange.response();
         if (!response.isSuccessful()) {
-            throw new TestScriptException("Fixture '" + fixtureId + "' could not be created (" + exchange.requestId()
+            throw new TestScriptException(fixture + " could not be created (" + exchange.requestId()
                     + "): HTTP " + response.status() + " " + response.reason() + " " + abbreviate(response.bodyText()));
         }
         String id = response.headers().first("Location")
@@ -315,7 +330,7 @@ final class FixtureManager {
             id = safe(() -> ResourceContent.id(response.body()));
         }
         if (id == null) {
-            throw new TestScriptException("Fixture '" + fixtureId + "' was created (" + exchange.requestId()
+            throw new TestScriptException(fixture + " was created (" + exchange.requestId()
                     + "), but the response names no id (no Location header, no resource in the body)");
         }
         return id;

@@ -46,10 +46,10 @@ final class TestReportEncoder {
         }
         terser.setElement(report, "tester", content.tester());
         terser.setElement(report, "issued", content.issued().toString());
-        if (content.server() != null) {
+        for (String server : content.servers()) {
             IBase participant = terser.addElement(report, "participant");
             terser.setElement(participant, "type", "server");
-            terser.setElement(participant, "uri", content.server());
+            terser.setElement(participant, "uri", server);
         }
         if (!content.setup().isEmpty()) {
             actions(terser, terser.addElement(report, "setup"), content.setup(), true);

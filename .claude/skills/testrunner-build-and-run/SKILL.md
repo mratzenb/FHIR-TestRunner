@@ -30,11 +30,11 @@ Offline (`-o`) works only once all dependencies and plugins are in the local rep
 | With the real HL7 validator (`RealValidatorIT`, both modes, ~1 min) | `VALIDATOR_JAR=/path/to/validator_cli.jar mvn -B verify` (a validator 7.0.2 ships with the PoC: `../HL7-AT-TestFhiry-TestRunner/data_r4/validator_cli.jar`) |
 
 `RealValidatorIT` is skipped unless `VALIDATOR_JAR` is set; the skip in the summary is expected.
-`HapiServerIT` (Testcontainers, HAPI FHIR R4 + R5) runs only where Docker is reachable, else its 3 tests are
+`HapiServerIT` (Testcontainers, HAPI FHIR R4 + R5 + a second R4) runs only where Docker is reachable, else its 4 tests are
 skipped. Only it: the "One IT only" command with `-Dit.test=HapiServerIT`. On this machine (Rancher Desktop) set
 `DOCKER_HOST=unix://$HOME/.rd/docker.sock` and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` –
 without them `HapiServerIT` is **skipped and the build stays green** ("Could not find a valid Docker environment");
-check for `Skipped: 3` before claiming it ran. Wiki: `docs/wiki/build-and-test.md#docker-on-macos`.
+check for `Skipped: 4` before claiming it ran. Wiki: `docs/wiki/build-and-test.md#docker-on-macos`.
 Testcontainers' version comes from the Spring Boot BOM (`testcontainers-junit-jupiter`, test scope in
 `testrunner-app`); the image tag `hapiproject/hapi:v8.12.0-1` is a constant in `HapiServerIT`.
 
@@ -69,7 +69,7 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
 ```
 
 * The dev configs read `VALIDATOR_JAR` from the environment and expect a FHIR server at
-  `http://localhost:8080/fhir` (`dev-all.yml` also `8081` for R5):
+  `http://localhost:8080/fhir` (`dev-all.yml` also `8081` for R5 and `8082`, a second R4 for `several-servers`):
   `docker run -p 8080:8080 -e hapi.fhir.fhir_version=R4 hapiproject/hapi:latest`.
 * `config/negative-control.yml` is **expected to FAIL** (proves validation runs).
 * Results: `target/testrunner-results/run_<timestamp>/` with the dev configs (`testrunner-results/` otherwise).

@@ -118,6 +118,13 @@ final class Scripts {
             return this;
         }
 
+        /** A required capability of the server of one destination. */
+        Builder requires(String canonical, int destination) {
+            capabilities.add(new CapabilityRequirement(true, false, "needs " + canonical, canonical, List.of(),
+                    destination));
+            return this;
+        }
+
         Builder fixture(String id, boolean autocreate, boolean autodelete) {
             fixtures.add(new FixtureDefinition(id, autocreate, autodelete, "file-of-" + id));
             return this;

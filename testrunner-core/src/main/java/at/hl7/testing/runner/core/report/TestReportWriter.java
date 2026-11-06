@@ -110,7 +110,7 @@ public final class TestReportWriter implements ReportWriter {
         String position = "%02d".formatted(testScript.index());
         return new TestReportContent(id(run.runId() + "-" + position), run.runId() + "/" + position, testScript.name(),
                 url, result(testScript.outcome()), score(testScript), TESTER, testScript.started(),
-                testScript.fhirServer(), setup, tests, teardown);
+                testScript.fhirServers(), setup, tests, teardown);
     }
 
     /**

@@ -242,7 +242,7 @@ TestScripts are sent to servers, so the integrity of the package matters.
 | F5 | **HTML report** linking into `communication/` (done, M4.2) | medium | M | – |
 | F6 | **Typed comparisons** for dates, numbers and booleans (done, M5.2) | medium | M | A7 |
 | F7 | **Binary content** in requests and responses (done, M5.3) | medium | M | A8 |
-| F8 | **Several servers**: map `destination` to configured servers | medium | L | A5, ADR |
+| F8 | **Several servers**: map `destination` to configured servers (done, M6.1) | medium | L | A5, ADR |
 | F9 | **Packages**: `#current`, transitive dependencies (done, M6.2) | low | M | A10 |
 | F10 | **FHIR R6** | later | M | a HAPI release with `hapi-fhir-structures-r6` |
 
@@ -269,7 +269,7 @@ as a link to its folder in `communication/`. For readers who do not open `junit.
 **F8 – Several servers.** TestScripts with several `destination`s are rejected today
 ([architecture.md › Open points](../architecture.md#open-points)). Mapping each destination index (or its profile
 code) to a configured server would run them. It changes the "one client, one server" model, so it needs an ADR
-first.
+first. (Done in M6.1, [ADR-0019](../adr/0019-several-servers.md).)
 
 ## Plan
 
@@ -443,9 +443,23 @@ Done, plus `RunFolderTest.htmlReportLinksTheRequestsToTheirCommunicationFolders`
 
 ### M6 – Scope (L)
 
-1. **F8.** ADR first: how `destination` indexes or profile codes map to `suites[n].fhir-servers`, and what happens
-   to `origin`. Then `TestScriptChecks` accepts several destinations if each is mapped, and `ExecutionFactory`
-   builds one `FhirHttpClient` per destination.
+1. ~~**F8.**~~ Done as proposed, [ADR-0019](../adr/0019-several-servers.md): `suites[n].fhir-servers` maps each
+   destination **index** to a server (`base-url`, `headers`, `oauth2`) – by index, not profile code, since two
+   destinations may share a code (the specification's multi-system example declares two `FHIR-Server`s). A TestScript
+   naming one index (or none) is sent as before, to `fhir-servers.<index>` if mapped, else `fhir-server`; one naming
+   several needs every index mapped, without fallback, else a `Load` error naming the property. `origin` is not
+   modelled: the runner plays every client; `destination.url` is not used. `TestScriptChecks` checks before sending
+   (also `--check`): indexes declared once, every operation of a TestScript for several servers names a declared
+   destination, a capability's destination is declared. `ExecutionFactory` builds one `FhirHttpClient` per
+   destination (`Servers`); `TestScriptExecution` routes each operation to the server of its destination;
+   `ExecutionState` keeps created fixtures and server ids per server, so `autocreate` creates on every server ("on
+   each server being tested"), `autodelete` deletes each copy, and `targetId`/reference rewriting use the operation's
+   server; `metadata.capability.destination` (new in the model and the mapper) limits a requirement to one server.
+   Results: `TestScriptResult.fhirServers`, one TestReport `participant` per server, `fhirServers` in
+   `result.json`, *Servers* in `report.html`. Tests: `SeveralServersTest` (two in-memory servers),
+   `EndToEndIT.testScriptForTwoServersSendsEachRequestToTheServerOfItsDestination`,
+   `HapiServerIT.testScriptForTwoServersRunsAgainstBoth` (two HAPI R4 servers), `R5SupportTest` (the
+   specification's multi-system example), binding and `problems()`; sample `testdata/several-servers`.
 2. ~~**F9 + A10.**~~ Done as proposed, [ADR-0018](../adr/0018-package-resolution.md): `PackageSuites` resolves
    versions as the HL7 validator reads them (`source.PackageRef`): exact, `2.1.x` (highest patch release, cache
    first), `#current` and `#current$<branch>` (the repository with the most recent build in `ig/qas.json` of
@@ -469,5 +483,5 @@ Done, plus `RunFolderTest.htmlReportLinksTheRequestsToTheirCommunicationFolders`
 | Unsupported checks: `Load` error, or run-time error plus an early warning? (M1.3) | **Decided:** run-time error plus warning – keeps the documented outcome rules |
 | Deselected tests: reported as `skip`, or left out? (M3.2) | **Decided:** left out, with a count in the log ([ADR-0014](../adr/0014-author-workflow.md)) |
 | Typed comparisons: default, or behind a switch? (M5.2) | **Decided:** default, with a release note ([CHANGELOG](../../CHANGELOG.md), [ADR-0016](../adr/0016-typed-comparisons.md)) |
-| Several servers: in scope at all? (M6.1) | only when a real suite needs it |
+| Several servers: in scope at all? (M6.1) | **Decided:** yes, mapped by destination index per suite, every index required ([ADR-0019](../adr/0019-several-servers.md)) |
 | Container image: published, and where? (M4.1) | **Decided:** built and checked in CI, not published ([ADR-0015](../adr/0015-container-image.md)); publishing is open |

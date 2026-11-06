@@ -78,7 +78,9 @@ switches the files off; ids stay.
   messages outside actions become actions); `FhirVersionSupport.testReport(content)` encodes it (default throws
   `UnsupportedOperationException` ⇒ logged, no file). `fhir.hapi.TestReportEncoder` does it for every version by
   element name (`FhirTerser`): `testScript` is Reference (R4) or canonical (R5). Teardown: operations only.
-  `TestScriptResult.fhirServer` (null if nothing sent) → `participant`.
+  `TestScriptResult.fhirServers` (empty if nothing sent; several for a TestScript with several destinations) →
+  `TestReportContent.servers` → one `participant` (type server) each; `result.json` `fhirServers`, `report.html`
+  "Server"/"Servers".
 * **New format**: implement `ReportWriter` (`format()` name, `write(RunResult, Path runDirectory)` returns the
   file); register it (Spring: a `@Bean`; library: pass it to the `TestRunner` constructor); select it in
   `reporting.formats`. Unknown formats are a configuration problem.

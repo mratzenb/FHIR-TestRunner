@@ -47,7 +47,7 @@ class PhasesTest extends EngineTestBase {
     }
 
     @Test
-    void testScriptForSeveralServersIsInvalid() {
+    void testScriptForSeveralServersNeedsEachDestinationMapped() {
         harness.add("ts", script().destination(1).destination(2)
                 .test(test("t", toDestination(op("capabilities"), 1), toDestination(op("capabilities"), 2)))
                 .build());
@@ -56,7 +56,7 @@ class PhasesTest extends EngineTestBase {
 
         assertThat(result.phases().getFirst().kind()).isEqualTo(PhaseKind.LOAD);
         assertThat(result.phases().getFirst().messages().getFirst())
-                .contains("more than one server", "operation.destination [1, 2]");
+                .contains("addresses 2 servers (destinations [1, 2])", "fhir-servers.2.base-url");
         assertThat(server.requests()).isEmpty();
     }
 

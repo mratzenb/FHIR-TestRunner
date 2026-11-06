@@ -1,0 +1,18 @@
+{
+  "resourceType": "Patient",
+  "id": "several-servers",
+  "identifier": [
+    {
+      "system": "urn:test:several-servers",
+      "value": "${testrunner.testScriptId}"
+    }
+  ],
+  "name": [
+    {
+      "family": "Copy",
+      "given": ["Twin"]
+    }
+  ],
+  "gender": "female",
+  "birthDate": "1970-01-01"
+}

@@ -113,8 +113,8 @@ expected.
 
 ### Against a real FHIR server
 
-`HapiServerIT` starts two HAPI FHIR servers once per test class (~30 s) and runs the AT Core suites (R4 and R5) and
-the samples against them. The samples assume a lenient server, so the containers run with these settings, the same
+`HapiServerIT` starts three HAPI FHIR servers once per test class (R4, R5 and a second R4, ~40 s) and runs the AT
+Core suites (R4 and R5), the samples and the TestScript for two servers (`testdata/several-servers`) against them. The samples assume a lenient server, so the containers run with these settings, the same
 as the PoC's `docker-compose.yml`:
 
 | HAPI setting | Value | Why |
@@ -132,7 +132,7 @@ Testcontainers looks for Docker at `/var/run/docker.sock`. Rancher Desktop and C
 Testcontainers finds nothing and **`HapiServerIT` is skipped – the build stays green**. Only two things show it:
 
 ```
-[WARNING] Tests run: 3, Failures: 0, Errors: 0, Skipped: 3 -- in at.hl7.testing.runner.app.HapiServerIT
+[WARNING] Tests run: 4, Failures: 0, Errors: 0, Skipped: 4 -- in at.hl7.testing.runner.app.HapiServerIT
 ERROR DockerClientProviderStrategy - Could not find a valid Docker environment. …
 ```
 
@@ -152,7 +152,7 @@ export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
 
 With both set, the log may still show `WARN RyukResourceReaper - Can not connect to Ryuk at localhost:…` several
 times while Ryuk starts – seven times within two seconds in one run, each with a stack trace. The tests run anyway,
-and Ryuk removes the containers afterwards. What counts is the result line: `Tests run: 3, … Skipped: 0`.
+and Ryuk removes the containers afterwards. What counts is the result line: `Tests run: 4, … Skipped: 0`.
 
 Tested with Rancher Desktop. The Colima path is that tool's documented default, not tested here. CI needs neither
 variable: the Linux runners have `/var/run/docker.sock`.
@@ -225,7 +225,8 @@ and the page [Samples](samples.md) together.
 testdata/
 ├─ r4/        AT Core R4: create, update, negative control
 ├─ r5/        AT Core R5: create, update
-└─ samples/   mixed R4/R5, JSON/XML: one TestScript per feature
+├─ samples/   mixed R4/R5, JSON/XML: one TestScript per feature
+└─ several-servers/   a TestScript for two servers (destination 1 and 2), see ADR-0019
    ├─ Test_Scripts/
    ├─ Example_Instances/   resources behind fixture.resource.reference
    └─ Profiles/            passed to the validator as -ig

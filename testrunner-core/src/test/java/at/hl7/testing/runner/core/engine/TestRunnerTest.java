@@ -109,7 +109,7 @@ class TestRunnerTest extends EngineTestBase {
                 {"name":"example.ig","fhirVersions":["4.0.1"],"directories":{"example":"example"}}""");
         Files.writeString(packageDir.resolve("TestScript-ts.json"), "ts");
         var configuration = new RunConfiguration(FhirServerConfig.of(server.baseUrl()),
-                List.of(new SuiteConfig(null, null, null, null, null, null, null, null, null, null, "example.ig#dev")),
+                List.of(new SuiteConfig(null, null, null, null, null, null, null, null, null, null, "example.ig#dev", null)),
                 null, null, null,
                 new ReportingConfig(dir.resolve("results"), null, false, false, null, null),
                 PackagesConfig.cache(dir.resolve("cache")), null);

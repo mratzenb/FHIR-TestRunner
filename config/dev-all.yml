@@ -19,6 +19,12 @@ testrunner:
       base-dir: testdata/r5
       fhir-server:
         base-url: http://localhost:8081/fhir
+    - name: several-servers         # a TestScript for two R4 servers: each destination index mapped to one
+      base-dir: testdata/several-servers
+      fhir-version: R4
+      fhir-servers:
+        1: {base-url: http://localhost:8080/fhir}
+        2: {base-url: http://localhost:8082/fhir}
   execution:
     parallelism: 4
   validation:

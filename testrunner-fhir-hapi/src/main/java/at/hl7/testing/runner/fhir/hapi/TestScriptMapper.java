@@ -72,7 +72,8 @@ public final class TestScriptMapper {
         // required and validated are mandatory in R4 and R5; absent means false
         return new CapabilityRequirement(capability.bool("required", false), capability.bool("validated", false),
                 capability.string("description"), capability.string("capabilities"),
-                capability.children("link").stream().map(ElementView::primitiveValue).toList());
+                capability.children("link").stream().map(ElementView::primitiveValue).toList(),
+                integer(capability.string("destination")));
     }
 
     private FixtureDefinition fixture(ElementView fixture) {

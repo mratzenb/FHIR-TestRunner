@@ -26,7 +26,8 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
    error listing `containedIds`), others from `Example_Instances/` (`ExampleInstanceResolver`).
 4. Before anything is sent: `TestScriptChecks.problems(testScript, fixtureResources, builtInNames)` (unique
    fixture/responseId/requestId ids; a variable has at most one of expression/path/headerField, and at least one of
-   them or a `defaultValue`; at most one server addressed via `TestScript.destination`/`operation.destination`;
+   them or a `defaultValue`; destinations: no index declared twice, and with several servers every operation names a
+   declared one (`destinationProblems`, see Destinations below);
    `References` walks setup → tests → teardown in order: `ActionRules.problems(operation|assertion)` (see below),
    every `sourceId`/`targetId`/`compareToSourceId`/`minimumId`
    names a fixture with resource or a responseId kept **before** (else "is not there yet"), `targetId` fixture needs
@@ -216,9 +217,22 @@ there too) → read it in `TestScriptMapper.assertion` (`testrunner-fhir-version
   bipartite matching), but a value is met by more support (ordered codes, flags, `full-support`, format mime types).
   `minimumId` itself uses `FhirElement.EQUAL`. Every difference is a message.
 * The required CapabilityStatement is looked up in Example Instances, then next to the TestScripts (package root).
-* Destinations: `TestScript.destination` → `model.Destination`; `operation.destination` → `Operation.destination()`.
-  The runner plays every origin and sends everything to the one configured server; > 1 server addressed ⇒ Load
-  error (`TestScriptChecks`). One undeclared `destination: 1` is fine (common in IG TestScripts).
+* Destinations (ADR-0019): `TestScript.destination` → `model.Destination`; `operation.destination` →
+  `Operation.destination()`; `metadata.capability.destination` → `CapabilityRequirement.destination()`. The runner
+  plays every origin. `Destinations.indexes` = every index named; **one** (or none) ⇒ one server:
+  `suite.fhirServers().get(index)` else `fhirServerOf(suite)` (one undeclared `destination: 1` is fine). **Several** ⇒
+  `Destinations.map` needs each index in `suites[n].fhir-servers` (no fallback to `fhir-server`), else a Load `error`
+  naming `testrunner.suites[i].fhir-servers.<n>.base-url` (in `TestRunner.execute`, run only – `--check` needs no
+  server). `TestScriptChecks.destinationProblems` (also in check mode): index declared twice; with several servers an
+  operation without `destination`, or naming / a capability naming an index not declared (if any are declared).
+* Execution with several servers: `ExecutionFactory` builds one `FhirHttpClient` per index (`Servers.Endpoint`: index,
+  base, client with that server's headers/OAuth2; one communication folder per TestScript). `TestScriptExecution`
+  routes each operation (`servers.of(op)`, logged "to destination n") and calls `state.onServer(n)` first;
+  `RequestFactory.create(op, base)`. `ExecutionState` keeps created fixtures and server references **per server**
+  (`Created(server, fixture)`); `find` returns a fixture as created on the current server. `FixtureManager.autocreate`
+  creates on every server (each in dependency order), `autodelete` deletes each copy from its server.
+  `checkCapabilities` checks per server: a requirement with `destination` only there, without on every server; unmet ⇒
+  "The server of destination n …". `TestScriptResult.fhirServers` = bases in index order.
 
 ## Run control (ADR-0013)
 

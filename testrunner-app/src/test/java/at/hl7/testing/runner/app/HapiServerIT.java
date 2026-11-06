@@ -43,6 +43,9 @@ class HapiServerIT {
     static final GenericContainer<?> R4 = hapi("R4");
     @Container
     static final GenericContainer<?> R5 = hapi("R5");
+    /** A second R4 server, for TestScripts that address two servers. */
+    @Container
+    static final GenericContainer<?> R4_SECOND = hapi("R4");
 
     @TempDir
     Path dir;
@@ -146,6 +149,23 @@ class HapiServerIT {
                 .isEqualTo(Outcome.ERROR);
         // its Example Instance is missing, as in the proof of concept
         assertThat(script(run, "samples", "TestScript-testscript-delete.json").outcome()).isEqualTo(Outcome.ERROR);
+    }
+
+    /**
+     * A TestScript for two servers (M6.1, ADR-0019): the patient is autocreated on both servers, read from each,
+     * copied from the first to the second, and deleted from both. HAPI assigns its own ids on each server, so the
+     * {@code targetId} of each read must address the copy on that server.
+     */
+    @Test
+    void testScriptForTwoServersRunsAgainstBoth() {
+        RunResult run = run("testrunner.suites[0].name=several-servers",
+                "testrunner.suites[0].base-dir=" + SampleData.root().resolve("several-servers"),
+                "testrunner.suites[0].fhir-servers.1.base-url=" + baseUrl(R4),
+                "testrunner.suites[0].fhir-servers.2.base-url=" + baseUrl(R4_SECOND));
+
+        TestScriptResult result = run.testScripts().getFirst();
+        assertThat(result.outcome()).as(String.valueOf(messages(result))).isEqualTo(Outcome.PASS);
+        assertThat(result.fhirServers()).containsExactly(baseUrl(R4), baseUrl(R4_SECOND));
     }
 
     /**
