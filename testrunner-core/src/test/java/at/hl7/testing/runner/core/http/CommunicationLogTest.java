@@ -1,5 +1,6 @@
 package at.hl7.testing.runner.core.http;
 
+import at.hl7.testing.runner.core.model.Body;
 import at.hl7.testing.runner.core.model.HttpMethod;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -14,12 +15,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CommunicationLogTest {
 
     static final FhirRequest REQUEST = new FhirRequest(HttpMethod.PUT, URI.create("http://s/fhir/Patient/123?x=1"),
-            HttpHeaders.of(Map.of("Content-Type", List.of("application/fhir+json"))), "{\"resourceType\":\"Patient\"}");
+            HttpHeaders.of(Map.of("Content-Type", List.of("application/fhir+json"))), Body.json("{\"resourceType\":\"Patient\"}"));
 
     @Test
     void writesRequestAndResponseUnfiltered(@TempDir Path dir) {
         CommunicationLog log = CommunicationLog.toFolder(dir, "01_My TestScript", "http://s/fhir");
-        FhirResponse response = new FhirResponse(201, "Created", "HTTP/1.1",
+        FhirResponse response = FhirResponse.text(201, "Created", "HTTP/1.1",
                 HttpHeaders.of(Map.of("Set-Cookie", List.of("a=1", "b=2"))), "{}");
 
         String where = log.record("REQ-0007", REQUEST, response);
@@ -45,7 +46,7 @@ class CommunicationLogTest {
         FhirRequest request = new FhirRequest(HttpMethod.GET, URI.create("http://s/fhir/Patient"),
                 HttpHeaders.of(Map.of("authorization", List.of("Bearer eyJhbGciOi.secret"),
                         "X-Api-Key", List.of("k-123"), "Accept", List.of("application/fhir+json"))), null);
-        FhirResponse response = new FhirResponse(200, "OK", "HTTP/1.1",
+        FhirResponse response = FhirResponse.text(200, "OK", "HTTP/1.1",
                 HttpHeaders.of(Map.of("Set-Cookie", List.of("session=abc; Path=/"))), "{}");
 
         String where = CommunicationLog.toFolder(dir, "01_ts", "http://s/fhir")
@@ -60,6 +61,6 @@ class CommunicationLogTest {
 
     @Test
     void withoutFolderNothingIsWritten() {
-        assertThat(CommunicationLog.none().record("REQ-0001", REQUEST, new FhirResponse(200, "", "HTTP/1.1", null, ""))).isNull();
+        assertThat(CommunicationLog.none().record("REQ-0001", REQUEST, FhirResponse.text(200, "", "HTTP/1.1", null, ""))).isNull();
     }
 }

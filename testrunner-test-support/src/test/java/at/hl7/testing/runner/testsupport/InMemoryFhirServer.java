@@ -13,6 +13,7 @@ import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.Callback;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -49,8 +50,9 @@ public final class InMemoryFhirServer implements AutoCloseable {
     private static final String FHIR_JSON = "application/fhir+json;charset=UTF-8";
     private static final Pattern XML_ID = Pattern.compile("<id\\s+value=\"([^\"]*)\"\\s*/>");
 
-    /** A request as received. */
-    public record Request(String method, String path, String query, Map<String, List<String>> headers, String body) {
+    /** A request as received; {@code body} decoded as UTF-8, {@code bytes} as they arrived. */
+    public record Request(String method, String path, String query, Map<String, List<String>> headers, String body,
+                          byte[] bytes) {
 
         /** {@code METHOD path}, e.g. {@code POST /Patient}. */
         public String line() {
@@ -63,11 +65,20 @@ public final class InMemoryFhirServer implements AutoCloseable {
         }
     }
 
-    /** A fixed answer. */
-    public record Answer(int status, String body, Map<String, String> headers) {
+    /** A fixed answer; {@code bytes}, if set, are sent instead of {@code body}. */
+    public record Answer(int status, String body, Map<String, String> headers, byte[] bytes) {
+
+        public Answer(int status, String body, Map<String, String> headers) {
+            this(status, body, headers, null);
+        }
 
         public static Answer json(int status, String body) {
             return new Answer(status, body, Map.of("Content-Type", FHIR_JSON));
+        }
+
+        /** Raw bytes with their content type, e.g. a {@code Binary} read in its native type (a PDF, an image). */
+        public static Answer bytes(int status, String contentType, byte[] content) {
+            return new Answer(status, null, Map.of("Content-Type", contentType), content.clone());
         }
     }
 
@@ -150,12 +161,15 @@ public final class InMemoryFhirServer implements AutoCloseable {
             String method = exchange.getMethod();
             String path = fullPath.substring("/fhir".length());
             String query = exchange.getHttpURI().getQuery();
-            String body = Content.Source.asString(exchange, StandardCharsets.UTF_8);
+            ByteBuffer received = Content.Source.asByteBuffer(exchange);
+            byte[] bytes = new byte[received.remaining()];
+            received.get(bytes);
+            String body = new String(bytes, StandardCharsets.UTF_8);
             Map<String, List<String>> headers = new LinkedHashMap<>();
             for (HttpField field : exchange.getHeaders()) {
                 headers.computeIfAbsent(field.getName(), name -> new ArrayList<>()).add(field.getValue());
             }
-            requests.add(new Request(method, path.isEmpty() ? "/" : path, query, headers, body));
+            requests.add(new Request(method, path.isEmpty() ? "/" : path, query, headers, body, bytes));
             if (!delay.isZero()) {
                 Thread.sleep(delay.toMillis());
             }
@@ -165,9 +179,12 @@ public final class InMemoryFhirServer implements AutoCloseable {
             }
             response.setStatus(answer.status());
             answer.headers().forEach((name, value) -> response.getHeaders().add(name, value));
-            boolean noBody = answer.body() == null || answer.body().isEmpty() || method.equals("HEAD");
+            boolean noBody = answer.bytes() == null && (answer.body() == null || answer.body().isEmpty())
+                    || method.equals("HEAD");
             if (noBody) {
                 response.write(true, null, callback);
+            } else if (answer.bytes() != null) {
+                response.write(true, ByteBuffer.wrap(answer.bytes()), callback);
             } else {
                 Content.Sink.write(response, true, answer.body(), callback);
             }

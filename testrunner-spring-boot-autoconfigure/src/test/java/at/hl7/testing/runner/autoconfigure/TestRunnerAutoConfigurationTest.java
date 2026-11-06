@@ -160,7 +160,7 @@ class TestRunnerAutoConfigurationTest {
 
     @Test
     void everyBeanBacksOffForTheApplicationsOwn() {
-        HttpTransport transport = request -> new FhirResponse(200, "OK", "HTTP/1.1", null, "");
+        HttpTransport transport = request -> FhirResponse.text(200, "OK", "HTTP/1.1", null, "");
         RunConfiguration own = new RunConfiguration(null, null, null, null, null, null, null, null);
         contexts.withBean(HttpTransport.class, () -> transport)
                 .withBean(RunConfiguration.class, () -> own)

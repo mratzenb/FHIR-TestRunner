@@ -76,11 +76,13 @@ one method, `FhirResponse send(FhirRequest)`. Wrapping the default one adds a he
 @Bean
 HttpTransport httpTransport(RunConfiguration configuration) {
     JdkHttpTransport delegate = new JdkHttpTransport(configuration.http());
-    return request -> delegate.send(new FhirRequest(request.method(), request.uri(),
-            request.headers().with("X-Correlation-Id", UUID.randomUUID().toString()), request.body()));
+    return request -> delegate.send(request.withHeaders(
+            request.headers().with("X-Correlation-Id", UUID.randomUUID().toString())));
 }
 ```
 
+Request and response bodies are `Body`s: the bytes as exchanged, with charset and format; `text()` decodes them. A
+transport must hand the bytes on unchanged, so that a `Binary` in its native content type (a PDF) arrives intact.
 `FhirHttpClient` writes the communication log from the request it hands to the transport, so a header added inside
 the transport is sent but **not** in `communication/`. For a header that should be logged, use
 `fhir-server.headers` instead.

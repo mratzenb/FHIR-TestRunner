@@ -8,11 +8,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * Writes {@code report.html}: one self-contained page per run for readers who do not open {@code junit.xml} – every
@@ -199,15 +201,33 @@ public final class HtmlReportWriter implements ReportWriter {
         }
         html.append("<a href=\"").append(href(folder)).append("/\">").append(escape(requestId)).append("</a>");
         StringBuilder files = new StringBuilder();
-        for (String name : List.of("request.http", "response.http", "error.txt")) {
-            if (Files.isRegularFile(runDirectory.resolve(folder).resolve(name))) {
-                files.append(files.isEmpty() ? "" : " · ").append("<a href=\"").append(href(folder + "/" + name))
-                        .append("\">").append(name.substring(0, name.indexOf('.'))).append("</a>");
-            }
+        for (String name : exchangeFiles(runDirectory.resolve(folder))) {
+            files.append(files.isEmpty() ? "" : " · ").append("<a href=\"").append(href(folder + "/" + name))
+                    .append("\">").append(escape(name.endsWith(".http") || name.endsWith(".txt")
+                            ? name.substring(0, name.indexOf('.')) : name)).append("</a>");
         }
         if (!files.isEmpty()) {
             html.append("<br><span class=\"muted\">").append(files).append("</span>");
         }
+    }
+
+    /**
+     * The files of an exchange folder: {@code request.http}, {@code response.http} or {@code error.txt}, then the
+     * bodies that are no text ({@code request.body.pdf}, …).
+     */
+    private static List<String> exchangeFiles(Path folder) {
+        List<String> names = new ArrayList<>();
+        for (String name : List.of("request.http", "response.http", "error.txt")) {
+            if (Files.isRegularFile(folder.resolve(name))) {
+                names.add(name);
+            }
+        }
+        try (Stream<Path> files = Files.list(folder)) {
+            files.map(f -> f.getFileName().toString()).filter(n -> n.contains(".body.")).sorted().forEach(names::add);
+        } catch (IOException e) {
+            // the folder cannot be listed: the report links the .http files found above, without the bodies
+        }
+        return names;
     }
 
     private static void definition(StringBuilder html, String term, String value) {

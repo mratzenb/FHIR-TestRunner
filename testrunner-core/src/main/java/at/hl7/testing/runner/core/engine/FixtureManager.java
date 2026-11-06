@@ -183,7 +183,7 @@ final class FixtureManager {
         if (location.containsKey("id")) {
             return location.getOrDefault("type", type) + "/" + location.get("id");
         }
-        Body returned = exchange.response().asBody();
+        Body returned = exchange.response().body();
         if (!returned.isEmpty() && returned.format() != ContentFormat.OTHER
                 && type.equals(safe(() -> ResourceContent.resourceType(returned)))) {
             String id = safe(() -> ResourceContent.id(returned));
@@ -233,7 +233,7 @@ final class FixtureManager {
             Exchange exchange = http.send(new FhirRequest(HttpMethod.POST, URI.create(base + "/" + fixture.resourceType()),
                     HttpHeaders.of(Map.of("Content-Type", List.of(body.format().fhirMimeType()),
                             "Accept", List.of(body.format().fhirMimeType()))),
-                    body.text()));
+                    body));
             String serverId = createdId(exchange, fixtureId);
             state.fixtureCreated(fixture.created(body, serverId, exchange.requestId()),
                     originalId == null || rewriting == ReferenceRewriting.NONE ? null
@@ -306,13 +306,13 @@ final class FixtureManager {
         var response = exchange.response();
         if (!response.isSuccessful()) {
             throw new TestScriptException("Fixture '" + fixtureId + "' could not be created (" + exchange.requestId()
-                    + "): HTTP " + response.status() + " " + response.reason() + " " + abbreviate(response.body()));
+                    + "): HTTP " + response.status() + " " + response.reason() + " " + abbreviate(response.bodyText()));
         }
         String id = response.headers().first("Location")
                 .map(location -> ResourceContent.parseLocation(location).get("id"))
                 .orElse(null);
-        if (id == null && !response.body().isBlank()) {
-            id = safe(() -> ResourceContent.id(response.asBody()));
+        if (id == null && !response.body().isEmpty()) {
+            id = safe(() -> ResourceContent.id(response.body()));
         }
         if (id == null) {
             throw new TestScriptException("Fixture '" + fixtureId + "' was created (" + exchange.requestId()

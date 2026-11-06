@@ -24,6 +24,9 @@ documents; [next steps](docs/wiki/next-steps.md) has the plan behind them.
 
 ### Added
 
+* Binary content (M5.3): a `Binary` read in its native content type (a PDF, an image) is kept byte for byte, can be
+  sent again by `sourceId`, and is written to `communication/` as `response.body.pdf` etc. Text bodies are decoded
+  with the charset of their `Content-Type`.
 * Container image (`testrunner-app/Dockerfile`) and `docker-compose.yml` with HAPI FHIR (M4.1, ADR-0015).
 * Report format `html`: `report.html` with every request id linked into `communication/` (M4.2); on in the
   application's defaults.
@@ -32,6 +35,10 @@ documents; [next steps](docs/wiki/next-steps.md) has the plan behind them.
 
 ### Changed – API
 
+* The bodies of `FhirRequest` and `FhirResponse` are a `model.Body` (bytes, charset, format), not a `String`
+  (M5.3). Use `body().text()` or `bodyText()` for the text, `FhirResponse.text(…)` to create a text response in a
+  test, `request.withHeaders(…)` in a wrapping `HttpTransport`. `FhirResponse.asBody()` is gone: `body()` is the
+  `Body`.
 * `TestScript`, `Operation` and `Assertion` have builders (`builder()`, `toBuilder()`); create them by name, not by
   position (M5.1).
 * `RunListener` gets a read-only `RunInfo` instead of `RunContext` (M2.5).

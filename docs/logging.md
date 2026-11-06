@@ -13,9 +13,12 @@ testrunner-results/run_2026-10-21_20-58-01-838/
 │  └─ TestReport-01_TestScript-testscript-patient-create-at-core.json
 └─ communication/
    ├─ 01_TestScript-testscript-patient-create-at-core/
-   │  └─ REQ-0003_POST_Patient/
-   │     ├─ request.http     request line, headers, body – as sent
-   │     └─ response.http    status line, headers, body – as received
+   │  ├─ REQ-0003_POST_Patient/
+   │  │  ├─ request.http     request line, headers, body – as sent
+   │  │  └─ response.http    status line, headers, body – as received
+   │  └─ REQ-0004_GET_Binary_doc/
+   │     ├─ response.http    status line and headers; the body is no text, so a line names its file
+   │     └─ response.body.pdf   the body, byte for byte (a Binary read in its native content type)
    └─ 02_TestScript-testscript-patient-update-at-core/
       ├─ REQ-0001_PUT_Patient_HL7ATCorePatientUpdateTestExample/
       └─ REQ-0002_PUT_Patient_HL7ATCorePatientUpdateTestExample/
@@ -68,6 +71,13 @@ Console level and format are ordinary Spring Boot logging settings (`logging.lev
 `CommunicationLog` (one per TestScript execution) writes each exchange as it was: all headers, repeated headers
 on separate lines, the body exactly as text – except the values of credential headers, which are masked (see
 [Sensitive data](#sensitive-data)). Writing problems are logged as warnings and never fail a test.
+
+The runner sends and receives bytes, not text (`Body`: bytes, charset, format). A text body – every FHIR resource,
+JSON or XML – is written into the `.http` file, decoded with the charset of its `Content-Type` (UTF-8 if none). A body
+that is no text, such as a `Binary` read with `Accept: application/pdf` (IHE MHD *Retrieve Document*), goes into a file
+of its own next to it, unchanged: `request.body.pdf`, `response.body.png`, `response.body.bin` (the extension from the
+media type). The `.http` file then ends with `[12345 bytes, not text: response.body.pdf]`, and `report.html` links
+the file. The DEBUG logger gets the same line instead of the bytes.
 
 The full exchange is additionally logged at DEBUG to the logger `at.hl7.testing.runner.communication`, so it can be
 routed anywhere through logging configuration alone:

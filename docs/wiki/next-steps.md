@@ -101,7 +101,7 @@ promise.
 | A5 | `TestRunner` does too much; `TestScriptExecution` takes 10 constructor parameters (done, M2.1) | medium | M |
 | A6 | Wide positional records: `Operation` has 17 components (done, M5.1) | medium | M |
 | A7 | Assertion values are compared as text (done, M5.2) | medium | M |
-| A8 | Request and response bodies are `String`s | medium | M |
+| A8 | Request and response bodies are `String`s (done, M5.3) | medium | M |
 | A9 | The public API of the core is undefined; `RunContext` hands mutable run state to listeners (done, M2.5) | medium | S |
 | A10 | Package download: new `HttpClient` per download, no proxy, no integrity check | low | S |
 | A11 | `TestRunner` filters configuration problems by property-name prefix (done, M2.2) | low | S |
@@ -195,6 +195,8 @@ FHIRPath already returns typed values. Today `Values.text` throws the types away
 
 ### A8 – Bodies as text
 
+**Status:** done in M5.3.
+
 `JdkHttpTransport` decodes every response as UTF-8. `FhirRequest`, `FhirResponse` and `Body` hold `String`s. A
 `Binary` read with its native content type – a PDF or an image, as in IHE MHD *Retrieve Document* – is corrupted in
 memory and in the communication log.
@@ -237,7 +239,7 @@ TestScripts are sent to servers, so the integrity of the package matters.
 | F4 | **Container image** and a compose file with HAPI FHIR (done, M4.1) | medium | S | – |
 | F5 | **HTML report** linking into `communication/` (done, M4.2) | medium | M | – |
 | F6 | **Typed comparisons** for dates, numbers and booleans (done, M5.2) | medium | M | A7 |
-| F7 | **Binary content** in requests and responses | medium | M | A8 |
+| F7 | **Binary content** in requests and responses (done, M5.3) | medium | M | A8 |
 | F8 | **Several servers**: map `destination` to configured servers | medium | L | A5, ADR |
 | F9 | **Packages**: `#current`, transitive dependencies | low | M | A10 |
 | F10 | **FHIR R6** | later | M | a HAPI release with `hapi-fhir-structures-r6` |
@@ -412,8 +414,14 @@ Done, plus `RunFolderTest.htmlReportLinksTheRequestsToTheirCommunicationFolders`
    text for `equals`; `greaterThan`/`lessThan` order two numbers or two dates. Variables stay text. Tests:
    `FhirTemporalTest`, `OperatorsTest`, `R4SupportTest.fhirPathKeepsTheTypeOfDatesAndNumbersAsWritten`,
    `EndToEndIT.fhirPathValuesAreComparedByTheirType`.
-3. **A8 + F7.** `Body` holds bytes plus a charset and decodes text on demand. `JdkHttpTransport` reads bytes. The
-   communication log writes a non-text body as a file of its own next to `response.http`.
+3. ~~**A8 + F7.**~~ Done as proposed: `model.Body` holds the bytes, the charset of the `Content-Type` (UTF-8 if
+   none) and the format, and decodes `text()` on first use; `isText()` tells a binary apart. `FhirRequest` and
+   `FhirResponse` carry a `Body` (`FhirResponse.of(…, byte[])`, `FhirResponse.text(…)`, `FhirRequest.withHeaders`);
+   `JdkHttpTransport` sends and reads bytes; a response kept by `responseId` is sent again byte for byte by
+   `sourceId`. `CommunicationLog` writes a non-text body as `request.body.<ext>`/`response.body.<ext>` and names it in
+   the `.http` file; `report.html` links it. Tests: `BodyTest`,
+   `RunFolderTest.binaryContentIsKeptSentAndLoggedAsTheBytesExchanged` (`InMemoryFhirServer.Answer.bytes`). This
+   changes the public `http` API: the body is a `Body`, not a `String` (CHANGELOG).
 4. **A12**, if a measurement with a large Bundle shows it is needed.
 
 *Docs:* [Variables](variables.md), [architecture.md](../architecture.md), skill `testrunner-execution-engine`.

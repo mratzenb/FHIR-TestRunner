@@ -15,6 +15,8 @@ communication/<NN>_<TestScript base name>/<REQ-id>_<METHOD>_<path>/   (character
     request.http               request line, headers, body – as sent
     response.http              status line, headers, body – as received
     error.txt                  instead of response.http if no response came
+    request.body.<ext>  response.body.<ext>   a body that is no text (Body.isText() false), byte for byte;
+                               the .http file ends with "[n bytes, not text: response.body.pdf]"
 ```
 
 ## Request ids
@@ -42,7 +44,9 @@ folder prefix. From a failed assertion, `REQ-nnnn` leads to the exact bytes exch
 
 ## Communication log (`core.http.CommunicationLog`, one per TestScript execution)
 
-Writes every exchange as exchanged (all headers, repeated headers on separate lines, body as text), except the
+Writes every exchange as exchanged (all headers, repeated headers on separate lines, a text body decoded with its
+charset, a binary body into `<kind>.body.<ext>` – `CommunicationLog.binaryFile`, extension from the media subtype,
+`+json` etc. stripped, `octet-stream` ⇒ `bin`), except the
 values of `reporting.redact-headers` (`ReportingConfig.DEFAULT_REDACT_HEADERS`: Authorization, Proxy-Authorization,
 Cookie, Set-Cookie; case-insensitive; `[]` = none): `CommunicationLog.redacting(names)` masks them as `***`, keeping an
 auth scheme (`Bearer ***`, `CommunicationLog.mask`), in files and wire logger alike; `ExecutionFactory.create` applies it.

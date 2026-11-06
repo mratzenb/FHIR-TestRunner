@@ -31,7 +31,7 @@ class AccessTokensTest {
         return request -> {
             sent.add(request);
             String body = bodies[Math.min(sent.size(), bodies.length) - 1];
-            return new FhirResponse(200, "OK", "HTTP/1.1",
+            return FhirResponse.text(200, "OK", "HTTP/1.1",
                     HttpHeaders.of(Map.of("Content-Type", List.of("application/json"))), body);
         };
     }
@@ -46,7 +46,7 @@ class AccessTokensTest {
 
         assertThat(sent).singleElement().satisfies(request -> {
             assertThat(request.uri()).hasToString("https://auth.example/token");
-            assertThat(request.body()).isEqualTo("grant_type=client_credentials&scope=system%2F*.rs+system%2F*.cud");
+            assertThat(request.bodyText()).isEqualTo("grant_type=client_credentials&scope=system%2F*.rs+system%2F*.cud");
             assertThat(request.headers().first("Content-Type")).contains("application/x-www-form-urlencoded");
             String basic = request.headers().first("Authorization").orElseThrow();
             assertThat(new String(Base64.getDecoder().decode(basic.substring("Basic ".length())), StandardCharsets.UTF_8))
@@ -74,13 +74,13 @@ class AccessTokensTest {
 
         new AccessTokens(post, answering("{\"access_token\":\"t1\"}"), clock).token();
 
-        assertThat(sent.getFirst().body()).isEqualTo("grant_type=client_credentials&client_id=runner&client_secret=s3cr%3At");
+        assertThat(sent.getFirst().bodyText()).isEqualTo("grant_type=client_credentials&client_id=runner&client_secret=s3cr%3At");
         assertThat(sent.getFirst().headers().contains("Authorization")).isFalse();
     }
 
     @Test
     void rejectionNamesTheEndpointAndTheOAuthError() {
-        HttpTransport rejecting = request -> new FhirResponse(401, "Unauthorized", "HTTP/1.1", null, """
+        HttpTransport rejecting = request -> FhirResponse.text(401, "Unauthorized", "HTTP/1.1", null, """
                 {"error":"invalid_client","error_description":"Client authentication failed"}""");
 
         assertThatThrownBy(() -> new AccessTokens(CONFIG, rejecting, clock).token())

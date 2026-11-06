@@ -14,7 +14,7 @@ is skipped.
 | Level | Class | Covers |
 |---|---|---|
 | Unit, engine (`testrunner-core`, `core/engine/`, all extend `EngineTestBase`) | `FixturesTest` (autocreate/autodelete), `OperationsTest`, `AssertionsTest` (checks, fail vs. error, unsupported checks), `CapabilitiesTest`, `ReferenceRewritingTest`, `KeptRequestsTest` (`requestId`, `direction = request`), `ChecksBeforeSendingTest` (Load errors and warnings before anything is sent), `CheckModeTest` (`TestRunner.check`: Load phase only, nothing sent, no TestReports, validator only when validating), `SelectionTest` (`select.test-scripts`/`tests`, globs, left-out hint, `TestRunner.list`), `PhasesTest`, `PlaceholdersTest` (variables, placeholders in fixtures, `${testrunner.…}`), `TestRunnerTest` (serial suites, parallel runs, package suites, validator configuration problems), `RunControlTest` (timeouts, fail-fast, cancel, reports after an error or `reportNow`), `RunFolderTest` (communication log, masking, reports), `OAuth2Test` | the engine through the real `TestRunner` with `Harness` |
-| Unit, core (`testrunner-core`) | `RunConfigurationTest`, `AccessTokensTest` (OAuth2 token fetch/renewal with a `MutableClock`), `PathEvaluatorTest`, `ResourceContentTest`, `FhirElementTest`, `UrlEncodingTest`, `CommunicationLogTest`, `ExampleInstanceResolverTest`, `PackageSuitesTest` (cache, download of a hand-built `.tgz` incl. pax long names, concurrent download, path traversal), `TestReportWriterTest`, `HtmlReportWriterTest` (escaping of hostile text, links into `communication/`), `FhirTemporalTest`, `OperatorsTest` (typed comparisons, ADR-0016) | config defaults/problems, content helpers (`FhirElement`: JSON/XML alike, exact decimals, `minimumId` containment rules), log format |
+| Unit, core (`testrunner-core`) | `RunConfigurationTest`, `AccessTokensTest` (OAuth2 token fetch/renewal with a `MutableClock`), `PathEvaluatorTest`, `ResourceContentTest`, `FhirElementTest`, `UrlEncodingTest`, `CommunicationLogTest`, `ExampleInstanceResolverTest`, `PackageSuitesTest` (cache, download of a hand-built `.tgz` incl. pax long names, concurrent download, path traversal), `TestReportWriterTest`, `HtmlReportWriterTest` (escaping of hostile text, links into `communication/`), `FhirTemporalTest`, `OperatorsTest` (typed comparisons, ADR-0016), `BodyTest` (bytes, charset, binary detection) | config defaults/problems, content helpers (`FhirElement`: JSON/XML alike, exact decimals, `minimumId` containment rules), log format |
 | Version modules (`testrunner-fhir-r4`, `-r5`) | `R4SupportTest`, `R5SupportTest` | every sample TestScript of the version maps exactly; detection cases |
 | Validator (`testrunner-validation-cli`) | `ValidatorCliProfileValidatorTest`, `ValidatorServerProfileValidatorTest` | process handling, arguments, server lifecycle, fallback, parallel use |
 | Spring (`testrunner-spring-boot-autoconfigure`) | `TestRunnerAutoConfigurationTest` (`ApplicationContextRunner`) | binding, defaults, replacing/adding beans |
@@ -49,8 +49,9 @@ Only Java SE + Jetty: no `com.sun.net.httpserver` (the compiler rejects it).
   `_`-params ignored), conditional delete,
   conditional update (`PUT [type]?query`: 201 no match, 200 one match, 400 other body id, 412 several matches), `delay(Duration)` (every answer after a pause, for timeouts),
   `metadata`, batch/transaction (empty response Bundle), XML create (id rewritten, not stored). Hooks:
-  `on(method, path, Answer.json(status, body))` fixes an answer; `requests()` (method, path, query, headers, body;
-  `header(name)`), `requestLines()` (`"POST /Patient"`), `resource("Patient/1")`.
+  `on(method, path, Answer.json(status, body))` fixes an answer (`Answer.bytes(status, contentType, byte[])` for a
+  binary, e.g. a PDF); `requests()` (method, path, query, headers, body, `bytes`; `header(name)`), `requestLines()`
+  (`"POST /Patient"`), `resource("Patient/1")`.
 * **`FakeValidatorJar`** – `create(dir)` writes `dir/validator_cli.jar`: a manifest-only jar, `Main-Class`
   `FakeValidator`, `Class-Path` = absolute URLs of the test classes, Jetty and SLF4J (`FakeValidator` needs no
   Jackson; valid on this machine, per test run).
