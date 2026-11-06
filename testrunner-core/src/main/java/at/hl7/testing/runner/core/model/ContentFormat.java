@@ -1,6 +1,10 @@
 package at.hl7.testing.runner.core.model;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 import java.util.Locale;
+import java.util.Optional;
 
 /** Encoding of a FHIR resource or message body. */
 public enum ContentFormat {
@@ -16,39 +20,43 @@ public enum ContentFormat {
     }
 
     /** The FHIR mime type of this format, e.g. {@code application/fhir+json}. */
+    @Nonnull
     public String fhirMimeType() {
         return fhirMimeType;
     }
 
-    /** Determines the format from a {@code Content-Type} header value, or {@code null} if it names neither JSON nor XML. */
-    public static ContentFormat fromMimeType(String contentType) {
+    /** The format a {@code Content-Type} header value names; empty if it names neither JSON nor XML, or is absent. */
+    @Nonnull
+    public static Optional<ContentFormat> fromMimeType(@Nullable String contentType) {
         if (contentType == null) {
-            return null;
+            return Optional.empty();
         }
         String value = contentType.toLowerCase(Locale.ROOT);
         if (value.contains("json")) {
-            return JSON;
+            return Optional.of(JSON);
         }
         if (value.contains("xml")) {
-            return XML;
+            return Optional.of(XML);
         }
-        return null;
+        return Optional.empty();
     }
 
-    /** Determines the format from a file name, or {@code null} if the extension is neither {@code .json} nor {@code .xml}. */
-    public static ContentFormat fromFileName(String fileName) {
+    /** The format a file name's extension names; empty if it is neither {@code .json} nor {@code .xml}. */
+    @Nonnull
+    public static Optional<ContentFormat> fromFileName(@Nonnull String fileName) {
         String name = fileName.toLowerCase(Locale.ROOT);
         if (name.endsWith(".json")) {
-            return JSON;
+            return Optional.of(JSON);
         }
         if (name.endsWith(".xml")) {
-            return XML;
+            return Optional.of(XML);
         }
-        return null;
+        return Optional.empty();
     }
 
     /** Guesses the format from the content itself: JSON starts with '{' or '[', XML with '<'. */
-    public static ContentFormat sniff(String content) {
+    @Nonnull
+    public static ContentFormat sniff(@Nonnull String content) {
         for (int i = 0; i < content.length(); i++) {
             char c = content.charAt(i);
             if (Character.isWhitespace(c) || c == '﻿') {

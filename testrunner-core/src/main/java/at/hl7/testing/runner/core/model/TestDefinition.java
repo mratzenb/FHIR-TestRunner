@@ -1,5 +1,8 @@
 package at.hl7.testing.runner.core.model;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 import java.util.List;
 
 /**
@@ -9,7 +12,7 @@ import java.util.List;
  * @param description the description, or {@code null}
  * @param actions     the operations and assertions, in order
  */
-public record TestDefinition(String name, String description, List<Action> actions) {
+public record TestDefinition(@Nonnull String name, @Nullable String description, @Nonnull List<Action> actions) {
 
     public TestDefinition {
         actions = List.copyOf(actions);

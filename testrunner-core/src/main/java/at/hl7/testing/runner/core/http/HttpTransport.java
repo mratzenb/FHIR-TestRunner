@@ -1,5 +1,7 @@
 package at.hl7.testing.runner.core.http;
 
+import jakarta.annotation.Nonnull;
+
 import java.io.IOException;
 
 /** Sends a request and returns the response; the replaceable network layer below {@link FhirHttpClient}. */
@@ -9,5 +11,6 @@ public interface HttpTransport {
     /**
      * @throws IOException if no response was received
      */
-    FhirResponse send(FhirRequest request) throws IOException;
+    @Nonnull
+    FhirResponse send(@Nonnull FhirRequest request) throws IOException;
 }

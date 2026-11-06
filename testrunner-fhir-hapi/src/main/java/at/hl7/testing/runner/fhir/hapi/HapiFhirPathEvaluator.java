@@ -8,6 +8,7 @@ import ca.uhn.fhir.fhirpath.IFhirPath;
 import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.parser.LenientErrorHandler;
+import jakarta.annotation.Nonnull;
 import org.hl7.fhir.instance.model.api.IBase;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.instance.model.api.IPrimitiveType;
@@ -33,12 +34,13 @@ public final class HapiFhirPathEvaluator implements FhirPathEvaluator {
 
     private final FhirContext context;
 
-    public HapiFhirPathEvaluator(FhirContext context) {
+    public HapiFhirPathEvaluator(@Nonnull FhirContext context) {
         this.context = context;
     }
 
     @Override
-    public List<Object> evaluate(Body body, String expression) {
+    @Nonnull
+    public List<Object> evaluate(@Nonnull Body body, @Nonnull String expression) {
         IBaseResource resource = parse(body);
         IFhirPath fhirPath = context.newFhirPath();
         List<IBase> values;

@@ -1,6 +1,7 @@
 package at.hl7.testing.runner.core.report;
 
 import at.hl7.testing.runner.core.config.ReportingConfig;
+import jakarta.annotation.Nonnull;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -65,12 +66,14 @@ public final class HtmlReportWriter implements ReportWriter {
             """;
 
     @Override
+    @Nonnull
     public String format() {
         return ReportingConfig.HTML;
     }
 
     @Override
-    public Path write(RunResult result, Path runDirectory) throws IOException {
+    @Nonnull
+    public Path write(@Nonnull RunResult result, @Nonnull Path runDirectory) throws IOException {
         Path file = runDirectory.resolve(FILE);
         Files.writeString(file, html(result, runDirectory), StandardCharsets.UTF_8);
         return file;

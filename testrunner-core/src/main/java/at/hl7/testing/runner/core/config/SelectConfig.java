@@ -1,5 +1,8 @@
 package at.hl7.testing.runner.core.config;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,14 +17,17 @@ import java.util.List;
  * @param tests       patterns of the tests to run ({@code TestScript.test.name}); default all. Tests that are not
  *                    selected are neither run nor reported; a TestScript without a selected test is left out
  */
-public record SelectConfig(List<String> testScripts, List<String> tests) {
+public record SelectConfig(@Nonnull List<String> testScripts, @Nonnull List<String> tests) {
 
-    public SelectConfig {
+    public SelectConfig(@Nullable List<String> testScripts, @Nullable List<String> tests) {
         testScripts = testScripts == null ? List.of() : testScripts.stream().map(String::trim).toList();
         tests = tests == null ? List.of() : tests.stream().map(String::trim).toList();
+        this.testScripts = testScripts;
+        this.tests = tests;
     }
 
     /** Everything is selected. */
+    @Nonnull
     public static SelectConfig all() {
         return new SelectConfig(null, null);
     }
@@ -32,6 +38,7 @@ public record SelectConfig(List<String> testScripts, List<String> tests) {
     }
 
     /** The patterns for a log line, e.g. {@code TestScripts [*patient*], tests [read]}; empty if all are selected. */
+    @Nonnull
     public String describe() {
         List<String> parts = new ArrayList<>();
         if (!testScripts.isEmpty()) {

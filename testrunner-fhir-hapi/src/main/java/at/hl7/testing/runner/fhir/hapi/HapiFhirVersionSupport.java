@@ -11,6 +11,7 @@ import at.hl7.testing.runner.core.spi.TestScriptRead;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.parser.IParser;
+import jakarta.annotation.Nonnull;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 
 import java.util.ArrayList;
@@ -33,7 +34,8 @@ public abstract class HapiFhirVersionSupport implements FhirVersionSupport {
     private final HapiFhirPathEvaluator fhirPath;
     private final TestReportEncoder testReports;
 
-    protected HapiFhirVersionSupport(FhirVersion version, FhirContext context, TestScriptDialect dialect) {
+    protected HapiFhirVersionSupport(@Nonnull FhirVersion version, @Nonnull FhirContext context,
+                                     @Nonnull TestScriptDialect dialect) {
         this.version = version;
         this.context = ModelOnlyValidationSupport.install(context);
         this.dialect = dialect;
@@ -43,17 +45,20 @@ public abstract class HapiFhirVersionSupport implements FhirVersionSupport {
     }
 
     @Override
+    @Nonnull
     public final FhirVersion version() {
         return version;
     }
 
     @Override
-    public ReadCheck check(Body content) {
+    @Nonnull
+    public ReadCheck check(@Nonnull Body content) {
         return parse(content).check();
     }
 
     @Override
-    public TestScriptRead readTestScript(Body content) {
+    @Nonnull
+    public TestScriptRead readTestScript(@Nonnull Body content) {
         Parsed parsed = parse(content);
         if (!parsed.check().readable()) {
             throw new TestScriptFormatException("Not a valid FHIR " + version + " TestScript: "
@@ -63,12 +68,14 @@ public abstract class HapiFhirVersionSupport implements FhirVersionSupport {
     }
 
     @Override
+    @Nonnull
     public FhirPathEvaluator fhirPath() {
         return fhirPath;
     }
 
     @Override
-    public Body testReport(TestReportContent content) {
+    @Nonnull
+    public Body testReport(@Nonnull TestReportContent content) {
         return testReports.encode(content);
     }
 

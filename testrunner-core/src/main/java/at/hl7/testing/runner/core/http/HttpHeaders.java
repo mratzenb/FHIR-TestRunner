@@ -1,5 +1,7 @@
 package at.hl7.testing.runner.core.http;
 
+import jakarta.annotation.Nonnull;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,11 +18,13 @@ public final class HttpHeaders {
         this.fields = fields;
     }
 
+    @Nonnull
     public static HttpHeaders empty() {
         return new HttpHeaders(Map.of());
     }
 
-    public static HttpHeaders of(Map<String, List<String>> fields) {
+    @Nonnull
+    public static HttpHeaders of(@Nonnull Map<String, List<String>> fields) {
         Map<String, List<String>> copy = new LinkedHashMap<>();
         fields.forEach((name, values) -> {
             if (name != null && !name.startsWith(":")) { // skip HTTP/2 pseudo headers
@@ -32,12 +36,14 @@ public final class HttpHeaders {
     }
 
     /** The first value of a field, compared case-insensitively. */
-    public Optional<String> first(String name) {
+    @Nonnull
+    public Optional<String> first(@Nonnull String name) {
         return all(name).stream().findFirst();
     }
 
     /** All values of a field, compared case-insensitively. */
-    public List<String> all(String name) {
+    @Nonnull
+    public List<String> all(@Nonnull String name) {
         List<String> values = new ArrayList<>();
         fields.forEach((field, v) -> {
             if (field.equalsIgnoreCase(name)) {
@@ -48,12 +54,14 @@ public final class HttpHeaders {
     }
 
     /** All fields in the order received. */
+    @Nonnull
     public Map<String, List<String>> asMap() {
         return fields;
     }
 
     /** A copy with {@code name} set to {@code value}, replacing other values of that field. */
-    public HttpHeaders with(String name, String value) {
+    @Nonnull
+    public HttpHeaders with(@Nonnull String name, @Nonnull String value) {
         Map<String, List<String>> copy = new LinkedHashMap<>();
         fields.forEach((field, v) -> {
             if (!field.equalsIgnoreCase(name)) {
@@ -64,7 +72,7 @@ public final class HttpHeaders {
         return of(copy);
     }
 
-    public boolean contains(String name) {
+    public boolean contains(@Nonnull String name) {
         return fields.keySet().stream().anyMatch(field -> field.toLowerCase(Locale.ROOT).equals(name.toLowerCase(Locale.ROOT)));
     }
 }

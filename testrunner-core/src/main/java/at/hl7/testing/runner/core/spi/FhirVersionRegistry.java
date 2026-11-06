@@ -2,6 +2,7 @@ package at.hl7.testing.runner.core.spi;
 
 import at.hl7.testing.runner.core.model.Body;
 import at.hl7.testing.runner.core.model.FhirVersion;
+import jakarta.annotation.Nonnull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -17,7 +18,7 @@ public final class FhirVersionRegistry {
 
     private final Map<FhirVersion, FhirVersionSupport> supports;
 
-    public FhirVersionRegistry(Collection<? extends FhirVersionSupport> supports) {
+    public FhirVersionRegistry(@Nonnull Collection<? extends FhirVersionSupport> supports) {
         Map<FhirVersion, FhirVersionSupport> byVersion = new EnumMap<>(FhirVersion.class);
         for (FhirVersionSupport support : supports) {
             FhirVersionSupport previous = byVersion.putIfAbsent(support.version(), support);
@@ -30,17 +31,20 @@ public final class FhirVersionRegistry {
     }
 
     /** The modules registered with {@link ServiceLoader}. */
+    @Nonnull
     public static FhirVersionRegistry fromServiceLoader() {
         List<FhirVersionSupport> found = new ArrayList<>();
         ServiceLoader.load(FhirVersionSupport.class).forEach(found::add);
         return new FhirVersionRegistry(found);
     }
 
+    @Nonnull
     public Set<FhirVersion> versions() {
         return supports.keySet();
     }
 
-    public Optional<FhirVersionSupport> get(FhirVersion version) {
+    @Nonnull
+    public Optional<FhirVersionSupport> get(@Nonnull FhirVersion version) {
         return Optional.ofNullable(supports.get(version));
     }
 
@@ -54,7 +58,8 @@ public final class FhirVersionRegistry {
      *
      * @return the version and the check of the content against it, empty if no version can read the content
      */
-    public Optional<Detection> detect(Body content) {
+    @Nonnull
+    public Optional<Detection> detect(@Nonnull Body content) {
         Detection best = null;
         for (FhirVersion version : FhirVersion.values()) {
             FhirVersionSupport support = supports.get(version);
@@ -70,13 +75,14 @@ public final class FhirVersionRegistry {
     }
 
     /** The checks of {@code content} against every available version, for error messages. */
-    public Map<FhirVersion, ReadCheck> checkAll(Body content) {
+    @Nonnull
+    public Map<FhirVersion, ReadCheck> checkAll(@Nonnull Body content) {
         Map<FhirVersion, ReadCheck> checks = new EnumMap<>(FhirVersion.class);
         supports.forEach((version, support) -> checks.put(version, support.check(content)));
         return checks;
     }
 
     /** The version detected for a TestScript and how well the TestScript fits it. */
-    public record Detection(FhirVersionSupport support, ReadCheck check) {
+    public record Detection(@Nonnull FhirVersionSupport support, @Nonnull ReadCheck check) {
     }
 }

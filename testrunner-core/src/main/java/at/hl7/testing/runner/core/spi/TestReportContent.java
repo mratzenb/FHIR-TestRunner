@@ -1,5 +1,8 @@
 package at.hl7.testing.runner.core.spi;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -22,9 +25,11 @@ import java.util.List;
  * @param tests      the tests
  * @param teardown   the teardown actions, empty if there are none
  */
-public record TestReportContent(String id, String identifier, String name, String testScript, String result,
-                                BigDecimal score, String tester, Instant issued, String server, List<Action> setup,
-                                List<Test> tests, List<Action> teardown) {
+public record TestReportContent(@Nonnull String id, @Nonnull String identifier, @Nonnull String name,
+                                @Nonnull String testScript, @Nonnull String result, @Nullable BigDecimal score,
+                                @Nonnull String tester, @Nonnull Instant issued, @Nullable String server,
+                                @Nonnull List<Action> setup, @Nonnull List<Test> tests,
+                                @Nonnull List<Action> teardown) {
 
     public TestReportContent {
         setup = List.copyOf(setup);
@@ -38,7 +43,7 @@ public record TestReportContent(String id, String identifier, String name, Strin
      * @param name    the name
      * @param actions the actions, at least one
      */
-    public record Test(String name, List<Action> actions) {
+    public record Test(@Nonnull String name, @Nonnull List<Action> actions) {
 
         public Test {
             actions = List.copyOf(actions);
@@ -54,6 +59,6 @@ public record TestReportContent(String id, String identifier, String name, Strin
      * @param detail    where to find more: the communication log folder of the request, relative to the run folder,
      *                  or the request id; {@code null} if no request is involved
      */
-    public record Action(boolean assertion, String result, String message, String detail) {
+    public record Action(boolean assertion, @Nonnull String result, @Nonnull String message, @Nullable String detail) {
     }
 }

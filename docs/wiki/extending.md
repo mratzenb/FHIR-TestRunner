@@ -7,8 +7,9 @@ also update the reference document, the ADR and the matching skill in `.claude/s
 
 ## Add a configuration property
 
-1. Add a component to the right record in `core.config` (e.g. `ExecutionConfig`).
-2. Set its default in the compact constructor.
+1. Add a component to the right record in `core.config` (e.g. `ExecutionConfig`), annotated `@Nonnull` if it gets a
+   default, `@Nullable` if "not set" stays `null`.
+2. Add it to the canonical constructor: a `@Nullable` parameter, its default, and `this.<name> = <name>;`.
 3. If a value can be invalid, add a check to `RunConfiguration.problems()`.
 4. Add it to the reference in [configuration.md](../configuration.md#reference).
 
@@ -153,5 +154,7 @@ See [test-support](modules/testrunner-test-support.md#adding-a-double).
 ## Checklist before you push
 
 * `mvn verify` is green. A compiler warning already fails it.
-* `ArchitectureTest` still passes – no Spring or HAPI in the core.
+* `ArchitectureTest` still passes – no Spring or HAPI in the core, and every public method, constructor and record
+  component says with `@Nonnull` or `@Nullable` (jakarta.annotation) where `null` is allowed. Return an `Optional`
+  rather than a nullable value ([ADR-0017](../adr/0017-nullness.md)).
 * The reference doc, the ADR (if a decision changed) and the skill are updated.

@@ -1,5 +1,8 @@
 package at.hl7.testing.runner.core.model;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 /** The operators of an assertion ({@code assert.operator}). */
 public enum Operator {
     EQUALS("equals"),
@@ -23,12 +26,14 @@ public enum Operator {
     }
 
     /** The code as written in a TestScript, e.g. {@code notEquals}. */
+    @Nonnull
     public String code() {
         return code;
     }
 
     /** The operator for a code such as {@code notEquals}; {@code null} for {@code null}. */
-    public static Operator fromCode(String code) {
+    @Nullable
+    public static Operator fromCode(@Nullable String code) {
         if (code == null) {
             return null;
         }

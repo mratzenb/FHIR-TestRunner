@@ -1,6 +1,7 @@
 package at.hl7.testing.runner.core.report;
 
 import at.hl7.testing.runner.core.config.ReportingConfig;
+import jakarta.annotation.Nonnull;
 
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
@@ -21,12 +22,14 @@ import java.util.Locale;
 public final class JUnitXmlReportWriter implements ReportWriter {
 
     @Override
+    @Nonnull
     public String format() {
         return ReportingConfig.JUNIT;
     }
 
     @Override
-    public Path write(RunResult result, Path runDirectory) throws IOException {
+    @Nonnull
+    public Path write(@Nonnull RunResult result, @Nonnull Path runDirectory) throws IOException {
         Path file = runDirectory.resolve("junit.xml");
         try (OutputStream out = Files.newOutputStream(file)) {
             XMLStreamWriter xml = XMLOutputFactory.newInstance().createXMLStreamWriter(out, "UTF-8");

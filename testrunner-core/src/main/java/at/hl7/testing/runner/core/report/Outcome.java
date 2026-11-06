@@ -1,5 +1,7 @@
 package at.hl7.testing.runner.core.report;
 
+import jakarta.annotation.Nonnull;
+
 /**
  * The result of a phase, a TestScript or a run.
  *
@@ -16,7 +18,8 @@ public enum Outcome {
     PASS, SKIP, FAIL, ERROR;
 
     /** The more severe of the two. */
-    public Outcome and(Outcome other) {
+    @Nonnull
+    public Outcome and(@Nonnull Outcome other) {
         return other.ordinal() > ordinal() ? other : this;
     }
 }

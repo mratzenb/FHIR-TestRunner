@@ -4,6 +4,7 @@ import at.hl7.testing.runner.core.config.ReportingConfig;
 import at.hl7.testing.runner.core.spi.FhirVersionRegistry;
 import at.hl7.testing.runner.core.spi.FhirVersionSupport;
 import at.hl7.testing.runner.core.spi.TestReportContent;
+import jakarta.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,18 +49,20 @@ public final class TestReportWriter implements ReportWriter {
 
     private final FhirVersionRegistry versions;
 
-    public TestReportWriter(FhirVersionRegistry versions) {
+    public TestReportWriter(@Nonnull FhirVersionRegistry versions) {
         this.versions = versions;
     }
 
     @Override
+    @Nonnull
     public String format() {
         return ReportingConfig.TESTREPORT;
     }
 
     /** @return the folder of the TestReports */
     @Override
-    public Path write(RunResult result, Path runDirectory) throws IOException {
+    @Nonnull
+    public Path write(@Nonnull RunResult result, @Nonnull Path runDirectory) throws IOException {
         Path folder = runDirectory.resolve(FOLDER);
         Files.createDirectories(folder);
         Map<String, String> exchanges = ExchangeFolders.of(runDirectory);

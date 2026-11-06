@@ -39,21 +39,22 @@ final class ExecutionFactory {
      * The environment of a TestScript that is sent to {@code server}.
      *
      * @param label    {@code <NN>_<file base name>}, the name of its folder in the communication log
+     * @param base     the base URL of {@code server}
      * @param builtIn  the values of {@code ${testrunner.…}}, see {@link #builtInValues}
      * @param warnings what the checks before sending found worth a warning
      * @param deadline when the execution must stop
      */
-    ExecutionEnvironment create(RunContext run, String label, SuiteConfig suite, FhirServerConfig server,
+    ExecutionEnvironment create(RunContext run, String label, SuiteConfig suite, FhirServerConfig server, String base,
                                 CapabilityCheck capabilities, Map<String, String> builtIn, List<String> warnings,
                                 Deadline deadline) {
         CommunicationLog communication = (run.configuration().reporting().communicationLog()
-                ? CommunicationLog.toFolder(run.communicationDirectory(), label, server.base())
+                ? CommunicationLog.toFolder(run.communicationDirectory(), label, base)
                 : CommunicationLog.none()).redacting(run.configuration().reporting().redactHeaders());
         HttpHeaders defaultHeaders = HttpHeaders.of(server.headers().entrySet().stream()
                 .collect(LinkedHashMap::new, (m, e) -> m.put(e.getKey(), List.of(e.getValue())), Map::putAll));
         FhirHttpClient http = new FhirHttpClient(transport, run.requestCounter(), communication, defaultHeaders,
                 server.oauth2() == null ? null : run.accessTokens(server.oauth2(), transport, clock));
-        return new ExecutionEnvironment(http, server.base(), validator, suite.resolvedProfilesDir(), suite.igs(),
+        return new ExecutionEnvironment(http, base, validator, suite.resolvedProfilesDir(), suite.igs(),
                 capabilities, builtIn, run.configuration().execution().rewriteReferences(), warnings, deadline);
     }
 

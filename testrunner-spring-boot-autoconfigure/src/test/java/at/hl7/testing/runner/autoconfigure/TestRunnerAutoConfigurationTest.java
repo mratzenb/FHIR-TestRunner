@@ -66,7 +66,7 @@ class TestRunnerAutoConfigurationTest {
                 "testrunner.select.tests[0]=read-*")
                 .run(context -> {
                     RunConfiguration config = context.getBean(RunConfiguration.class);
-                    assertThat(config.fhirServer().base()).isEqualTo("http://server/fhir");
+                    assertThat(config.fhirServer().base()).contains("http://server/fhir");
                     assertThat(config.fhirServer().headers()).containsEntry("Authorization", "Bearer x");
                     assertThat(config.suites()).hasSize(3);
                     assertThat(config.suites().get(2).packageId()).isEqualTo("hl7.at.fhir.core.r4#dev");
@@ -80,7 +80,7 @@ class TestRunnerAutoConfigurationTest {
                     assertThat(config.suites().get(1).igs()).isEmpty();
                     assertThat(config.suites().getFirst().parallel()).as("default").isTrue();
                     assertThat(config.suites().get(1).parallel()).isFalse();
-                    assertThat(config.fhirServerOf(config.suites().get(1)).base()).isEqualTo("http://r5/fhir");
+                    assertThat(config.fhirServerOf(config.suites().get(1)).base()).contains("http://r5/fhir");
                     assertThat(config.fhirServerOf(config.suites().get(1)).oauth2()).isEqualTo(new OAuth2Config(
                             java.net.URI.create("https://auth.example/token"), "runner", "secret", null,
                             OAuth2Config.ClientAuthentication.POST));

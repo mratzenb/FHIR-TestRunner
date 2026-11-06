@@ -203,7 +203,7 @@ final class ActionRules {
         if (operation.method() != null) {
             return operation.method();
         }
-        return operation.type() == null ? null : operation.type().defaultMethod();
+        return operation.type() == null ? null : operation.type().defaultMethod().orElse(null);
     }
 
     /** Whether an operation of this type sends without {@code sourceId}: its parameters are in the URL. */

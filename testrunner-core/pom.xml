@@ -28,6 +28,11 @@
             <groupId>com.jayway.jsonpath</groupId>
             <artifactId>json-path</artifactId>
         </dependency>
+        <!-- @Nonnull and @Nullable on the public API (ADR-0017); version from the Spring Boot BOM, no runtime use -->
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>${project.groupId}</groupId>

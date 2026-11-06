@@ -1,6 +1,7 @@
 package at.hl7.testing.runner.core.http;
 
 import at.hl7.testing.runner.core.config.HttpConfig;
+import jakarta.annotation.Nonnull;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
@@ -20,7 +21,7 @@ public final class JdkHttpTransport implements HttpTransport, AutoCloseable {
     private final HttpClient client;
     private final HttpConfig config;
 
-    public JdkHttpTransport(HttpConfig config) {
+    public JdkHttpTransport(@Nonnull HttpConfig config) {
         this.config = config;
         this.client = HttpClient.newBuilder()
                 .connectTimeout(config.connectTimeout())
@@ -29,7 +30,8 @@ public final class JdkHttpTransport implements HttpTransport, AutoCloseable {
     }
 
     @Override
-    public FhirResponse send(FhirRequest request) throws IOException {
+    @Nonnull
+    public FhirResponse send(@Nonnull FhirRequest request) throws IOException {
         HttpRequest.BodyPublisher body = request.body() == null
                 ? HttpRequest.BodyPublishers.noBody()
                 : HttpRequest.BodyPublishers.ofByteArray(request.body().bytes());

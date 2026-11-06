@@ -1,6 +1,8 @@
 package at.hl7.testing.runner.core.config;
 
 import at.hl7.testing.runner.core.model.FhirVersion;
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -23,13 +25,17 @@ import java.util.Set;
  * @param packages   where suites read from FHIR packages come from
  * @param select     which of the TestScripts and tests of the suites run; default all
  */
-public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> suites, HttpConfig http,
-                               ExecutionConfig execution, ValidationConfig validation, ReportingConfig reporting,
-                               PackagesConfig packages, SelectConfig select) {
+public record RunConfiguration(@Nonnull FhirServerConfig fhirServer, @Nonnull List<SuiteConfig> suites,
+                               @Nonnull HttpConfig http, @Nonnull ExecutionConfig execution,
+                               @Nonnull ValidationConfig validation, @Nonnull ReportingConfig reporting,
+                               @Nonnull PackagesConfig packages, @Nonnull SelectConfig select) {
 
     private static final Set<String> LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR");
 
-    public RunConfiguration {
+    public RunConfiguration(@Nullable FhirServerConfig fhirServer, @Nullable List<SuiteConfig> suites,
+                            @Nullable HttpConfig http, @Nullable ExecutionConfig execution,
+                            @Nullable ValidationConfig validation, @Nullable ReportingConfig reporting,
+                            @Nullable PackagesConfig packages, @Nullable SelectConfig select) {
         fhirServer = fhirServer == null ? new FhirServerConfig(null, null, null) : fhirServer;
         suites = suites == null ? List.of() : List.copyOf(suites);
         http = http == null ? HttpConfig.defaults() : http;
@@ -38,20 +44,31 @@ public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> su
         reporting = reporting == null ? ReportingConfig.defaults() : reporting;
         packages = packages == null ? PackagesConfig.defaults() : packages;
         select = select == null ? SelectConfig.all() : select;
+        this.fhirServer = fhirServer;
+        this.suites = suites;
+        this.http = http;
+        this.execution = execution;
+        this.validation = validation;
+        this.reporting = reporting;
+        this.packages = packages;
+        this.select = select;
     }
 
     /** A copy with other suites, e.g. those of packages resolved to folders. */
-    public RunConfiguration withSuites(List<SuiteConfig> newSuites) {
+    @Nonnull
+    public RunConfiguration withSuites(@Nonnull List<SuiteConfig> newSuites) {
         return new RunConfiguration(fhirServer, newSuites, http, execution, validation, reporting, packages, select);
     }
 
     /** A copy that runs only the TestScripts and tests {@code newSelect} selects. */
-    public RunConfiguration withSelect(SelectConfig newSelect) {
+    @Nonnull
+    public RunConfiguration withSelect(@Nonnull SelectConfig newSelect) {
         return new RunConfiguration(fhirServer, suites, http, execution, validation, reporting, packages, newSelect);
     }
 
     /** The FHIR server of a suite: its own if configured, otherwise the one of the run. */
-    public FhirServerConfig fhirServerOf(SuiteConfig suite) {
+    @Nonnull
+    public FhirServerConfig fhirServerOf(@Nonnull SuiteConfig suite) {
         return suite.fhirServer() != null && suite.fhirServer().baseUrl() != null ? suite.fhirServer() : fhirServer;
     }
 
@@ -60,6 +77,7 @@ public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> su
      *
      * @return a description of each problem, empty if the configuration is usable
      */
+    @Nonnull
     public List<String> problems() {
         List<String> problems = new ArrayList<>();
         if (suites.isEmpty()) {
@@ -118,14 +136,16 @@ public record RunConfiguration(FhirServerConfig fhirServer, List<SuiteConfig> su
     }
 
     /** The report formats that no writer in {@code available} produces. */
-    public List<String> unknownFormats(Set<String> available) {
+    @Nonnull
+    public List<String> unknownFormats(@Nonnull Set<String> available) {
         return reporting.formats().stream().filter(f -> !available.contains(f))
                 .map(f -> "testrunner.reporting.formats: unknown format '" + f + "', available: " + available)
                 .toList();
     }
 
     /** Whether the FHIR versions of the configured suites are all supported by {@code supported}. */
-    public List<String> unsupportedVersions(Set<FhirVersion> supported) {
+    @Nonnull
+    public List<String> unsupportedVersions(@Nonnull Set<FhirVersion> supported) {
         List<String> problems = new ArrayList<>();
         for (SuiteConfig suite : suites) {
             try {

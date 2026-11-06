@@ -4,6 +4,8 @@ import ca.uhn.fhir.context.BaseRuntimeChildDefinition;
 import ca.uhn.fhir.context.BaseRuntimeElementCompositeDefinition;
 import ca.uhn.fhir.context.BaseRuntimeElementDefinition;
 import ca.uhn.fhir.context.FhirContext;
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import org.hl7.fhir.instance.model.api.IBase;
 import org.hl7.fhir.instance.model.api.IBaseElement;
 import org.hl7.fhir.instance.model.api.IBaseResource;
@@ -33,12 +35,14 @@ public final class ElementView {
     }
 
     /** A view of a resource. */
-    public static ElementView of(FhirContext context, IBaseResource resource) {
+    @Nonnull
+    public static ElementView of(@Nonnull FhirContext context, @Nonnull IBaseResource resource) {
         return new ElementView(context, context.getResourceDefinition(resource), resource);
     }
 
     /** All values of a child element; empty if there are none or the element does not exist in this version. */
-    public List<ElementView> children(String name) {
+    @Nonnull
+    public List<ElementView> children(@Nonnull String name) {
         if (!(definition instanceof BaseRuntimeElementCompositeDefinition<?> composite)) {
             return List.of();
         }
@@ -58,17 +62,19 @@ public final class ElementView {
     }
 
     /** The first value of a child element. */
-    public Optional<ElementView> child(String name) {
+    @Nonnull
+    public Optional<ElementView> child(@Nonnull String name) {
         return children(name).stream().findFirst();
     }
 
     /** The value of a primitive child as text, {@code null} if absent. */
-    public String string(String name) {
+    @Nullable
+    public String string(@Nonnull String name) {
         return child(name).map(ElementView::primitiveValue).orElse(null);
     }
 
     /** The value of a boolean child, {@code defaultValue} if absent. */
-    public boolean bool(String name, boolean defaultValue) {
+    public boolean bool(@Nonnull String name, boolean defaultValue) {
         String value = string(name);
         return value == null ? defaultValue : Boolean.parseBoolean(value);
     }
@@ -79,6 +85,7 @@ public final class ElementView {
     }
 
     /** The value of this primitive as text, {@code null} if it is no primitive or has no value. */
+    @Nullable
     public String primitiveValue() {
         return element instanceof IPrimitiveType<?> primitive ? primitive.getValueAsString() : null;
     }
@@ -87,11 +94,13 @@ public final class ElementView {
      * The element id ({@code "id"} of a backbone or data type element, or {@code _name.id} of a primitive), which
      * TestScripts use to name fixtures and profiles.
      */
+    @Nullable
     public String elementId() {
         return element instanceof IBaseElement e ? e.getId() : null;
     }
 
     /** The FHIR type name of this element, e.g. {@code Reference} or {@code canonical}. */
+    @Nonnull
     public String typeName() {
         return definition.getName();
     }

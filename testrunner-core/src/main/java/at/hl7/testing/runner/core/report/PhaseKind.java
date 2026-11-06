@@ -1,5 +1,7 @@
 package at.hl7.testing.runner.core.report;
 
+import jakarta.annotation.Nonnull;
+
 /** The parts of a TestScript execution reported on their own. */
 public enum PhaseKind {
     /** Loading and checking the TestScript before anything is sent to the server. */
@@ -14,6 +16,7 @@ public enum PhaseKind {
         this.label = label;
     }
 
+    @Nonnull
     public String label() {
         return label;
     }

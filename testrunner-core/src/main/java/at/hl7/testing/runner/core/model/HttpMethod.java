@@ -1,5 +1,7 @@
 package at.hl7.testing.runner.core.model;
 
+import jakarta.annotation.Nonnull;
+
 import java.util.Locale;
 
 /** The HTTP methods a TestScript operation can use ({@code TestScript...operation.method}). */
@@ -7,7 +9,8 @@ public enum HttpMethod {
     GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS;
 
     /** Reads a method code such as {@code get} or {@code POST}. */
-    public static HttpMethod parse(String code) {
+    @Nonnull
+    public static HttpMethod parse(@Nonnull String code) {
         try {
             return valueOf(code.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {

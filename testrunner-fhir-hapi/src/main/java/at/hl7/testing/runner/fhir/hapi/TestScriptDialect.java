@@ -1,5 +1,7 @@
 package at.hl7.testing.runner.fhir.hapi;
 
+import jakarta.annotation.Nonnull;
+
 import java.util.List;
 
 /**
@@ -18,7 +20,7 @@ public interface TestScriptDialect {
      * @param testScript the TestScript
      * @param warnings   receives content that does not fit this version
      */
-    default void check(ElementView testScript, List<String> warnings) {
+    default void check(@Nonnull ElementView testScript, @Nonnull List<String> warnings) {
     }
 
     /**

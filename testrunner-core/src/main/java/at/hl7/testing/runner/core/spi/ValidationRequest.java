@@ -2,6 +2,8 @@ package at.hl7.testing.runner.core.spi;
 
 import at.hl7.testing.runner.core.model.Body;
 import at.hl7.testing.runner.core.model.FhirVersion;
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -16,8 +18,8 @@ import java.util.List;
  * @param igs         further IGs the profile depends on: package ids, folders or files (the suite's {@code igs});
  *                    {@code null} for none
  */
-public record ValidationRequest(Body resource, FhirVersion fhirVersion, String profile, Path profilesDir,
-                                List<String> igs) {
+public record ValidationRequest(@Nonnull Body resource, @Nonnull FhirVersion fhirVersion, @Nullable String profile,
+                                @Nullable Path profilesDir, @Nonnull List<String> igs) {
 
     public ValidationRequest {
         igs = igs == null ? List.of() : List.copyOf(igs);

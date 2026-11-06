@@ -24,6 +24,8 @@ import at.hl7.testing.runner.core.spi.TestScriptFormatException;
 import at.hl7.testing.runner.core.spi.ValidationRequest;
 import at.hl7.testing.runner.core.spi.ValidationResult;
 import at.hl7.testing.runner.core.spi.ValidatorUnavailableException;
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -37,6 +39,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -77,17 +80,19 @@ public final class TestRunner {
     private final ExecutionFactory executions;
     private final ReportPublisher reports;
 
-    public TestRunner(FhirVersionRegistry versions, HttpTransport transport, ProfileValidator validator,
-                      List<ReportWriter> reportWriters, List<RunListener> listeners, Clock clock) {
+    public TestRunner(@Nonnull FhirVersionRegistry versions, @Nonnull HttpTransport transport,
+                      @Nonnull ProfileValidator validator, @Nonnull List<ReportWriter> reportWriters,
+                      @Nonnull List<RunListener> listeners, @Nonnull Clock clock) {
         this(versions, transport, validator, reportWriters, listeners, clock, c -> new PackageSuites(c.packages()));
     }
 
     /**
      * @param packages resolves the suites read from FHIR packages, given the configuration of the run
      */
-    public TestRunner(FhirVersionRegistry versions, HttpTransport transport, ProfileValidator validator,
-                      List<ReportWriter> reportWriters, List<RunListener> listeners, Clock clock,
-                      Function<RunConfiguration, PackageSuites> packages) {
+    public TestRunner(@Nonnull FhirVersionRegistry versions, @Nonnull HttpTransport transport,
+                      @Nonnull ProfileValidator validator, @Nonnull List<ReportWriter> reportWriters,
+                      @Nonnull List<RunListener> listeners, @Nonnull Clock clock,
+                      @Nonnull Function<RunConfiguration, PackageSuites> packages) {
         this.versions = versions;
         this.validator = validator;
         this.listeners = List.copyOf(listeners);
@@ -103,7 +108,8 @@ public final class TestRunner {
      * @throws ConfigurationException if the configuration cannot be used, e.g. a package of a suite cannot be found;
      *                                nothing is run then
      */
-    public RunResult run(RunConfiguration configuration) {
+    @Nonnull
+    public RunResult run(@Nonnull RunConfiguration configuration) {
         return run(configuration, new RunControl());
     }
 
@@ -118,7 +124,8 @@ public final class TestRunner {
      * @param control controls this run only; a new one is needed for every run
      * @throws ConfigurationException if the configuration cannot be used; nothing is run then
      */
-    public RunResult run(RunConfiguration configuration, RunControl control) {
+    @Nonnull
+    public RunResult run(@Nonnull RunConfiguration configuration, @Nonnull RunControl control) {
         try {
             return start(configuration, control, Mode.RUN);
         } finally {
@@ -137,7 +144,8 @@ public final class TestRunner {
      *
      * @throws ConfigurationException if the configuration cannot be used; nothing is checked then
      */
-    public RunResult check(RunConfiguration configuration) {
+    @Nonnull
+    public RunResult check(@Nonnull RunConfiguration configuration) {
         return check(configuration, new RunControl());
     }
 
@@ -147,7 +155,8 @@ public final class TestRunner {
      *
      * @param control controls this check only; a new one is needed for every call
      */
-    public RunResult check(RunConfiguration configuration, RunControl control) {
+    @Nonnull
+    public RunResult check(@Nonnull RunConfiguration configuration, @Nonnull RunControl control) {
         try {
             return start(configuration, control, Mode.CHECK);
         } finally {
@@ -165,7 +174,8 @@ public final class TestRunner {
      *
      * @throws ConfigurationException if the configuration cannot be used
      */
-    public List<Listed> list(RunConfiguration configuration) {
+    @Nonnull
+    public List<Listed> list(@Nonnull RunConfiguration configuration) {
         RunConfiguration resolved = resolve(configuration, false);
         Selection selection = new Selection(resolved.select());
         List<Listed> listed = new ArrayList<>();
@@ -206,8 +216,9 @@ public final class TestRunner {
      * @param testCount   how many tests the TestScript has, selected or not
      * @param problem     why the file cannot be read, {@code null} if it can; the run reports it as {@code error}
      */
-    public record Listed(int index, String suite, Path file, FhirVersion fhirVersion, String name,
-                         String url, List<String> tests, int testCount, String problem) {
+    public record Listed(int index, @Nonnull String suite, @Nonnull Path file, @Nullable FhirVersion fhirVersion,
+                         @Nullable String name, @Nullable String url, @Nonnull List<String> tests, int testCount,
+                         @Nullable String problem) {
 
         public Listed {
             tests = List.copyOf(tests);
@@ -401,7 +412,7 @@ public final class TestRunner {
                 result = execute(run, control, mode, index, label, loaded, leftOut, started, capabilities);
             } catch (TestScriptFormatException | ValidatorUnavailableException e) {
                 log.error("TestScript {} could not be loaded: {}", source.file().getFileName(), e.getMessage());
-                var version = e instanceof TestScriptFormatException format ? format.fhirVersion() : null;
+                var version = e instanceof TestScriptFormatException format ? format.fhirVersion().orElse(null) : null;
                 result = new TestScriptResult(index, source.suite().name(), source.baseName(), source.file().toString(),
                         source.file(), version, null, started, Duration.between(started, clock.instant()),
                         List.of(PhaseResult.error(PhaseKind.LOAD, "Load", Duration.between(started, clock.instant()),
@@ -483,7 +494,8 @@ public final class TestRunner {
         }
 
         FhirServerConfig server = run.configuration().fhirServerOf(suite);
-        if (server.base() == null) {
+        Optional<String> base = server.base();
+        if (base.isEmpty()) {
             log.warn("TestScript '{}' skipped: no FHIR server configured", testScript.displayName());
             List<PhaseResult> phases = new ArrayList<>();
             phases.add(PhaseResult.skipped(PhaseKind.SETUP, "Setup", 0, "Skipped: no FHIR server configured"));
@@ -499,9 +511,10 @@ public final class TestRunner {
         Deadline deadline = new Deadline(control, clock, testScriptTimeout == null ? null : started.plus(testScriptTimeout),
                 "the TestScript timeout of " + (testScriptTimeout == null ? "" : RunControl.describe(testScriptTimeout))
                         + " has passed");
-        List<PhaseResult> phases = new TestScriptExecution(loaded,
-                executions.create(run, label, suite, server, capabilities, builtIn, warnings, deadline)).run();
-        return result(index, loaded, server.base(), started, phases);
+        ExecutionEnvironment environment = executions.create(run, label, suite, server, base.get(), capabilities,
+                builtIn, warnings, deadline);
+        List<PhaseResult> phases = new TestScriptExecution(loaded, environment).run();
+        return result(index, loaded, base.get(), started, phases);
     }
 
     /**
@@ -564,8 +577,7 @@ public final class TestRunner {
             log.info("  Mode:               check - the TestScripts are loaded and checked, nothing is sent");
         }
         if (mode == Mode.RUN) {
-            log.info("  FHIR server:        {}", c.fhirServer().base() == null ? "- (TestScripts will be skipped)"
-                    : c.fhirServer().base());
+            log.info("  FHIR server:        {}", c.fhirServer().base().orElse("- (TestScripts will be skipped)"));
         }
         if (c.fhirServer().oauth2() != null) {
             log.info("  OAuth2:             client {} at {}", c.fhirServer().oauth2().clientId(),

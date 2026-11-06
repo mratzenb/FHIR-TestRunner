@@ -1,5 +1,8 @@
 package at.hl7.testing.runner.core.model;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 /**
  * A variable declared by a TestScript ({@code TestScript.variable}). Variables are evaluated each time a
  * {@code ${name}} placeholder is replaced, so they always reflect the latest responses.
@@ -14,6 +17,7 @@ package at.hl7.testing.runner.core.model;
  * @param sourceId     fixture or response the variable is evaluated against; the last response if absent
  * @param hint         description for a human tester
  */
-public record VariableDefinition(String name, String defaultValue, String expression, String path,
-                                 String headerField, String sourceId, String hint) {
+public record VariableDefinition(@Nonnull String name, @Nullable String defaultValue, @Nullable String expression,
+                                 @Nullable String path, @Nullable String headerField, @Nullable String sourceId,
+                                 @Nullable String hint) {
 }

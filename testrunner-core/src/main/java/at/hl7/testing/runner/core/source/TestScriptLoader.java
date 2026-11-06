@@ -3,7 +3,6 @@ package at.hl7.testing.runner.core.source;
 import at.hl7.testing.runner.core.content.ResourceContent;
 import at.hl7.testing.runner.core.model.Body;
 import at.hl7.testing.runner.core.model.CapabilityRequirement;
-import at.hl7.testing.runner.core.model.ContentFormat;
 import at.hl7.testing.runner.core.model.FhirVersion;
 import at.hl7.testing.runner.core.model.FixtureDefinition;
 import at.hl7.testing.runner.core.model.TestScript;
@@ -15,8 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -93,9 +90,7 @@ public final class TestScriptLoader {
 
     private static Body read(TestScriptSource source) {
         try {
-            String text = Files.readString(source.file(), StandardCharsets.UTF_8);
-            ContentFormat format = ContentFormat.fromFileName(source.file().getFileName().toString());
-            return new Body(text, format != null ? format : ContentFormat.sniff(text));
+            return Body.ofFile(source.file());
         } catch (IOException e) {
             throw new TestScriptFormatException("Could not read " + source.file() + ": " + e.getMessage(), e);
         }

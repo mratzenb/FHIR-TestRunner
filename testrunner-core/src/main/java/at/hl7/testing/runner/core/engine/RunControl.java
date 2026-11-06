@@ -1,5 +1,7 @@
 package at.hl7.testing.runner.core.engine;
 
+import jakarta.annotation.Nonnull;
+
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -40,7 +42,7 @@ public final class RunControl {
      *
      * @param reason why, for the log and the reports, e.g. {@code the runner was stopped (Ctrl-C)}
      */
-    public void cancel(String reason) {
+    public void cancel(@Nonnull String reason) {
         abort.compareAndSet(null, reason);
     }
 
@@ -59,7 +61,7 @@ public final class RunControl {
      *
      * @return whether it has, {@code false} if the time ran out first
      */
-    public boolean awaitFinished(Duration timeout) throws InterruptedException {
+    public boolean awaitFinished(@Nonnull Duration timeout) throws InterruptedException {
         return finished.await(timeout.toMillis(), TimeUnit.MILLISECONDS);
     }
 
@@ -138,7 +140,8 @@ public final class RunControl {
     }
 
     /** A duration as in the configuration, e.g. {@code 1m30s} or {@code 0.2s}. */
-    public static String describe(Duration duration) {
+    @Nonnull
+    public static String describe(@Nonnull Duration duration) {
         return duration.toString().substring(2).toLowerCase(Locale.ROOT);
     }
 }

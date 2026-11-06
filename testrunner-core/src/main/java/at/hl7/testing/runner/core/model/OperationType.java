@@ -1,6 +1,10 @@
 package at.hl7.testing.runner.core.model;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * The kind of a TestScript operation ({@code operation.type.code}).
@@ -13,7 +17,8 @@ public enum OperationType {
     READ, VREAD, UPDATE, PATCH, DELETE, HISTORY, CREATE, SEARCH, CAPABILITIES, TRANSACTION, BATCH, OPERATION, OTHER;
 
     /** The operation type for a code such as {@code read}; {@code null} for {@code null}, {@link #OTHER} if unknown. */
-    public static OperationType fromCode(String code) {
+    @Nullable
+    public static OperationType fromCode(@Nullable String code) {
         if (code == null) {
             return null;
         }
@@ -34,15 +39,16 @@ public enum OperationType {
         };
     }
 
-    /** The HTTP method a request of this type uses if the operation does not name one, or {@code null} if unknown. */
-    public HttpMethod defaultMethod() {
-        return switch (this) {
+    /** The HTTP method a request of this type uses if the operation does not name one; empty for {@link #OTHER}. */
+    @Nonnull
+    public Optional<HttpMethod> defaultMethod() {
+        return Optional.ofNullable(switch (this) {
             case READ, VREAD, HISTORY, SEARCH, CAPABILITIES -> HttpMethod.GET;
             case UPDATE -> HttpMethod.PUT;
             case PATCH -> HttpMethod.PATCH;
             case DELETE -> HttpMethod.DELETE;
             case CREATE, TRANSACTION, BATCH, OPERATION -> HttpMethod.POST;
             case OTHER -> null;
-        };
+        });
     }
 }

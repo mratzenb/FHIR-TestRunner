@@ -1,5 +1,8 @@
 package at.hl7.testing.runner.core.model;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 import java.util.List;
 import java.util.function.UnaryOperator;
 
@@ -26,21 +29,26 @@ import java.util.function.UnaryOperator;
  * @param url              complete request URL, overrides everything else
  * @param destination      index of the {@code TestScript.destination} receiving the request, {@code null} if not set
  */
-public record Operation(OperationType type, String typeCode, String resource, String label, String description,
-                        String accept, String contentType, boolean encodeRequestUrl, HttpMethod method,
-                        String params, List<RequestHeader> requestHeaders, String requestId, String responseId,
-                        String sourceId, String targetId, String url, Integer destination) implements Action {
+public record Operation(@Nullable OperationType type, @Nullable String typeCode, @Nullable String resource,
+                        @Nullable String label, @Nullable String description, @Nullable String accept,
+                        @Nullable String contentType, boolean encodeRequestUrl, @Nullable HttpMethod method,
+                        @Nullable String params, @Nonnull List<RequestHeader> requestHeaders,
+                        @Nullable String requestId, @Nullable String responseId, @Nullable String sourceId,
+                        @Nullable String targetId, @Nullable String url,
+                        @Nullable Integer destination) implements Action {
 
     public Operation {
         requestHeaders = requestHeaders == null ? List.of() : List.copyOf(requestHeaders);
     }
 
     /** A builder of an operation; nothing is set, except {@code encodeRequestUrl = true} (the FHIR default). */
+    @Nonnull
     public static Builder builder() {
         return new Builder();
     }
 
     /** A builder with every value of this operation, to make a copy that differs in a few. */
+    @Nonnull
     public Builder toBuilder() {
         return new Builder(this);
     }
@@ -49,7 +57,8 @@ public record Operation(OperationType type, String typeCode, String resource, St
      * Returns a copy with every value passed through {@code values}, which replaces {@code ${variable}} placeholders.
      * Like the Python proof of concept, every text value may use variables, not only {@code params} and {@code url}.
      */
-    public Operation withValues(UnaryOperator<String> values) {
+    @Nonnull
+    public Operation withValues(@Nonnull UnaryOperator<String> values) {
         return toBuilder().resource(apply(values, resource)).accept(apply(values, accept))
                 .contentType(apply(values, contentType)).params(apply(values, params))
                 .requestHeaders(requestHeaders.stream().map(h -> h.map(values)).toList())
@@ -109,87 +118,104 @@ public record Operation(OperationType type, String typeCode, String resource, St
         }
 
         /** The type from its code, e.g. {@code read}: {@link OperationType#fromCode}; the code is kept for messages. */
-        public Builder type(String code) {
+        @Nonnull
+        public Builder type(@Nullable String code) {
             this.type = OperationType.fromCode(code);
             this.typeCode = code;
             return this;
         }
 
-        public Builder resource(String value) {
+        @Nonnull
+        public Builder resource(@Nullable String value) {
             this.resource = value;
             return this;
         }
 
-        public Builder label(String value) {
+        @Nonnull
+        public Builder label(@Nullable String value) {
             this.label = value;
             return this;
         }
 
-        public Builder description(String value) {
+        @Nonnull
+        public Builder description(@Nullable String value) {
             this.description = value;
             return this;
         }
 
-        public Builder accept(String value) {
+        @Nonnull
+        public Builder accept(@Nullable String value) {
             this.accept = value;
             return this;
         }
 
-        public Builder contentType(String value) {
+        @Nonnull
+        public Builder contentType(@Nullable String value) {
             this.contentType = value;
             return this;
         }
 
+        @Nonnull
         public Builder encodeRequestUrl(boolean value) {
             this.encodeRequestUrl = value;
             return this;
         }
 
-        public Builder method(HttpMethod value) {
+        @Nonnull
+        public Builder method(@Nullable HttpMethod value) {
             this.method = value;
             return this;
         }
 
-        public Builder params(String value) {
+        @Nonnull
+        public Builder params(@Nullable String value) {
             this.params = value;
             return this;
         }
 
-        public Builder requestHeaders(List<RequestHeader> value) {
+        @Nonnull
+        public Builder requestHeaders(@Nonnull List<RequestHeader> value) {
             this.requestHeaders = value;
             return this;
         }
 
-        public Builder requestId(String value) {
+        @Nonnull
+        public Builder requestId(@Nullable String value) {
             this.requestId = value;
             return this;
         }
 
-        public Builder responseId(String value) {
+        @Nonnull
+        public Builder responseId(@Nullable String value) {
             this.responseId = value;
             return this;
         }
 
-        public Builder sourceId(String value) {
+        @Nonnull
+        public Builder sourceId(@Nullable String value) {
             this.sourceId = value;
             return this;
         }
 
-        public Builder targetId(String value) {
+        @Nonnull
+        public Builder targetId(@Nullable String value) {
             this.targetId = value;
             return this;
         }
 
-        public Builder url(String value) {
+        @Nonnull
+        public Builder url(@Nullable String value) {
             this.url = value;
             return this;
         }
 
-        public Builder destination(Integer value) {
+        @Nonnull
+        public Builder destination(@Nullable Integer value) {
             this.destination = value;
             return this;
         }
 
+        @Nonnull
         public Operation build() {
             return new Operation(type, typeCode, resource, label, description, accept, contentType, encodeRequestUrl,
                     method, params, requestHeaders, requestId, responseId, sourceId, targetId, url, destination);

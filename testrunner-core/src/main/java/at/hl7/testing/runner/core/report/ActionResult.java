@@ -1,5 +1,8 @@
 package at.hl7.testing.runner.core.report;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 /**
  * The result of one operation or assertion.
  *
@@ -10,8 +13,8 @@ package at.hl7.testing.runner.core.report;
  * @param requestId   the request sent or checked, e.g. {@code REQ-0003}, or {@code null}
  * @param warning     whether {@code message} is a warning
  */
-public record ActionResult(String kind, String description, Outcome outcome, String message, String requestId,
-                           boolean warning) {
+public record ActionResult(@Nonnull String kind, @Nonnull String description, @Nonnull Outcome outcome,
+                           @Nullable String message, @Nullable String requestId, boolean warning) {
 
     public static final String OPERATION = "operation";
     public static final String ASSERT = "assert";

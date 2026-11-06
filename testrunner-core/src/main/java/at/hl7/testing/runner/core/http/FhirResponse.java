@@ -1,6 +1,8 @@
 package at.hl7.testing.runner.core.http;
 
 import at.hl7.testing.runner.core.model.Body;
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 
 /**
  * A response of the FHIR server.
@@ -12,21 +14,32 @@ import at.hl7.testing.runner.core.model.Body;
  * @param body        the body as received: its bytes, the charset and format the {@code Content-Type} names; empty
  *                    for none
  */
-public record FhirResponse(int status, String reason, String httpVersion, HttpHeaders headers, Body body) {
+public record FhirResponse(int status, @Nonnull String reason, @Nonnull String httpVersion,
+                           @Nonnull HttpHeaders headers, @Nonnull Body body) {
 
-    public FhirResponse {
+    public FhirResponse(int status, @Nullable String reason, @Nonnull String httpVersion,
+                        @Nullable HttpHeaders headers, @Nullable Body body) {
         reason = reason == null ? "" : reason;
         headers = headers == null ? HttpHeaders.empty() : headers;
         body = body == null ? Body.of(new byte[0], headers.first("Content-Type").orElse(null)) : body;
+        this.status = status;
+        this.reason = reason;
+        this.httpVersion = httpVersion;
+        this.headers = headers;
+        this.body = body;
     }
 
     /** A response with a text body, its format from the {@code Content-Type} header or the text. */
-    public static FhirResponse text(int status, String reason, String httpVersion, HttpHeaders headers, String body) {
+    @Nonnull
+    public static FhirResponse text(int status, @Nullable String reason, @Nonnull String httpVersion,
+                                    @Nullable HttpHeaders headers, @Nullable String body) {
         return new FhirResponse(status, reason, httpVersion, headers, textBody(headers, body));
     }
 
     /** A response as received: the bytes, with charset and format from the {@code Content-Type} header. */
-    public static FhirResponse of(int status, String reason, String httpVersion, HttpHeaders headers, byte[] body) {
+    @Nonnull
+    public static FhirResponse of(int status, @Nullable String reason, @Nonnull String httpVersion,
+                                  @Nullable HttpHeaders headers, @Nullable byte[] body) {
         HttpHeaders received = headers == null ? HttpHeaders.empty() : headers;
         return new FhirResponse(status, reason, httpVersion, received,
                 Body.of(body, received.first("Content-Type").orElse(null)));
@@ -36,11 +49,13 @@ public record FhirResponse(int status, String reason, String httpVersion, HttpHe
         return status >= 200 && status < 300;
     }
 
+    @Nonnull
     public String contentType() {
         return headers.first("Content-Type").orElse("");
     }
 
     /** The body as text, decoded with the charset of the {@code Content-Type}; empty for none. */
+    @Nonnull
     public String bodyText() {
         return body.text();
     }

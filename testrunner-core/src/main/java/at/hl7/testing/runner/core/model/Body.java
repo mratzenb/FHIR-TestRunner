@@ -1,5 +1,9 @@
 package at.hl7.testing.runner.core.model;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
@@ -7,6 +11,8 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.StandardCharsets;
 import java.nio.charset.UnsupportedCharsetException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
@@ -39,16 +45,18 @@ public final class Body {
     }
 
     /** A text body. */
-    public Body(String text, ContentFormat format) {
+    public Body(@Nonnull String text, @Nonnull ContentFormat format) {
         this(Objects.requireNonNull(text, "text").getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8, format);
         this.text = text;
     }
 
-    public static Body json(String text) {
+    @Nonnull
+    public static Body json(@Nonnull String text) {
         return new Body(text, ContentFormat.JSON);
     }
 
-    public static Body xml(String text) {
+    @Nonnull
+    public static Body xml(@Nonnull String text) {
         return new Body(text, ContentFormat.XML);
     }
 
@@ -57,8 +65,22 @@ public final class Body {
      *
      * @param contentType the {@code Content-Type} header value, may be {@code null}
      */
-    public static Body of(String text, String contentType) {
+    @Nonnull
+    public static Body of(@Nonnull String text, @Nullable String contentType) {
         return new Body(text, format(contentType, text));
+    }
+
+    /**
+     * The content of a JSON or XML file, read as UTF-8; the format from the extension ({@code .json}, {@code .xml}),
+     * else from the content.
+     *
+     * @throws IOException if the file cannot be read
+     */
+    @Nonnull
+    public static Body ofFile(@Nonnull Path file) throws IOException {
+        String text = Files.readString(file, StandardCharsets.UTF_8);
+        return new Body(text, ContentFormat.fromFileName(file.getFileName().toString())
+                .orElseGet(() -> ContentFormat.sniff(text)));
     }
 
     /**
@@ -68,7 +90,8 @@ public final class Body {
      *
      * @param contentType the {@code Content-Type} header value, may be {@code null}
      */
-    public static Body of(byte[] bytes, String contentType) {
+    @Nonnull
+    public static Body of(@Nullable byte[] bytes, @Nullable String contentType) {
         byte[] copy = bytes == null ? EMPTY : bytes.clone();
         Charset charset = charset(contentType);
         // the first characters decide; decoding a large binary in full is not needed for that
@@ -77,6 +100,7 @@ public final class Body {
     }
 
     /** The bytes, as exchanged. */
+    @Nonnull
     public byte[] bytes() {
         return bytes.clone();
     }
@@ -87,16 +111,19 @@ public final class Body {
     }
 
     /** The charset the text is decoded with: the one the {@code Content-Type} named, else UTF-8. */
+    @Nonnull
     public Charset charset() {
         return charset;
     }
 
     /** The encoding of the content. */
+    @Nonnull
     public ContentFormat format() {
         return format;
     }
 
     /** The content as text, decoded with {@link #charset()}; bytes that are no text become U+FFFD. */
+    @Nonnull
     public String text() {
         String decoded = text;
         if (decoded == null) {
@@ -158,16 +185,13 @@ public final class Body {
 
     /** JSON or XML if the media type names it; else other media as they are; else what the content starts with. */
     private static ContentFormat format(String contentType, String start) {
-        ContentFormat format = ContentFormat.fromMimeType(contentType);
-        if (format != null) {
-            return format;
-        }
-        return namesOtherMedia(contentType) ? ContentFormat.OTHER : ContentFormat.sniff(start);
+        return ContentFormat.fromMimeType(contentType).orElseGet(() ->
+                namesOtherMedia(contentType) ? ContentFormat.OTHER : ContentFormat.sniff(start));
     }
 
     /** Equal if the format, charset and bytes are equal. */
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         return o instanceof Body other && format == other.format && charset.equals(other.charset)
                 && Arrays.equals(bytes, other.bytes);
     }
@@ -178,6 +202,7 @@ public final class Body {
     }
 
     @Override
+    @Nonnull
     public String toString() {
         return "Body[" + format + ", " + bytes.length + " bytes" + (isText() ? ": " + abbreviated() : "") + "]";
     }

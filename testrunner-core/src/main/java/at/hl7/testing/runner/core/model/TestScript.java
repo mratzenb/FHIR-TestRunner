@@ -1,5 +1,8 @@
 package at.hl7.testing.runner.core.model;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -24,11 +27,12 @@ import java.util.Objects;
  * @param tests        the tests
  * @param teardown     the teardown actions, empty if there is no teardown (teardown only has operations)
  */
-public record TestScript(FhirVersion fhirVersion, String id, String url, String name, String title,
-                         List<Destination> destinations,
-                         List<CapabilityRequirement> capabilities, List<FixtureDefinition> fixtures,
-                         List<ProfileDeclaration> profiles, List<VariableDefinition> variables, List<Action> setup,
-                         List<TestDefinition> tests, List<Action> teardown) {
+public record TestScript(@Nonnull FhirVersion fhirVersion, @Nullable String id, @Nullable String url,
+                         @Nullable String name, @Nullable String title, @Nonnull List<Destination> destinations,
+                         @Nonnull List<CapabilityRequirement> capabilities, @Nonnull List<FixtureDefinition> fixtures,
+                         @Nonnull List<ProfileDeclaration> profiles, @Nonnull List<VariableDefinition> variables,
+                         @Nonnull List<Action> setup, @Nonnull List<TestDefinition> tests,
+                         @Nonnull List<Action> teardown) {
 
     public TestScript {
         Objects.requireNonNull(fhirVersion, "fhirVersion");
@@ -43,11 +47,13 @@ public record TestScript(FhirVersion fhirVersion, String id, String url, String 
     }
 
     /** A builder of a TestScript of {@code fhirVersion}; every list is empty until set. */
-    public static Builder builder(FhirVersion fhirVersion) {
+    @Nonnull
+    public static Builder builder(@Nonnull FhirVersion fhirVersion) {
         return new Builder(fhirVersion);
     }
 
     /** A builder with every value of this TestScript, to make a copy that differs in a few. */
+    @Nonnull
     public Builder toBuilder() {
         return new Builder(fhirVersion).id(id).url(url).name(name).title(title).destinations(destinations)
                 .capabilities(capabilities).fixtures(fixtures).profiles(profiles).variables(variables).setup(setup)
@@ -55,11 +61,13 @@ public record TestScript(FhirVersion fhirVersion, String id, String url, String 
     }
 
     /** A copy with only these tests, e.g. those selected to run; setup and teardown stay. */
-    public TestScript withTests(List<TestDefinition> newTests) {
+    @Nonnull
+    public TestScript withTests(@Nonnull List<TestDefinition> newTests) {
         return toBuilder().tests(newTests).build();
     }
 
     /** The name to show in logs and reports: name, title, id, in this order. */
+    @Nonnull
     public String displayName() {
         for (String candidate : new String[] {name, title, id}) {
             if (candidate != null && !candidate.isBlank()) {
@@ -92,66 +100,79 @@ public record TestScript(FhirVersion fhirVersion, String id, String url, String 
             this.fhirVersion = fhirVersion;
         }
 
-        public Builder id(String value) {
+        @Nonnull
+        public Builder id(@Nullable String value) {
             this.id = value;
             return this;
         }
 
-        public Builder url(String value) {
+        @Nonnull
+        public Builder url(@Nullable String value) {
             this.url = value;
             return this;
         }
 
-        public Builder name(String value) {
+        @Nonnull
+        public Builder name(@Nullable String value) {
             this.name = value;
             return this;
         }
 
-        public Builder title(String value) {
+        @Nonnull
+        public Builder title(@Nullable String value) {
             this.title = value;
             return this;
         }
 
-        public Builder destinations(List<Destination> value) {
+        @Nonnull
+        public Builder destinations(@Nonnull List<Destination> value) {
             this.destinations = value;
             return this;
         }
 
-        public Builder capabilities(List<CapabilityRequirement> value) {
+        @Nonnull
+        public Builder capabilities(@Nonnull List<CapabilityRequirement> value) {
             this.capabilities = value;
             return this;
         }
 
-        public Builder fixtures(List<FixtureDefinition> value) {
+        @Nonnull
+        public Builder fixtures(@Nonnull List<FixtureDefinition> value) {
             this.fixtures = value;
             return this;
         }
 
-        public Builder profiles(List<ProfileDeclaration> value) {
+        @Nonnull
+        public Builder profiles(@Nonnull List<ProfileDeclaration> value) {
             this.profiles = value;
             return this;
         }
 
-        public Builder variables(List<VariableDefinition> value) {
+        @Nonnull
+        public Builder variables(@Nonnull List<VariableDefinition> value) {
             this.variables = value;
             return this;
         }
 
-        public Builder setup(List<Action> value) {
+        @Nonnull
+        public Builder setup(@Nonnull List<Action> value) {
             this.setup = value;
             return this;
         }
 
-        public Builder tests(List<TestDefinition> value) {
+        @Nonnull
+        public Builder tests(@Nonnull List<TestDefinition> value) {
             this.tests = value;
             return this;
         }
 
-        public Builder teardown(List<Action> value) {
+        @Nonnull
+        public Builder teardown(@Nonnull List<Action> value) {
             this.teardown = value;
             return this;
         }
 
+        @Nonnull
         public TestScript build() {
             return new TestScript(fhirVersion, id, url, name, title, destinations, capabilities, fixtures, profiles,
                     variables, setup, tests, teardown);

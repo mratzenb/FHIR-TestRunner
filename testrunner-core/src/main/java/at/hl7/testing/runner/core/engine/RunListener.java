@@ -2,6 +2,7 @@ package at.hl7.testing.runner.core.engine;
 
 import at.hl7.testing.runner.core.report.RunResult;
 import at.hl7.testing.runner.core.report.TestScriptResult;
+import jakarta.annotation.Nonnull;
 
 /**
  * Is told about the progress of a run, e.g. to open a log file per run or to report progress elsewhere.
@@ -16,12 +17,12 @@ import at.hl7.testing.runner.core.report.TestScriptResult;
  */
 public interface RunListener {
 
-    default void runStarted(RunInfo run) {
+    default void runStarted(@Nonnull RunInfo run) {
     }
 
-    default void testScriptFinished(RunInfo run, TestScriptResult result) {
+    default void testScriptFinished(@Nonnull RunInfo run, @Nonnull TestScriptResult result) {
     }
 
-    default void runFinished(RunInfo run, RunResult result) {
+    default void runFinished(@Nonnull RunInfo run, @Nonnull RunResult result) {
     }
 }

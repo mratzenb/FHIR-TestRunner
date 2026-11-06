@@ -5,6 +5,7 @@ import at.hl7.testing.runner.core.spi.ProfileValidator;
 import at.hl7.testing.runner.core.spi.ValidationRequest;
 import at.hl7.testing.runner.core.spi.ValidationResult;
 import at.hl7.testing.runner.core.spi.ValidatorUnavailableException;
+import jakarta.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +36,7 @@ public final class ValidatorCliProfileValidator implements ProfileValidator {
     private final ValidationConfig config;
     private final ProcessRunner processRunner;
 
-    public ValidatorCliProfileValidator(ValidationConfig config) {
+    public ValidatorCliProfileValidator(@Nonnull ValidationConfig config) {
         this(config, ProcessRunner.DEFAULT);
     }
 
@@ -50,22 +51,26 @@ public final class ValidatorCliProfileValidator implements ProfileValidator {
     }
 
     /** Problems that keep the validator from running, for the start of the run; empty if it looks usable. */
+    @Nonnull
     public List<String> problems() {
         return ValidatorArguments.problems(config);
     }
 
     @Override
+    @Nonnull
     public List<String> configurationProblems() {
         return ValidatorArguments.configurationProblems(config);
     }
 
     @Override
+    @Nonnull
     public String description() {
         return "HL7 validator, one process per validation (" + config.validatorJar() + ")";
     }
 
     @Override
-    public ValidationResult validate(ValidationRequest request) {
+    @Nonnull
+    public ValidationResult validate(@Nonnull ValidationRequest request) {
         List<String> problems = problems();
         if (!problems.isEmpty()) {
             throw new ValidatorUnavailableException(String.join("; ", problems));

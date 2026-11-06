@@ -35,7 +35,7 @@ variables, a replaceable configuration.
 
 **Problem.** The PoC read `config.json` into a global manager, queried from everywhere. Defaults were scattered.
 
-**Choice.** `RunConfiguration` is a tree of records. Defaults are set in the compact constructors, so code, binding
+**Choice.** `RunConfiguration` is a tree of records. Defaults are set in the canonical constructors, so code, binding
 and tests get the same ones. `problems()` lists every problem at once.
 
 **Gain.** Nothing reads configuration from a global place. A new setting = a record component + a default.

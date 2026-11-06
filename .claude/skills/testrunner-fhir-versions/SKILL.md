@@ -55,7 +55,8 @@ it). Results: primitives typed – `Boolean`, `Number`, and `date`/`dateTime`/`i
 
 **Map a new TestScript element** (e.g. a new assert attribute) – it must exist in the HAPI structures of at least
 one version, since `ElementView` reads by FHIR element name (a non-FHIR element would need an extension): add it to
-the neutral model record (for `TestScript`/`Operation`/`Assertion` also its `Builder` method and the line in
+the neutral model record, annotated `@Nullable` if a TestScript may leave it out (ADR-0017; `ArchitectureTest`
+checks every public position) (for `TestScript`/`Operation`/`Assertion` also its `Builder` method and the line in
 `toBuilder()`; every creator uses the builders, no positional `new`) → read it once in `TestScriptMapper` with
 `ElementView` and one more builder call (by name; absent in versions that
 lack it) → only if its *meaning* differs per version, add a dialect method with a default → tests: every sample of

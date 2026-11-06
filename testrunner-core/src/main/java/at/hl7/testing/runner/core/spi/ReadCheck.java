@@ -1,5 +1,7 @@
 package at.hl7.testing.runner.core.spi;
 
+import jakarta.annotation.Nonnull;
+
 import java.util.List;
 
 /**
@@ -8,7 +10,7 @@ import java.util.List;
  * @param errors   problems that make the content unusable in this version, e.g. a value of the wrong type
  * @param warnings content that would be ignored, e.g. elements unknown in this version
  */
-public record ReadCheck(List<String> errors, List<String> warnings) {
+public record ReadCheck(@Nonnull List<String> errors, @Nonnull List<String> warnings) {
 
     public ReadCheck {
         errors = List.copyOf(errors);

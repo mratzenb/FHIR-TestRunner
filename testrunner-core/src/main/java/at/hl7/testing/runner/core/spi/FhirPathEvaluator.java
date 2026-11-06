@@ -1,6 +1,7 @@
 package at.hl7.testing.runner.core.spi;
 
 import at.hl7.testing.runner.core.model.Body;
+import jakarta.annotation.Nonnull;
 
 import java.util.List;
 
@@ -16,5 +17,6 @@ public interface FhirPathEvaluator {
      *         {@link String}; other elements as their JSON representation
      * @throws IllegalArgumentException if the body is no resource of this version or the expression is invalid
      */
-    List<Object> evaluate(Body resource, String expression);
+    @Nonnull
+    List<Object> evaluate(@Nonnull Body resource, @Nonnull String expression);
 }

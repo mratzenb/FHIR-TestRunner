@@ -49,6 +49,15 @@ and `ProfileValidators.create(ValidationConfig)`.
   `config`, `spi`, `report`; `CORE_API_TYPES`: `TestRunner` (incl. nested `TestRunner.Listed`), `TestRunners`, `RunControl`, `RunListener`, `RunInfo`,
   `ConfigurationException`, `HttpTransport`, `JdkHttpTransport`, `FhirRequest`, `FhirResponse`, `HttpHeaders`) –
   using anything else from outside means adding it to that list on purpose; nobody outside `engine` uses `RunContext`. Spring is therefore only in `autoconfigure` and `app`.
+* Nullness (ADR-0017): every reference-typed parameter, return value and record component of the public API (the
+  core API above + every public type of the other modules) has `jakarta.annotation.Nonnull` or `Nullable`
+  (`jakarta.annotation-api` in the core, version from the Spring Boot BOM); `ArchitectureTest.
+  publicApiDeclaresWhereNullIsAllowed` fails otherwise. A value that may be absent is returned as `Optional`
+  (`FhirServerConfig.base()`, `OperationType.defaultMethod()`, `ContentFormat.fromMimeType/fromFileName`,
+  `TestScriptFormatException.fhirVersion()`, `HttpHeaders.first`, …), never as `Optional` component or parameter.
+  Records that default `null` (config records, `FhirRequest`, `FhirResponse`) have an explicit canonical
+  constructor with `@Nullable` parameters and `@Nonnull` components. Annotation on its own line above a method
+  (`@Nonnull` / `public Foo bar()`), inline before a parameter; none on primitives. Internal classes: none.
 * Compiler: `--limit-modules java.se` – no `com.sun.*`, `sun.*`, `jdk.*` APIs in main or test code.
   `-Xlint:all,-processing,-serial`; no warnings tolerated by convention.
 * Enforcer: Java ≥ 25, Maven ≥ 3.9, `testrunner-test-support` only in test scope.
@@ -70,5 +79,5 @@ and `ProfileValidators.create(ValidationConfig)`.
 ## Documentation (source of truth if a skill and the docs disagree)
 
 `README.md`, `CHANGELOG.md` (changes of results/API); `docs/architecture.md`, `fhir-versions.md`, `configuration.md`,
-`logging.md`, `validation.md`; `docs/adr/0001`–`0016` (index in `docs/adr/README.md`). When code changes a documented behaviour, update the
+`logging.md`, `validation.md`; `docs/adr/0001`–`0017` (index in `docs/adr/README.md`). When code changes a documented behaviour, update the
 doc, the ADR and the matching skill together.

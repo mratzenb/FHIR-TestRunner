@@ -1,5 +1,8 @@
 package at.hl7.testing.runner.core.model;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 import java.util.List;
 
 /**
@@ -14,8 +17,8 @@ import java.util.List;
  * @param capabilities canonical URL of the CapabilityStatement the server's CapabilityStatement must contain
  * @param links        links to the specification of the capabilities, for the log
  */
-public record CapabilityRequirement(boolean required, boolean validated, String description, String capabilities,
-                                    List<String> links) {
+public record CapabilityRequirement(boolean required, boolean validated, @Nullable String description,
+                                    @Nullable String capabilities, @Nonnull List<String> links) {
 
     public CapabilityRequirement {
         links = links == null ? List.of() : List.copyOf(links);
