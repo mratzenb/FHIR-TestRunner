@@ -1,6 +1,7 @@
 package at.hl7.testing.runner.fhir.hapi;
 
 import at.hl7.testing.runner.core.model.Body;
+import at.hl7.testing.runner.core.model.FhirTemporal;
 import at.hl7.testing.runner.core.spi.FhirPathEvaluator;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.fhirpath.IFhirPath;
@@ -13,6 +14,7 @@ import org.hl7.fhir.instance.model.api.IPrimitiveType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -27,6 +29,7 @@ import java.util.regex.Pattern;
 public final class HapiFhirPathEvaluator implements FhirPathEvaluator {
 
     private static final Pattern RESOURCE_TYPE_STEP = Pattern.compile("\\.resourceType\\b(?!\\s*\\()");
+    private static final Set<String> TEMPORAL_TYPES = Set.of("date", "dateTime", "instant", "time");
 
     private final FhirContext context;
 
@@ -48,7 +51,15 @@ public final class HapiFhirPathEvaluator implements FhirPathEvaluator {
         for (IBase value : values) {
             if (value instanceof IPrimitiveType<?> primitive) {
                 Object v = primitive.getValue();
-                result.add(v instanceof Boolean || v instanceof Number ? v : primitive.getValueAsString());
+                String text = primitive.getValueAsString();
+                if (v instanceof Boolean || v instanceof Number) {
+                    result.add(v);
+                } else if (TEMPORAL_TYPES.contains(primitive.fhirType())) {
+                    // with the precision and offset as written; java.util.Date would lose both
+                    result.add(FhirTemporal.parse(text).<Object>map(t -> t).orElse(text));
+                } else {
+                    result.add(text);
+                }
             } else {
                 result.add(context.newJsonParser().encodeToString(value));
             }

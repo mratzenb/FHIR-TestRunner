@@ -120,9 +120,10 @@ final class AssertionEvaluator {
                 if (op == Operator.EVAL) {
                     Operators.apply(op, Values.single(result, "Expression '" + c.expression() + "'"), null);
                 } else {
-                    String actual = op == Operator.EMPTY || op == Operator.NOT_EMPTY
+                    // the value keeps its FHIRPath type, so that it is compared as a number, date or boolean
+                    Object actual = op == Operator.EMPTY || op == Operator.NOT_EMPTY
                             ? (result.isEmpty() ? null : String.valueOf(result.size()))
-                            : Values.single(result, "Expression '" + c.expression() + "'");
+                            : Values.value(result, "Expression '" + c.expression() + "'");
                     applyWithContext(op, actual, expected(assertion, op), "expression '" + c.expression() + "'");
                 }
                 yield null;
@@ -257,15 +258,18 @@ final class AssertionEvaluator {
         }
     }
 
-    /** The expected value: {@code value}, or the value found by {@code compareToSourceExpression/Path}. */
-    private String expected(Assertion assertion, Operator op) {
+    /**
+     * The expected value: {@code value} (text), or the value found by {@code compareToSourceExpression} (with its
+     * FHIRPath type) or {@code compareToSourcePath} (text).
+     */
+    private Object expected(Assertion assertion, Operator op) {
         if (assertion.value() != null) {
             return assertion.value();
         }
         if (assertion.compareToSourceId() != null) {
             Source compareTo = state.require(assertion.compareToSourceId(), "compareToSourceId");
             if (assertion.compareToSourceExpression() != null) {
-                return Values.single(evaluateFhirPath(compareTo.body(), assertion.compareToSourceExpression()),
+                return Values.value(evaluateFhirPath(compareTo.body(), assertion.compareToSourceExpression()),
                         "compareToSourceExpression '" + assertion.compareToSourceExpression() + "'");
             }
             try {
@@ -281,7 +285,7 @@ final class AssertionEvaluator {
         return null;
     }
 
-    private static void applyWithContext(Operator op, String actual, String expected, String what) {
+    private static void applyWithContext(Operator op, Object actual, Object expected, String what) {
         try {
             Operators.apply(op, actual, expected);
         } catch (AssertionFailure e) {

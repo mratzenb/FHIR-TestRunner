@@ -407,6 +407,51 @@ class EndToEndIT {
     }
 
     /**
+     * F6 of docs/wiki/next-steps.md: values found by FHIRPath keep their type. A dateTime equals the same instant in
+     * another offset, a decimal equals the same number with more zeros, and dates of different precision fail with
+     * the reason instead of comparing text.
+     */
+    @Test
+    void fhirPathValuesAreComparedByTheirType() throws Exception {
+        r4Server = InMemoryFhirServer.start("4.0.1");
+        Path suite = dir.resolve("typed");
+        Files.createDirectories(suite.resolve("Example_Instances"));
+        Files.writeString(suite.resolve("Example_Instances/Observation-typed.json"), """
+                {"resourceType":"Observation","status":"final","code":{"text":"typed"},
+                 "effectiveDateTime":"2026-01-01T10:00:00+01:00","valueQuantity":{"value":1.50}}""");
+        String assertion = """
+                {"assert":{"description":"%s","expression":"%s","operator":"%s","value":"%s","warningOnly":false}}""";
+        Files.writeString(Files.createDirectories(suite.resolve("Test_Scripts")).resolve("TestScript-typed.json"), """
+                {"resourceType":"TestScript","url":"http://example.org/TestScript/typed","name":"Typed","status":"draft",
+                 "fixture":[{"id":"obs","autocreate":false,"autodelete":false,
+                             "resource":{"reference":"Observation/typed"}}],
+                 "test":[{"name":"Typed","action":[
+                   {"operation":{"type":{"system":"http://terminology.hl7.org/CodeSystem/testscript-operation-codes",
+                     "code":"create"},"resource":"Observation","sourceId":"obs","encodeRequestUrl":true}},
+                   %s,%s,%s,%s]},
+                  {"name":"Precision","action":[
+                   {"operation":{"type":{"system":"http://terminology.hl7.org/CodeSystem/testscript-operation-codes",
+                     "code":"create"},"resource":"Observation","sourceId":"obs","encodeRequestUrl":true}},
+                   %s]}]}""".formatted(
+                assertion.formatted("same instant", "Observation.effective", "equals", "2026-01-01T09:00:00Z"),
+                assertion.formatted("later", "Observation.effective", "greaterThan", "2026-01-01T09:15:00+00:30"),
+                assertion.formatted("same number", "Observation.value.value", "equals", "1.5"),
+                assertion.formatted("in a list", "Observation.value.value", "in", "1, 1.500, 2"),
+                assertion.formatted("other precision", "Observation.effective", "equals", "2026-01-01")));
+
+        RunResult run = run("testrunner.fhir-server.base-url=" + r4Server.baseUrl(),
+                "testrunner.validation.enabled=false",
+                "testrunner.suites[0].base-dir=" + suite,
+                "testrunner.suites[0].fhir-version=R4");
+
+        TestScriptResult result = run.testScripts().getFirst();
+        assertThat(result.phases()).extracting(p -> p.name() + " " + p.outcome())
+                .containsExactly("Setup PASS", "Typed PASS", "Precision FAIL", "Teardown PASS");
+        assertThat(result.phases().get(2).messages().getFirst()).contains("Expected '2026-01-01', got "
+                + "'2026-01-01T10:00:00+01:00', but", "cannot be compared: only '2026-01-01T10:00:00+01:00' has an hour");
+    }
+
+    /**
      * F1 of docs/wiki/next-steps.md: {@code --check} loads, checks and validates the samples without a FHIR server.
      * The two that cannot run make the exit code 1; nothing is sent, and no FHIR TestReport claims a result.
      */

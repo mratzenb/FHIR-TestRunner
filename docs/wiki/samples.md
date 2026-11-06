@@ -399,6 +399,7 @@ One assertion per line, each a complete `assert` element. The checks and their o
 | `{ "expression": "Patient.active" }` | the FHIRPath is `true` (default operator `eval`) |
 | `{ "expression": "Patient.name.family", "value": "Muster", "operator": "equals" }` | the single value equals |
 | `{ "expression": "Bundle.total", "operator": "greaterThan", "value": "0" }` | numbers compare as numbers |
+| `{ "expression": "Observation.effective", "operator": "equals", "value": "2026-01-01T09:00:00Z" }` | the same point in time, also written `2026-01-01T10:00:00+01:00`; a date of other precision fails with the reason |
 | `{ "path": "$.name[0].family", "value": "Muster" }` | JSONPath on JSON, XPath on XML (`Patient/name/family`) |
 | `{ "minimumId": "patient" }` | the body has everything of the fixture `patient` (id excepted, order free) |
 | `{ "navigationLinks": true }` | the Bundle has `first`, `last` and `next` links |

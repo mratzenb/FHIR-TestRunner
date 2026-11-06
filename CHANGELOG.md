@@ -1,0 +1,38 @@
+# Changes
+
+Changes that alter what an existing TestScript does or how the runner is used. The details are in the linked
+documents; [next steps](docs/wiki/next-steps.md) has the plan behind them.
+
+## Unreleased (0.1.0-SNAPSHOT)
+
+### Changed – may change results
+
+* **Assertions compare values by their type** (M5.2). A value found by an `expression` keeps its FHIRPath type, and
+  the expected value is read as that type ([architecture.md › Execution semantics](docs/architecture.md#execution-semantics)):
+  * Numbers by value: `1.0` equals `1.00`.
+  * Dates and times as points in time: `2026-01-01T10:00:00+01:00` equals `2026-01-01T09:00:00Z`;
+    `greaterThan`/`lessThan` order them in time, not as text.
+  * Values that cannot be compared – dates of different precision (`2026-01` and `2026-01-15`), a dateTime with and
+    one without offset, a number and a text that is none – now **fail** with the reason. Before, they were compared
+    as text, which could pass or fail by accident.
+  * A `path` or a header value stays text for `equals`, `in` and `contains`; `greaterThan` and `lessThan` order two
+    numbers or two dates as such, and only other text lexicographically.
+
+  A TestScript that relied on text equality of an `expression` value, e.g. `equals "1.0"` to tell `1.0` from `1`,
+  passes now where it failed before. Compare the text with `path` instead, or with
+  `expression: "Observation.value.value.toString()"`.
+
+### Added
+
+* Container image (`testrunner-app/Dockerfile`) and `docker-compose.yml` with HAPI FHIR (M4.1, ADR-0015).
+* Report format `html`: `report.html` with every request id linked into `communication/` (M4.2); on in the
+  application's defaults.
+* `--check`, `--list`, `--testscript`, `--test` (M3, ADR-0014); run and TestScript timeouts, fail-fast, reports on
+  Ctrl-C (M2, ADR-0013).
+
+### Changed – API
+
+* `TestScript`, `Operation` and `Assertion` have builders (`builder()`, `toBuilder()`); create them by name, not by
+  position (M5.1).
+* `RunListener` gets a read-only `RunInfo` instead of `RunContext` (M2.5).
+* `RunConfiguration` has an eighth component, `select` (M3.2).

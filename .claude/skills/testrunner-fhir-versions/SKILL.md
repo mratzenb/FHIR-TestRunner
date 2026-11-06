@@ -46,7 +46,10 @@ R5-only `stopTestOnFail`) ⇒ **R4** with warning "unknown element 'stopTestOnFa
 
 `HapiFhirPathEvaluator` uses the HAPI engine of the TestScript's version (JSON and XML). Compatibility rewrite:
 step `.resourceType` is evaluated as `.type().name` (the PoC's fhirpathpy returned the JSON property; samples rely on
-it). `ModelOnlyValidationSupport` keeps `hapi-fhir-validation` (24 MB for R5) off the class path.
+it). Results: primitives typed – `Boolean`, `Number`, and `date`/`dateTime`/`instant`/`time` as
+`model.FhirTemporal.parse(getValueAsString())` (precision and offset as written; not HAPI's `Date`) – others
+`String`, non-primitives as JSON (`FhirPathEvaluator` javadoc; ADR-0016). `ModelOnlyValidationSupport` keeps
+`hapi-fhir-validation` (24 MB for R5) off the class path.
 
 ## Recipes
 

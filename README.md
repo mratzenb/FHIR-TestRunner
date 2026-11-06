@@ -74,6 +74,7 @@ docs/                                   architecture, decisions, configuration, 
 * [Logging](docs/logging.md) – run log, request ids, communication log
 * [Validation](docs/validation.md) – validator setup, process and server mode, silent-pass protection, the negative control
 * [Decisions (ADRs)](docs/adr/README.md)
+* [Changes](CHANGELOG.md) – what changes results of existing TestScripts or the API
 
 Condensed versions for coding agents live in [`.claude/skills/`](.claude/skills) (Claude Code project skills,
 start with `testrunner-overview`). They summarize the documents above; when a behaviour changes, update the

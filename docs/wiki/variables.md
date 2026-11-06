@@ -105,9 +105,12 @@ The result (`Values.single`):
 
 | Found | Value |
 |---|---|
-| one value | as text. Decimals keep their precision (`100.0` stays `100.0`). A JSON object or array becomes JSON text. An XML element with a `value` attribute gives that attribute. |
+| one value | as text. Decimals keep their precision (`100.0` stays `100.0`), a dateTime its offset (`2026-01-01T10:00:00+01:00`). A JSON object or array becomes JSON text. An XML element with a `value` attribute gives that attribute. |
 | nothing (empty result, missing header) | the `defaultValue`; without one, an error |
 | more than one | an error: `… returned 2 values where one was expected` |
+
+A variable is always text, since it is put into text. An assertion on an `expression` keeps the FHIRPath type of
+its value instead and compares by it ([architecture.md › Execution semantics](../architecture.md#execution-semantics)).
 
 The `defaultValue` only covers "found nothing". An unknown `sourceId`, a missing last response or an invalid
 expression is an error even if a `defaultValue` exists.
@@ -314,7 +317,7 @@ e.g. `1`, and the read becomes `GET [base]/Patient/1`. The same read before the 
 | `core.engine.FixtureManager.resolve`, `core.content.ResourceContent.replaceText` | placeholders in fixture resources, at each use |
 | `core.engine.ExecutionFactory.builtInValues` | the `${testrunner.…}` values |
 | `core.engine.TestScriptChecks` | checks the variable definitions, and every placeholder where it is used, before the run |
-| `core.engine.Values.single` | exactly one value, as text |
+| `core.engine.Values.single` | exactly one value, as text (`Values.value` keeps the type, for assertions) |
 | `fhir.hapi.TestScriptMapper.variable` | reads `TestScript.variable`, for R4 and R5 |
 
 Tests: `OperationsTest.createKeepsTheResponseForLaterOperationsAndVariables`, `PlaceholdersTest` (also

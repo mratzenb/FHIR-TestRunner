@@ -208,6 +208,16 @@ Outcome precedence for a TestScript and the run: `error > fail > skip > pass`. E
 tested nothing (no server, a required capability missing everywhere) does not look green; `testrunner.exit-on-skip`
 (`all` | `any` | `never`) changes when skips count.
 
+Assertions compare values by their type (`engine.Values`, `engine.Operators`). A value found by FHIRPath keeps its
+type – number, boolean, date or time – and the expected value is read as that type, by the FHIRPath rules: `1.0`
+equals `1.00`; `2026-01-01T10:00:00+01:00` equals `2026-01-01T09:00:00Z` (points in time); seconds and their fraction
+are one precision (`10:30:31.0` equals `10:30:31`). Values that cannot be compared – dates of different precision
+(`2026-01` and `2026-01-15`), a dateTime with and one without offset, a number and a text that is none – make the
+assertion `fail` with the reason; FHIRPath would return empty. A value from a `path` or a header is text: `equals` needs
+the same text, but `greaterThan`/`lessThan` order two numbers or two dates as such. `contains` always works on the text.
+This changed in 2026-11 ([ADR-0016](adr/0016-typed-comparisons.md), [CHANGELOG](../CHANGELOG.md)): before, every
+value was compared as text.
+
 Two assertions compare whole resources: `minimumId` passes if the checked response or fixture contains every element
 and value of the named fixture (the resource id excepted, the server assigns its own), by the rules of the FHIR
 testing specification – element and repetition order do not matter, more is allowed, but a repeated value needs a

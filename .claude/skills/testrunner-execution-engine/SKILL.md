@@ -145,8 +145,17 @@ unsupported assertion.
 * `ActionRules.defaultOperator(check)`/`allowedOperators(check)` (sealed switches) fix default and allowed operators
   per check; `ActionRules.operator(assertion)` picks the operator or throws. An operator outside the list, or one
   that `Operators.needsValue` without `value`/`compareToSourceId` on headerField/path/expression, is a **Load** error
-  (`ActionRules.problems(assertion)` from `TestScriptChecks`). `Operators.apply` does the comparison (`equals`, `notEquals`, `in`, `notIn`, `greaterThan`, `lessThan`, `empty`, `notEmpty`, `contains`,
-  `notContains`, `eval`).
+  (`ActionRules.problems(assertion)` from `TestScriptChecks`). `Operators.apply(op, Object actual, Object expected)`
+  does the comparison (`equals`, `notEquals`, `in`, `notIn`, `greaterThan`, `lessThan`, `empty`, `notEmpty`,
+  `contains`, `notContains`, `eval`). **Typed (M5.2, ADR-0016):** an `expression` value keeps its FHIRPath type
+  (`Values.value`: `BigDecimal` – integers converted –, `Boolean`, `model.FhirTemporal` for date/dateTime/instant/time
+  from `HapiFhirPathEvaluator`, else `String`), also `compareToSourceExpression`; `Values.equal`/`order` read the other
+  side as that type. `FhirTemporal.compare`: FHIRPath rules (offsets normalised to UTC, seconds+fraction one precision,
+  a precision only one side has ⇒ `IllegalArgumentException` ⇒ `Values.IncomparableException` ⇒ `AssertionFailure`
+  "…, but 'a' and 'b' cannot be compared: only 'b' has a day" – a **fail**, not an error). String vs String: `equals`
+  text, `greaterThan`/`lessThan` numbers, then dates, then lexicographic. `contains` on text. `in`: a match wins,
+  otherwise an incomparable entry fails. Variables stay text (`Values.single`). Tests: `OperatorsTest`,
+  `FhirTemporalTest`.
 * Expected value: `value`, or `compareToSourceId` + `compareToSourceExpression`/`compareToSourcePath`.
 * `validateProfileId` must name an id in `TestScript.profile` (else error listing declared ids); see
   `testrunner-validation`.
@@ -244,4 +253,5 @@ TestScripts one after the other first, then the rest in the pool.
 problems, run folder, listeners; per TestScript load → checks → execution), `RunScheduler` (serial suites, thread pool),
 `ExecutionFactory` (`ExecutionEnvironment` of one execution: `FhirHttpClient`, communication log, headers, OAuth2,
 `builtInValues`), `ReportPublisher` (report writers, summary log).
-Docs: `docs/architecture.md` › Runtime view, Execution semantics, Open points; ADR-0004, ADR-0008, ADR-0013, ADR-0014.
+Docs: `docs/architecture.md` › Runtime view, Execution semantics, Open points; ADR-0004, ADR-0008, ADR-0013, ADR-0014,
+ADR-0016; `CHANGELOG.md` for changes of results.

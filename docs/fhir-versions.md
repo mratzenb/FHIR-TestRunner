@@ -113,6 +113,9 @@ Three layers, each with one job:
 
 FHIRPath (`assert.expression`, `variable.expression`) is evaluated with the HAPI engine of the TestScript's version
 (`HapiFhirPathEvaluator`), so `Patient.name` is evaluated on an R4 or R5 model as appropriate, for JSON and XML alike.
+Its results keep their type: booleans, numbers, and dates and times as `model.FhirTemporal` with the precision and
+offset as written, so that assertions compare them by the FHIRPath rules
+([ADR-0016](adr/0016-typed-comparisons.md)).
 
 The results go the other way the same way: the core describes a FHIR TestReport version-neutrally
 (`TestReportContent`), and one `TestReportEncoder` writes it for the TestScript's version by element name. The only
