@@ -28,3 +28,10 @@ updates:
     schedule:
       interval: weekly
       day: monday
+
+  # the JRE base image of testrunner-app/Dockerfile (ADR-0015)
+  - package-ecosystem: docker
+    directory: /testrunner-app
+    schedule:
+      interval: weekly
+      day: monday

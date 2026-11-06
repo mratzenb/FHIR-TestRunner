@@ -230,7 +230,7 @@ TestScripts are sent to servers, so the integrity of the package matters.
 | F1 | **Check mode**: load and check TestScripts without a server (done, M3.1) | high | S | A1 |
 | F2 | **Select what runs**: by TestScript and test name; list mode (done, M3.2) | high | S | – |
 | F3 | **Run control**: run and TestScript timeouts, fail-fast, reports after Ctrl-C (done, M2.3/M2.4) | high | M | A2, A5 |
-| F4 | **Container image** and a compose file with HAPI FHIR | medium | S | – |
+| F4 | **Container image** and a compose file with HAPI FHIR (done, M4.1) | medium | S | – |
 | F5 | **HTML report** linking into `communication/` | medium | M | – |
 | F6 | **Typed comparisons** for dates, numbers and booleans | medium | M | A7 |
 | F7 | **Binary content** in requests and responses | medium | M | A8 |
@@ -376,9 +376,13 @@ pages and the skills.
 
 ### M4 – Distribution and reporting (M)
 
-1. **F4.** Image build in `testrunner-app` (`spring-boot:build-image`, or a Dockerfile on a Java 25 JRE). Volumes:
-   configuration, suites, results, validator jar, package cache. A `docker-compose.yml` with a pinned HAPI FHIR, as
-   in the PoC. CI builds the image; publishing it is a separate decision.
+1. ~~**F4.**~~ Done: `testrunner-app/Dockerfile` on `eclipse-temurin:25.0.5_8-jre-noble` (a Dockerfile, not
+   `spring-boot:build-image`: no builder images from the internet at build time), the exec jar split into layers,
+   user `runner`, working directory `/workspace`. Mounted: the project folder (configuration, suites, results), the
+   validator jar, `~/.fhir/packages`. `docker-compose.yml` with HAPI FHIR `v8.12.0-1` and the settings of
+   `HapiServerIT`; a `curl` service waits for HAPI (its image has no shell for a health check). CI builds the image
+   and checks the AT Core suite with it; it is not published. Dependabot watches the base image.
+   [ADR-0015](../adr/0015-container-image.md), [Build and test › Container image](build-and-test.md#container-image).
 2. **F5.** `HtmlReportWriter` in `core.report`, format `html`, plain Java like `JUnitXmlReportWriter` – no template
    engine. Every text is HTML-escaped: server responses end up in the report.
 
@@ -417,4 +421,4 @@ pages and the skills.
 | Deselected tests: reported as `skip`, or left out? (M3.2) | **Decided:** left out, with a count in the log ([ADR-0014](../adr/0014-author-workflow.md)) |
 | Typed comparisons: default, or behind a switch? (M5.2) | default, with a release note |
 | Several servers: in scope at all? (M6.1) | only when a real suite needs it |
-| Container image: published, and where? (M4.1) | build in CI now, decide on publishing later |
+| Container image: published, and where? (M4.1) | **Decided:** built and checked in CI, not published ([ADR-0015](../adr/0015-container-image.md)); publishing is open |

@@ -90,6 +90,10 @@ The build produces two artefacts ([ADR-0010](../../adr/0010-build.md)):
 | `testrunner-app-<version>.jar` | plain jar – a library, and what the failsafe tests use |
 | `testrunner-app-<version>-exec.jar` | Spring Boot executable jar (~97 MB, mostly HAPI) |
 
+`Dockerfile` (next to the POM) builds a container image from the exec jar, `.dockerignore` keeps everything else
+out of the build context. Usage and mounts: [Build and test › Container image](../build-and-test.md#container-image),
+[ADR-0015](../../adr/0015-container-image.md).
+
 ## Tests in this module
 
 | Test | Kind | Covers |

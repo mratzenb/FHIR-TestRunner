@@ -42,7 +42,8 @@ Testcontainers' version comes from the Spring Boot BOM (`testcontainers-junit-ju
 
 * Job `verify`: push to `main` and every pull request → `mvn -B -ntp verify` on Temurin 25 (`setup-java` with
   `cache: maven`); `ubuntu-latest` has Docker, so `HapiServerIT` runs there; the coverage report is uploaded as
-  artefact `coverage`, the SBOM as `sbom`, on failure the surefire/failsafe reports as `test-reports`.
+  artefact `coverage`, the SBOM as `sbom`, on failure the surefire/failsafe reports as `test-reports`; then
+  `docker build -t testrunner:ci testrunner-app` and a `--check` of `config/dev-r4.yml` with the image.
 * `.github/dependabot.yml`: weekly (Monday) PRs for Maven dependencies/plugins (groups `spring-boot`, `hapi-fhir`,
   `maven-plugins`; major versions of Spring Boot and HAPI ignored) and GitHub Actions. A HAPI update should also
   raise `HapiServerIT.IMAGE`.
@@ -75,6 +76,28 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
 * Exit codes: 0 pass, 1 fail/error, 2 invalid configuration, 3 skipped (default: only when every TestScript was;
   `testrunner.exit-on-skip=all|any|never`, `RunCommand.exitCode`).
 * The app module builds a plain library jar and `*-exec.jar` (Spring Boot, classifier `exec`).
+
+## Container image (ADR-0015)
+
+```sh
+mvn -B -DskipTests package && docker build -t testrunner testrunner-app      # needs the exec jar first
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/workspace" testrunner --config=config/dev-r4.yml --check --novalidator
+docker compose run --rm testrunner [--config=… --novalidator …]              # + HAPI FHIR v8.12.0-1, waits for it
+docker compose down
+```
+
+* `testrunner-app/Dockerfile`: `eclipse-temurin:25.0.5_8-jre-noble`, two stages (`jarmode=tools extract --layers`,
+  then dependencies / loader / snapshot / application layers into `/app`, `java -jar /app/testrunner.jar`), user
+  `runner` 10001, `HOME=/home/runner` (`.fhir/packages` and `/workspace` mode 1777 for any `--user`), working dir
+  `/workspace`, entry point via the base image's `/__cacert_entrypoint.sh` (`USE_SYSTEM_CA_CERTS=1` + `/certificates`).
+  `.dockerignore` lets only `target/testrunner-app-*-exec.jar` into the context.
+* `docker-compose.yml` (root): `hapi` (settings as `HapiServerIT`, port 8080), `hapi-ready` (`curlimages/curl` retries
+  `/fhir/metadata`; HAPI's image is distroless, no shell), `testrunner` (build `testrunner-app`, mounts `.`,
+  `${VALIDATOR_JAR:-./validator_cli.jar}` → `/opt/validator/validator_cli.jar`, `~/.fhir/packages`; env
+  `TESTRUNNER_FHIRSERVER_BASEURL=http://hapi:8080/fhir`; default command `--config=config/dev-r4.yml`).
+* CI job `verify` builds `testrunner:ci` and runs `--check` on `config/dev-r4.yml` with it; nothing is pushed.
+  Dependabot (`package-ecosystem: docker`, `/testrunner-app`) raises the base image.
+* On this machine `docker` needs `DOCKER_HOST=unix://$HOME/.rd/docker.sock` (Rancher Desktop).
 
 ## POM conventions (ADR-0010)
 
