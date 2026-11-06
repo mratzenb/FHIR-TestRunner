@@ -4,6 +4,7 @@ import at.hl7.testing.runner.core.model.Assertion;
 import at.hl7.testing.runner.core.model.Body;
 import at.hl7.testing.runner.core.model.Check;
 import at.hl7.testing.runner.core.model.Destination;
+import at.hl7.testing.runner.core.model.FhirTemporal;
 import at.hl7.testing.runner.core.model.FhirVersion;
 import at.hl7.testing.runner.core.model.Operation;
 import at.hl7.testing.runner.core.model.OperationType;
@@ -16,6 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -185,6 +187,29 @@ class R4SupportTest {
         assertThat(support.fhirPath().evaluate(json, "Patient.id")).containsExactly("HL7ATCorePatientCreateTestExample");
         assertThat(support.fhirPath().evaluate(xml, "Patient.name.family")).containsExactly("Wolfesberger");
         assertThat(support.fhirPath().evaluate(xml, "Patient.name.given.count() = 2")).containsExactly(true);
+    }
+
+    @Test
+    void fhirPathKeepsTheTypeOfDatesAndNumbersAsWritten() {
+        Body observation = Body.json("""
+                {"resourceType":"Observation","status":"final","code":{"text":"x"},
+                 "effectiveDateTime":"2026-01-01T10:00:00+01:00","issued":"2026-01-01T09:00:00.000Z",
+                 "valueQuantity":{"value":1.50},"meta":{"lastUpdated":"2026-01-01T09:00:00Z"}}""");
+        Body patient = Body.json("{\"resourceType\":\"Patient\",\"birthDate\":\"1980-02\"}");
+
+        assertThat(support.fhirPath().evaluate(observation, "Observation.effective")).singleElement()
+                .isInstanceOf(FhirTemporal.class).hasToString("2026-01-01T10:00:00+01:00");
+        assertThat(support.fhirPath().evaluate(observation, "Observation.issued")).singleElement()
+                .isInstanceOf(FhirTemporal.class).hasToString("2026-01-01T09:00:00.000Z");
+        assertThat(support.fhirPath().evaluate(patient, "Patient.birthDate")).singleElement()
+                .isInstanceOf(FhirTemporal.class).hasToString("1980-02");
+        assertThat(support.fhirPath().evaluate(observation, "Observation.value.value")).singleElement()
+                .isEqualTo(new BigDecimal("1.50"));
+        assertThat(support.fhirPath().evaluate(observation, "Observation.status")).containsExactly("final");
+        // the text as written, for a TestScript that compares it as text (CHANGELOG)
+        assertThat(support.fhirPath().evaluate(observation, "Observation.value.value.toString()")).containsExactly("1.50");
+        assertThat(support.fhirPath().evaluate(observation, "Observation.effective.toString()"))
+                .containsExactly("2026-01-01T10:00:00+01:00");
     }
 
     @Test

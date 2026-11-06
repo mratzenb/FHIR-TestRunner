@@ -19,3 +19,4 @@ Format: context, decision, alternatives considered, consequences. Status of all:
 | [0013](0013-run-control.md) | Run control: timeouts, fail-fast and cancel, checked between actions, never a killed thread; reports always written, also on Ctrl-C |
 | [0014](0014-author-workflow.md) | Author workflow: a check mode that loads and checks TestScripts without a server and sends nothing; selecting TestScripts and tests, and listing what would run |
 | [0015](0015-container-image.md) | Container image: the runner on a Java 25 JRE, everything else mounted; a compose file with HAPI FHIR; built in CI, not published |
+| [0016](0016-typed-comparisons.md) | Assertions compare values by their FHIRPath type: numbers by value, dates and times as points in time; what cannot be compared fails with the reason |

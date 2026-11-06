@@ -100,7 +100,7 @@ promise.
 | A4 | No test against a real FHIR server | medium | M |
 | A5 | `TestRunner` does too much; `TestScriptExecution` takes 10 constructor parameters (done, M2.1) | medium | M |
 | A6 | Wide positional records: `Operation` has 17 components (done, M5.1) | medium | M |
-| A7 | Assertion values are compared as text | medium | M |
+| A7 | Assertion values are compared as text (done, M5.2) | medium | M |
 | A8 | Request and response bodies are `String`s | medium | M |
 | A9 | The public API of the core is undefined; `RunContext` hands mutable run state to listeners (done, M2.5) | medium | S |
 | A10 | Package download: new `HttpClient` per download, no proxy, no integrity check | low | S |
@@ -181,6 +181,8 @@ immutable but make the call sites independent of the component order.
 
 ### A7 – Text comparison
 
+**Status:** done in M5.2, [ADR-0016](../adr/0016-typed-comparisons.md).
+
 `Operators.apply` compares strings. `greaterThan` and `lessThan` try numbers and otherwise compare text
 lexicographically. So:
 
@@ -234,7 +236,7 @@ TestScripts are sent to servers, so the integrity of the package matters.
 | F3 | **Run control**: run and TestScript timeouts, fail-fast, reports after Ctrl-C (done, M2.3/M2.4) | high | M | A2, A5 |
 | F4 | **Container image** and a compose file with HAPI FHIR (done, M4.1) | medium | S | – |
 | F5 | **HTML report** linking into `communication/` (done, M4.2) | medium | M | – |
-| F6 | **Typed comparisons** for dates, numbers and booleans | medium | M | A7 |
+| F6 | **Typed comparisons** for dates, numbers and booleans (done, M5.2) | medium | M | A7 |
 | F7 | **Binary content** in requests and responses | medium | M | A8 |
 | F8 | **Several servers**: map `destination` to configured servers | medium | L | A5, ADR |
 | F9 | **Packages**: `#current`, transitive dependencies | low | M | A10 |
@@ -402,10 +404,14 @@ Done, plus `RunFolderTest.htmlReportLinksTheRequestsToTheirCommunicationFolders`
    `Scripts`. No `new Operation(`, `new Assertion(` or `new TestScript(` is left outside the builders. The records
    keep their components, so binary users of the accessors see no change. `SuiteConfig` stays positional: Spring's
    binder fills it through its constructor, and it has factories (`of`, `withPackage`).
-2. **A7 + F6.** `Values` keeps the type: `BigDecimal`, `Boolean`, date/dateTime with precision and offset, `String`.
-   `Operators` compares by type. Instants are compared after normalising the offset; values of different precision
-   are not comparable, which is a `fail` with a clear message, as in FHIRPath. This changes results of existing
-   TestScripts: decide between a switch and a documented change.
+2. ~~**A7 + F6.**~~ Done as proposed, as the default (no switch), [ADR-0016](../adr/0016-typed-comparisons.md) and
+   [CHANGELOG](../../CHANGELOG.md): `HapiFhirPathEvaluator` returns dates and times as `model.FhirTemporal` (precision
+   and offset as written); `Values.value` keeps the type, `Values.equal`/`order` read the other value as that type;
+   `Operators` works on `Object`. FHIRPath rules: offsets normalised, seconds and fraction one precision, a precision
+   only one value has is undecidable – a `fail` naming both values and the reason. Text from `path` or a header stays
+   text for `equals`; `greaterThan`/`lessThan` order two numbers or two dates. Variables stay text. Tests:
+   `FhirTemporalTest`, `OperatorsTest`, `R4SupportTest.fhirPathKeepsTheTypeOfDatesAndNumbersAsWritten`,
+   `EndToEndIT.fhirPathValuesAreComparedByTheirType`.
 3. **A8 + F7.** `Body` holds bytes plus a charset and decodes text on demand. `JdkHttpTransport` reads bytes. The
    communication log writes a non-text body as a file of its own next to `response.http`.
 4. **A12**, if a measurement with a large Bundle shows it is needed.
@@ -428,6 +434,6 @@ Done, plus `RunFolderTest.htmlReportLinksTheRequestsToTheirCommunicationFolders`
 |---|---|
 | Unsupported checks: `Load` error, or run-time error plus an early warning? (M1.3) | **Decided:** run-time error plus warning – keeps the documented outcome rules |
 | Deselected tests: reported as `skip`, or left out? (M3.2) | **Decided:** left out, with a count in the log ([ADR-0014](../adr/0014-author-workflow.md)) |
-| Typed comparisons: default, or behind a switch? (M5.2) | default, with a release note |
+| Typed comparisons: default, or behind a switch? (M5.2) | **Decided:** default, with a release note ([CHANGELOG](../../CHANGELOG.md), [ADR-0016](../adr/0016-typed-comparisons.md)) |
 | Several servers: in scope at all? (M6.1) | only when a real suite needs it |
 | Container image: published, and where? (M4.1) | **Decided:** built and checked in CI, not published ([ADR-0015](../adr/0015-container-image.md)); publishing is open |
