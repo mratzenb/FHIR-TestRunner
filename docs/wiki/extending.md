@@ -58,7 +58,8 @@ public final class CsvReportWriter implements ReportWriter {
 * **Without Spring:** pass it in the `TestRunner` constructor, next to `TestRunners.defaultReportWriters(…)`.
 
 A writer that throws does not stop the run: the error is logged and the other formats are written. Anything taken
-from a response, such as a message, is untrusted text – escape it for HTML or XML.
+from a response, such as a message, is untrusted text – escape it for HTML or XML. `HtmlReportWriter` (format
+`html`) is a complete example of that: it escapes every text and links request ids into `communication/`.
 
 ## Replace the HTTP transport
 

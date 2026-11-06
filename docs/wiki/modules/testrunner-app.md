@@ -77,7 +77,7 @@ java -jar testrunner-app-…-exec.jar --config=ci.yml --testrunner.exit-on-skip=
 
 ## Defaults of the jar
 
-`src/main/resources/application.yml` holds only defaults: no banner, no web server, console at `INFO`, all four
+`src/main/resources/application.yml` holds only defaults: no banner, no web server, console at `INFO`, all five
 report formats. Real settings belong in a `--config` file. Development configurations are in
 [`config/`](../../../config).
 

@@ -231,7 +231,7 @@ TestScripts are sent to servers, so the integrity of the package matters.
 | F2 | **Select what runs**: by TestScript and test name; list mode (done, M3.2) | high | S | – |
 | F3 | **Run control**: run and TestScript timeouts, fail-fast, reports after Ctrl-C (done, M2.3/M2.4) | high | M | A2, A5 |
 | F4 | **Container image** and a compose file with HAPI FHIR (done, M4.1) | medium | S | – |
-| F5 | **HTML report** linking into `communication/` | medium | M | – |
+| F5 | **HTML report** linking into `communication/` (done, M4.2) | medium | M | – |
 | F6 | **Typed comparisons** for dates, numbers and booleans | medium | M | A7 |
 | F7 | **Binary content** in requests and responses | medium | M | A8 |
 | F8 | **Several servers**: map `destination` to configured servers | medium | L | A5, ADR |
@@ -256,8 +256,7 @@ neither. Use `spring-boot:build-image` or a Dockerfile on a Java 25 JRE. The val
 volumes, not part of the image.
 
 **F5 – HTML report.** One self-contained page per run: TestScripts, phases, actions, messages, and every request id
-as a link to its folder in `communication/`. For readers who do not open `junit.xml`. Opt-in as format `html`; the
-[Extending](extending.md#add-a-report-format) page already sketches it.
+as a link to its folder in `communication/`. For readers who do not open `junit.xml`. Opt-in as format `html`.
 
 **F8 – Several servers.** TestScripts with several `destination`s are rejected today
 ([architecture.md › Open points](../architecture.md#open-points)). Mapping each destination index (or its profile
@@ -383,11 +382,16 @@ pages and the skills.
    `HapiServerIT`; a `curl` service waits for HAPI (its image has no shell for a health check). CI builds the image
    and checks the AT Core suite with it; it is not published. Dependabot watches the base image.
    [ADR-0015](../adr/0015-container-image.md), [Build and test › Container image](build-and-test.md#container-image).
-2. **F5.** `HtmlReportWriter` in `core.report`, format `html`, plain Java like `JUnitXmlReportWriter` – no template
-   engine. Every text is HTML-escaped: server responses end up in the report.
+2. ~~**F5.**~~ Done as proposed: `HtmlReportWriter` in `core.report`, format `html`, `report.html` in the run folder,
+   plain Java. Every text is HTML-escaped, the page's Content-Security-Policy allows no script, a TestScript url is
+   text, not a link. Request ids link to their folder and files in `communication/` (relative links; looked up by
+   `ExchangeFolders`, shared with `TestReportWriter`). A TestScript that did not pass is open, a checkbox hides what
+   passed (CSS only). On in the app's defaults and `dev-all.yml`, like `testreport`; also in check mode.
 
-*Tests:* `HtmlReportWriterTest` – escaping of hostile response text, links to existing communication folders.
-*Docs:* [logging.md](../logging.md), README.
+*Tests:* ~~`HtmlReportWriterTest` – escaping of hostile response text, links to existing communication folders.~~
+Done, plus `RunFolderTest.htmlReportLinksTheRequestsToTheirCommunicationFolders` and
+`EndToEndIT.communicationLogsAndReportsAreWrittenPerRun`.
+*Docs:* ~~[logging.md](../logging.md), README.~~ Done, also configuration.md, the wiki pages and the skills.
 
 ### M5 – Engine depth (M)
 

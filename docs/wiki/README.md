@@ -1,7 +1,8 @@
 # FHIR TestScript Runner – Wiki
 
 The runner reads FHIR `TestScript` resources and sends their requests to a FHIR server. It checks the responses
-and writes the results as JUnit XML, a text summary, JSON and FHIR `TestReport`s. Every HTTP exchange is logged.
+and writes the results as JUnit XML, a text summary, JSON, FHIR `TestReport`s and an HTML page. Every HTTP exchange
+is logged.
 
 This wiki is a guided tour through the code. It explains the Maven modules, how they work together and why the
 design looks the way it does.
@@ -14,7 +15,7 @@ flowchart LR
     runner["FHIR TestScript Runner"] -- "HTTP requests" --> server[("FHIR server<br/>under test")]
     server -- responses --> runner
     runner -- "validate resources" --> validator["HL7 Validator CLI<br/>validator_cli.jar"]
-    runner --> out["Run folder<br/>junit.xml · summary.txt · result.json<br/>testreports/ · testrunner.log · communication/"]
+    runner --> out["Run folder<br/>junit.xml · summary.txt · result.json · report.html<br/>testreports/ · testrunner.log · communication/"]
 ```
 
 ## Where to start

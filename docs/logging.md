@@ -8,6 +8,7 @@ testrunner-results/run_2026-10-21_20-58-01-838/
 ├─ junit.xml                 results for CI
 ├─ summary.txt               counts and reasons of failures
 ├─ result.json               every action, with its request id (format json)
+├─ report.html               one page for people: every action, request ids linked into communication/ (format html)
 ├─ testreports/              a FHIR TestReport per TestScript, in its FHIR version (format testreport)
 │  └─ TestReport-01_TestScript-testscript-patient-create-at-core.json
 └─ communication/
@@ -21,9 +22,9 @@ testrunner-results/run_2026-10-21_20-58-01-838/
          └─ error.txt        instead of response.http if no response came back
 ```
 
-A check (`--check`) writes `check_<timestamp>/` with `testrunner.log`, `junit.xml`, `summary.txt` and `result.json`
-only: it sends nothing, so there is no `communication/`, and no `testreports/`, since a TestReport would say the
-TestScripts were executed.
+A check (`--check`) writes `check_<timestamp>/` with `testrunner.log`, `junit.xml`, `summary.txt`, `result.json` and
+`report.html` only: it sends nothing, so there is no `communication/`, and no `testreports/`, since a TestReport would
+say the TestScripts were executed.
 
 ## Request ids tie everything together
 
@@ -33,6 +34,7 @@ stay unique with parallel TestScripts). The id appears
 * in the log line of the request, together with the folder of the exchange,
 * in every assertion log line, naming the response it checked,
 * in failure messages in `junit.xml` / `summary.txt` and in `result.json`,
+* in `report.html`, as a link to the exchange folder and its files,
 * as the prefix of the exchange folder.
 
 ```
@@ -126,3 +128,18 @@ Reference in R4 and a canonical in R5):
 What happened outside of the actions – an unmet capability, a fixture that could not be created, a skipped test,
 content the version ignored – becomes an action of its own, so a TestReport carries the same reasons as `junit.xml`.
 A TestScript whose FHIR version could not be determined gets no TestReport.
+
+## The HTML report
+
+With the format `html` (on in the application's defaults) the run folder gets `report.html`: one self-contained page
+for readers who do not open `junit.xml` (`HtmlReportWriter`, plain Java, no template engine, no script).
+
+* At the top the run: outcome, start, duration, counts, and a table of every TestScript with its tests passed.
+* Then one section per TestScript: suite, file, url, FHIR version, server, and each phase with its messages and its
+  actions. A TestScript that did not pass is open, the others are folded; "only what did not pass" hides the rest.
+* Every request id links to its folder in `communication/`, and to `request.http`, `response.http` or `error.txt` in
+  it. The links are relative: the run folder can be zipped, archived or attached to a CI job as a whole. Without
+  communication log (`communication-log: false`) the ids are shown without link.
+* Everything from a TestScript or a server – names, descriptions, messages with response content – is HTML-escaped.
+  The page's Content-Security-Policy allows no script at all, and a TestScript's url is shown as text, never linked.
+

@@ -31,7 +31,7 @@ flowchart LR
     r5["R5Support<br/>fhir-r5"] -. implements .-> p1
     val["process / server validator<br/>validation-cli"] -. implements .-> p2
     jdk["JdkHttpTransport<br/>core"] -. implements .-> p3
-    rw["junit · summary · json · testreport<br/>core"] -. implements .-> p4
+    rw["junit · summary · json · testreport · html<br/>core"] -. implements .-> p4
     log["RunLogFileListener<br/>autoconfigure"] -. implements .-> p5
 ```
 
@@ -40,7 +40,7 @@ flowchart LR
 | `FhirVersionSupport` | How do I read a TestScript of FHIR version X, evaluate FHIRPath on it and write its TestReport? | `R4Support`, `R5Support` (found with `ServiceLoader`) |
 | `ProfileValidator` | Is this resource valid against that profile? | process mode, server mode, `ProfileValidator.DISABLED` |
 | `HttpTransport` | How do I send one HTTP request? | `JdkHttpTransport` |
-| `ReportWriter` | How do I write the result in format X? | `junit`, `summary`, `json`, `testreport` |
+| `ReportWriter` | How do I write the result in format X? | `junit`, `summary`, `json`, `testreport`, `html` |
 | `RunListener` | Who wants to know when a run or TestScript starts and ends? | `RunLogFileListener` (the run log file) |
 
 ## Modules

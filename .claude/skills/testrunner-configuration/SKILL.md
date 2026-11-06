@@ -56,7 +56,8 @@ testrunner:
     server: {startup-timeout: 5m, fallback-to-process: true}
   reporting:
     output-dir: testrunner-results           # run folder output-dir/run_<timestamp>/
-    formats: [junit, summary]                # record default; the app's application.yml sets [junit, summary, json, testreport]
+    formats: [junit, summary]                # record default; also json, testreport, html (report.html);
+                                             # the app's application.yml sets all five
     communication-log: true
     redact-headers: [Authorization, Proxy-Authorization, Cookie, Set-Cookie]   # masked in communication log; [] = none
     log-file: true
@@ -114,7 +115,7 @@ Spring closes it (stops validator servers). Registered in
 | `HttpTransport` | `JdkHttpTransport` (closed with context) | proxy, mTLS, token schemes beyond `oauth2` |
 | `ProfileValidator` | by `validation.mode` | another validator (e.g. in-process) |
 | `FhirVersionSupport` (list) | `ServiceLoader` modules | override a version |
-| `ReportWriter` (list) | junit, summary, json, testreport | add a format; select via `reporting.formats` |
+| `ReportWriter` (list) | junit, summary, json, testreport, html | add a format; select via `reporting.formats` |
 | `RunListener` (list) | `RunLogFileListener` (only with Logback) | events, metrics; gets `RunInfo` |
 | `Clock` | system | fixed time in tests |
 | `TestRunner` | wired from the above | wire yourself |

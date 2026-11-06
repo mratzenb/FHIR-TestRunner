@@ -1,8 +1,8 @@
 # FHIR TestScript Runner (Java)
 
 Executes FHIR® `TestScript` resources (R4 and R5, R6-ready) against a FHIR server and reports the results as
-JUnit XML, text summary and JSON, with a full log and a communication log of every request. Java re-design of the
-Python proof of concept [HL7-AT-TestFhiry-TestRunner](../HL7-AT-TestFhiry-TestRunner).
+JUnit XML, text summary, JSON, FHIR TestReports and an HTML page, with a full log and a communication log of every
+request. Java re-design of the Python proof of concept [HL7-AT-TestFhiry-TestRunner](../HL7-AT-TestFhiry-TestRunner).
 
 ## Quick start
 
@@ -42,7 +42,8 @@ docker compose run --rm testrunner --config=config/dev-r4.yml --novalidator
 Writing a TestScript of your own: start with the walk-through in [docs/wiki/samples.md](docs/wiki/samples.md).
 
 Results go to `target/testrunner-results/run_<timestamp>/` (`junit.xml`, `summary.txt`, `result.json`, a FHIR
-`TestReport` per TestScript in `testreports/`, `testrunner.log`, `communication/`). Exit code: 0 passed, 1 failed/errors, 2 invalid configuration, 3 everything skipped (nothing tested;
+`TestReport` per TestScript in `testreports/`, `report.html` to read in a browser, `testrunner.log`, `communication/`).
+Exit code: 0 passed, 1 failed/errors, 2 invalid configuration, 3 everything skipped (nothing tested;
 `testrunner.exit-on-skip`). A check (`--check`) writes `check_<timestamp>/` without TestReports and communication;
 exit code 1 means a TestScript has problems.
 
