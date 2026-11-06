@@ -62,12 +62,6 @@ public final class ElementView {
         return children(name).stream().findFirst();
     }
 
-    /** Whether the element exists in this version of FHIR (not whether it has a value). */
-    public boolean defines(String name) {
-        return definition instanceof BaseRuntimeElementCompositeDefinition<?> composite
-                && composite.getChildByName(name) != null;
-    }
-
     /** The value of a primitive child as text, {@code null} if absent. */
     public String string(String name) {
         return child(name).map(ElementView::primitiveValue).orElse(null);

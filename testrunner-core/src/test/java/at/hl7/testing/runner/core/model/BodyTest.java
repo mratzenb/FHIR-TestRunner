@@ -50,6 +50,10 @@ class BodyTest {
                 .isEqualTo(ContentFormat.OTHER);
         assertThat(Body.of("hello".getBytes(StandardCharsets.UTF_8), "text/plain").isText()).isTrue();
         assertThat(Body.of(new byte[0], "application/fhir+json").isEmpty()).isTrue();
+        // a text body follows the same rule
+        assertThat(Body.of("{\"resourceType\":\"Binary\"}", "application/octet-stream").format())
+                .isEqualTo(ContentFormat.OTHER);
+        assertThat(Body.of("{\"resourceType\":\"Binary\"}", null).format()).isEqualTo(ContentFormat.JSON);
     }
 
     @Test

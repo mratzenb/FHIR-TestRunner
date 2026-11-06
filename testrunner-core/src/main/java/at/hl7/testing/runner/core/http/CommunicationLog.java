@@ -154,15 +154,6 @@ public final class CommunicationLog {
         return name.length() > MAX_FOLDER_NAME ? name.substring(0, MAX_FOLDER_NAME) : name;
     }
 
-    String requestMessage(FhirRequest request) {
-        return requestMessage(request, binaryFile("request", request.body(), request.headers()), new LinkedHashMap<>());
-    }
-
-    String responseMessage(FhirResponse response) {
-        return responseMessage(response, binaryFile("response", response.body(), response.headers()),
-                new LinkedHashMap<>());
-    }
-
     /** @param binary the file of a body that is no text, {@code null} for a text body; {@code files} gets it */
     private String requestMessage(FhirRequest request, String binary, Map<String, byte[]> files) {
         StringBuilder text = new StringBuilder()

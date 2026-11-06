@@ -53,13 +53,12 @@ public final class Body {
     }
 
     /**
-     * Creates a text body whose format is taken from the {@code Content-Type} header, falling back to the content itself.
+     * A text body; its format as for {@link #of(byte[], String)}.
      *
      * @param contentType the {@code Content-Type} header value, may be {@code null}
      */
     public static Body of(String text, String contentType) {
-        ContentFormat format = ContentFormat.fromMimeType(contentType);
-        return new Body(text, format != null ? format : ContentFormat.sniff(text));
+        return new Body(text, format(contentType, text));
     }
 
     /**
@@ -72,11 +71,9 @@ public final class Body {
     public static Body of(byte[] bytes, String contentType) {
         byte[] copy = bytes == null ? EMPTY : bytes.clone();
         Charset charset = charset(contentType);
-        ContentFormat format = ContentFormat.fromMimeType(contentType);
-        if (format == null) {
-            format = namesOtherMedia(contentType) ? ContentFormat.OTHER : sniff(copy, charset);
-        }
-        return new Body(copy, charset, format);
+        // the first characters decide; decoding a large binary in full is not needed for that
+        String start = new String(copy, 0, Math.min(copy.length, 64), charset);
+        return new Body(copy, charset, format(contentType, start));
     }
 
     /** The bytes, as exchanged. */
@@ -135,11 +132,6 @@ public final class Body {
         return bytes.length == 0 || isText() && text().isBlank();
     }
 
-    /** A body with the same bytes and charset in another format. */
-    public Body withFormat(ContentFormat newFormat) {
-        return new Body(bytes, charset, newFormat);
-    }
-
     /** The charset named by a {@code Content-Type} value; UTF-8 if none is named or it is unknown. */
     static Charset charset(String contentType) {
         if (contentType != null) {
@@ -164,10 +156,13 @@ public final class Body {
         return !type.startsWith("text/");
     }
 
-    private static ContentFormat sniff(byte[] bytes, Charset charset) {
-        // the first characters decide; decoding a large binary in full is not needed for that
-        int prefix = Math.min(bytes.length, 64);
-        return ContentFormat.sniff(new String(bytes, 0, prefix, charset));
+    /** JSON or XML if the media type names it; else other media as they are; else what the content starts with. */
+    private static ContentFormat format(String contentType, String start) {
+        ContentFormat format = ContentFormat.fromMimeType(contentType);
+        if (format != null) {
+            return format;
+        }
+        return namesOtherMedia(contentType) ? ContentFormat.OTHER : ContentFormat.sniff(start);
     }
 
     /** Equal if the format, charset and bytes are equal. */
