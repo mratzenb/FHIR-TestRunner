@@ -103,7 +103,7 @@ promise.
 | A7 | Assertion values are compared as text (done, M5.2) | medium | M |
 | A8 | Request and response bodies are `String`s (done, M5.3) | medium | M |
 | A9 | The public API of the core is undefined; `RunContext` hands mutable run state to listeners (done, M2.5) | medium | S |
-| A10 | Package download: new `HttpClient` per download, no proxy, no integrity check | low | S |
+| A10 | Package download: new `HttpClient` per download, no proxy, no integrity check (done, M6.2) | low | S |
 | A11 | `TestRunner` filters configuration problems by property-name prefix (done, M2.2) | low | S |
 | A12 | A body is parsed again for every assertion and variable (measured in M5.4: not worth a cache) | low | S |
 
@@ -213,6 +213,8 @@ ArchUnit rule or a `module-info`.
 
 ### A10 – Package download
 
+**Status:** done in M6.2, [ADR-0018](../adr/0018-package-resolution.md).
+
 `PackageSuites.httpDownload` creates a `HttpClient` per download and never closes it. It uses neither the proxy nor
 the TLS settings that apply to the FHIR server, and it does not verify the tarball. npm-style registries list a
 `dist.shasum` per version; check that packages.fhir.org provides it, then verify downloads against it. A package's
@@ -241,7 +243,7 @@ TestScripts are sent to servers, so the integrity of the package matters.
 | F6 | **Typed comparisons** for dates, numbers and booleans (done, M5.2) | medium | M | A7 |
 | F7 | **Binary content** in requests and responses (done, M5.3) | medium | M | A8 |
 | F8 | **Several servers**: map `destination` to configured servers | medium | L | A5, ADR |
-| F9 | **Packages**: `#current`, transitive dependencies | low | M | A10 |
+| F9 | **Packages**: `#current`, transitive dependencies (done, M6.2) | low | M | A10 |
 | F10 | **FHIR R6** | later | M | a HAPI release with `hapi-fhir-structures-r6` |
 
 **F1 – Check mode.** `--check` runs discovery, loading, `TestScriptChecks` and, if enabled, TestScript validation.
@@ -444,8 +446,19 @@ Done, plus `RunFolderTest.htmlReportLinksTheRequestsToTheirCommunicationFolders`
 1. **F8.** ADR first: how `destination` indexes or profile codes map to `suites[n].fhir-servers`, and what happens
    to `origin`. Then `TestScriptChecks` accepts several destinations if each is mapped, and `ExecutionFactory`
    builds one `FhirHttpClient` per destination.
-2. **F9 + A10.** Resolve `#current` and transitive dependencies in `PackageSuites`. Use one shared, closed
-   `HttpClient` with the configured proxy and TLS settings. Verify downloads against the registry checksum.
+2. ~~**F9 + A10.**~~ Done as proposed, [ADR-0018](../adr/0018-package-resolution.md): `PackageSuites` resolves
+   versions as the HL7 validator reads them (`source.PackageRef`): exact, `2.1.x` (highest patch release, cache
+   first), `#current` and `#current$<branch>` (the repository with the most recent build in `ig/qas.json` of
+   `packages.ci-build`; a cached build is reused while its `date` matches `package.manifest.json`, kept with
+   `version: current` and `original-version`), `#dev` (cache only; a `dev` dependency missing there becomes
+   `current`). With validation on, the dependencies are resolved transitively, breadth-first, each once, and become
+   the suite's IGs with the version found. Every registry download is hashed while it is unpacked and must match the
+   `dist.shasum` of `<registry>/<name>`; a version without one is taken with a warning, a CI build is not verified
+   (logged). One `HttpClient` per resolution (`PackageSuites` is `AutoCloseable`, `TestRunner` closes it), with the
+   timeouts of `testrunner.http` and – like `JdkHttpTransport` – the JVM's proxy selector and SSL context; no
+   settings of its own for proxy or TLS, so they cannot disagree. Tests: `PackageSuitesTest` against the new
+   `FakePackageServer` (registry with redirect to a CDN, CI builds), `EndToEndIT.suiteFromARegistryPackageWithItsDependenciesVerified`;
+   checked against packages.fhir.org and build.fhir.org with AT Core 2.0.0 and `#current`.
 3. **F10.** When HAPI ships `hapi-fhir-structures-r6`, follow
    [fhir-versions.md › Adding R6](../fhir-versions.md#adding-r6). A6 makes the model part easier.
 

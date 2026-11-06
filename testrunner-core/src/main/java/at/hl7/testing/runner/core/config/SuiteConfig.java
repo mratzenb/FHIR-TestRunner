@@ -16,7 +16,8 @@ import java.util.Optional;
  *
  * <p>A suite comes from a folder ({@code baseDir}) or from a FHIR package ({@code packageId}). A package is resolved
  * before the run ({@code source.PackageSuites}) into a suite with a folder: the package's {@code package/} folder for
- * the TestScripts, its example folder for the Example Instances, its FHIR version and the package itself as IG.
+ * the TestScripts, its example folder for the Example Instances, its FHIR version, and the package and the packages it
+ * depends on as IGs.
  *
  * @param name                name for logs and reports; defaults to the folder name of {@code baseDir}, or the
  *                            package id
@@ -36,8 +37,9 @@ import java.util.Optional;
  *                            effective with {@code execution.parallelism > 1}); false runs them one after the other,
  *                            while nothing else runs, for TestScripts that share data on the server
  * @param packageId           a FHIR package the suite is read from instead of {@code baseDir}, with its version, e.g.
- *                            {@code hl7.at.fhir.core.r4#2.1.0} or {@code hl7.at.fhir.core.r4#dev}; see
- *                            {@link PackagesConfig}
+ *                            {@code hl7.at.fhir.core.r4#2.1.0}, {@code #2.1.x} (highest patch release),
+ *                            {@code #current} (CI build), {@code #current$<branch>} or {@code #dev} (built locally);
+ *                            see {@link PackagesConfig}
  */
 public record SuiteConfig(@Nullable String name, @Nonnull String fhirVersion, @Nullable Path baseDir,
                           @Nonnull Path testScriptsDir, @Nonnull Path exampleInstancesDir, @Nonnull Path profilesDir,
@@ -86,24 +88,24 @@ public record SuiteConfig(@Nullable String name, @Nonnull String fhirVersion, @N
 
     /**
      * The suite of an unpacked FHIR package: TestScripts in {@code package/}, Example Instances in the package's example
-     * folder, no Profiles folder (the package is an IG of its own), the package itself before the configured IGs.
-     * Name, include, server and parallel are kept; the FHIR version is the package's unless one is configured.
+     * folder, no Profiles folder (the package is an IG of its own), the package and what it depends on before the
+     * configured IGs. Name, include, server and parallel are kept; the FHIR version is the package's unless one is
+     * configured.
      *
-     * @param packageDir   the {@code package/} folder of the unpacked package
-     * @param examplesDir  the example folder, relative to {@code packageDir}
-     * @param version      the FHIR version of the package
-     * @param dependencies further IGs the package depends on, as package ids
+     * @param packageDir  the {@code package/} folder of the unpacked package
+     * @param examplesDir the example folder, relative to {@code packageDir}
+     * @param version     the FHIR version of the package
+     * @param packageIgs  the package itself, as package id with the version found (e.g. {@code 2.1.3} for
+     *                    {@code 2.1.x}), then the packages it depends on
      */
     @Nonnull
     public SuiteConfig withPackage(@Nonnull Path packageDir, @Nonnull Path examplesDir, @Nonnull FhirVersion version,
-                                   @Nonnull List<String> dependencies) {
-        List<String> packageIgs = new ArrayList<>();
-        packageIgs.add(packageId);
-        packageIgs.addAll(dependencies);
-        igs.stream().filter(ig -> !packageIgs.contains(ig)).forEach(packageIgs::add);
+                                   @Nonnull List<String> packageIgs) {
+        List<String> allIgs = new ArrayList<>(packageIgs);
+        igs.stream().filter(ig -> !allIgs.contains(ig)).forEach(allIgs::add);
         // the package's own definitions come in with the package id; a Profiles folder does not exist in a package
         return new SuiteConfig(name, AUTO.equals(fhirVersion) ? version.name() : fhirVersion, packageDir, Path.of("."),
-                examplesDir, packageDir.resolve("other").resolve("no-profiles-folder"), packageIgs,
+                examplesDir, packageDir.resolve("other").resolve("no-profiles-folder"), allIgs,
                 include.equals(DEFAULT_INCLUDE) ? List.of("TestScript-*.json", "TestScript-*.xml") : include,
                 fhirServer, parallel, packageId);
     }

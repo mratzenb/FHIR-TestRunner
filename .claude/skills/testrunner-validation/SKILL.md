@@ -44,7 +44,11 @@ the validator really returned, or ends in an error. Keep it that way.
   `hl7.at.fhir.core.r4#2.0.0` uses `http://hl7.at/fhir/HL7ATCoreProfiles/4.0.1/...`, the AT Core TestScripts
   `https://fhir.hl7.at/core/r4/...` (2.1.0, so far only `Profiles/` or `#dev`); a mismatch is an `error`.
 * A suite with `package-id` (`source.PackageSuites`) gets `igs` = the package, its non-core dependencies, then the
-  configured `igs`, and the package's FHIR version; its profiles folder does not exist (skipped as `-ig`).
+  configured `igs`, and the package's FHIR version; its profiles folder does not exist (skipped as `-ig`). With
+  validation on, the runner resolves the dependencies transitively into `~/.fhir/packages` first (verified against
+  the registry's SHA-1, ADR-0018) and passes them with the version found (`7.4.x` → `7.4.2`, a missing `dev` →
+  `current`), so the validator loads them from the cache; `#current` packages are the CI build the validator would
+  pick too.
 * `OperationOutcomeReader` parses the result; errors make it invalid, warnings are logged at DEBUG.
 * `ValidatorArguments.problems` (jar missing, java not executable) – also reported at start-up by `ValidatorCheck`.
 

@@ -8,8 +8,11 @@ description: How the FHIR TestScript Runner (TestRunnerOnJava) executes a TestSc
 ## Run flow
 
 1. `TestRunner.run(RunConfiguration)` – checks `RunConfiguration.problems()`, resolves suites with `package-id`
-   (`source.PackageSuites`: package cache, else download from the registry; `package.json` gives folder layout,
-   FHIR version and `igs`; a problem ⇒ `ConfigurationException`), unknown report formats and
+   (`source.PackageSuites`, ADR-0018, `AutoCloseable` – one `HttpClient` per resolution, closed by `TestRunner`:
+   package cache, else download – releases from the registry verified against `dist.shasum`, `2.1.x` = highest patch,
+   `#current[$branch]` = latest CI build per `qas.json`/`package.manifest.json`; `package.json` gives folder layout,
+   FHIR version and `igs`; with the validator on, the dependencies transitively, verified, as IGs with the version
+   found; a problem ⇒ `ConfigurationException`), unknown report formats and
    unsupported pinned versions, `ProfileValidator.configurationProblems()` (any problem ⇒ `ConfigurationException`, exit 2); creates a `RunContext` (run id
    `run_yyyy-MM-dd_HH-mm-ss-SSS` = run folder name under `output-dir`, run-wide `AtomicInteger` request counter;
    package-private), notifies `RunListener`s with `RunContext.info()` = `RunInfo` (run id, start, configuration, run

@@ -53,7 +53,11 @@ sequenceDiagram
   validates the TestScripts.
 
 Then suites with a `package-id` are resolved by `PackageSuites`. It finds the package in the FHIR package cache,
-or downloads it. The suite then points to the unpacked folder.
+or downloads it – a release from the registry, verified against the registry's checksum; `#current` from the CI
+build server. The suite then points to the unpacked folder. If the run validates, the packages it depends on are
+resolved the same way, transitively, and become the suite's IGs with the version found
+([ADR-0018](../adr/0018-package-resolution.md)). This happens before the run's log file exists: the lines are on the
+console.
 
 Any problem stops the run before anything is sent: `ConfigurationException`, exit code **2**.
 

@@ -112,7 +112,7 @@ class TestRunnerTest extends EngineTestBase {
                 List.of(new SuiteConfig(null, null, null, null, null, null, null, null, null, null, "example.ig#dev")),
                 null, null, null,
                 new ReportingConfig(dir.resolve("results"), null, false, false, null, null),
-                new PackagesConfig(dir.resolve("cache"), null), null);
+                PackagesConfig.cache(dir.resolve("cache")), null);
         var scripts = Map.of("ts", script().test(test("t", op("capabilities"), responseCode("200"))).build());
         var versions = new FhirVersionRegistry(List.of(StubVersionSupport.of(scripts)));
 

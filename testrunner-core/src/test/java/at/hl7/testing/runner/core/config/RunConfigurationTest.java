@@ -112,8 +112,10 @@ class RunConfigurationTest {
                 "hl7.at.fhir.core.r4#dev");
         assertThat(new RunConfiguration(null, List.of(unknownVersion), null, null, ValidationConfig.disabled(), null, null, null)
                 .problems()).singleElement().asString().contains("testrunner.suites[0].fhir-version", "R7");
-        assertThat(new RunConfiguration(null, null, null, null, null, null, null, null).packages().cacheDir())
-                .isEqualTo(Path.of(System.getProperty("user.home"), ".fhir", "packages"));
+        PackagesConfig packages = new RunConfiguration(null, null, null, null, null, null, null, null).packages();
+        assertThat(packages.cacheDir()).isEqualTo(Path.of(System.getProperty("user.home"), ".fhir", "packages"));
+        assertThat(packages.registry()).hasToString("https://packages.fhir.org");
+        assertThat(packages.ciBuild()).hasToString("https://build.fhir.org");
     }
 
     @Test

@@ -83,11 +83,13 @@ public final class TestRunner {
     public TestRunner(@Nonnull FhirVersionRegistry versions, @Nonnull HttpTransport transport,
                       @Nonnull ProfileValidator validator, @Nonnull List<ReportWriter> reportWriters,
                       @Nonnull List<RunListener> listeners, @Nonnull Clock clock) {
-        this(versions, transport, validator, reportWriters, listeners, clock, c -> new PackageSuites(c.packages()));
+        this(versions, transport, validator, reportWriters, listeners, clock,
+                c -> new PackageSuites(c.packages(), c.http()));
     }
 
     /**
-     * @param packages resolves the suites read from FHIR packages, given the configuration of the run
+     * @param packages resolves the suites read from FHIR packages, given the configuration of the run; closed after
+     *                 the resolution
      */
     public TestRunner(@Nonnull FhirVersionRegistry versions, @Nonnull HttpTransport transport,
                       @Nonnull ProfileValidator validator, @Nonnull List<ReportWriter> reportWriters,
@@ -228,7 +230,8 @@ public final class TestRunner {
     /**
      * Checks the configuration and resolves its package suites.
      *
-     * @param validates whether the run uses the validator, whose configuration problems then count
+     * @param validates whether the run uses the validator, whose configuration problems then count, and which then
+     *                  needs the packages a suite's package depends on
      * @throws ConfigurationException if the configuration cannot be used
      */
     private RunConfiguration resolve(RunConfiguration configuration, boolean validates) {
@@ -239,8 +242,10 @@ public final class TestRunner {
             problems.addAll(validator.configurationProblems());
         }
         if (problems.isEmpty()) {
-            try {
-                configuration = configuration.withSuites(packages.apply(configuration).resolve(configuration.suites()));
+            // the packages a package depends on matter only to the validator; it gets them from the cache, verified
+            boolean dependencies = validates && validator.isEnabled();
+            try (PackageSuites resolver = packages.apply(configuration)) {
+                configuration = configuration.withSuites(resolver.resolve(configuration.suites(), dependencies));
                 problems.addAll(configuration.unsupportedVersions(versions.versions())); // versions of the packages
             } catch (PackageSuites.PackageException e) {
                 problems.add(e.getMessage());

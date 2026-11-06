@@ -203,5 +203,5 @@ only gets a warning.
 ## Known limits
 
 The open points are listed in [architecture.md](../architecture.md#open-points): request assertions, several
-servers, `#current` packages, finer scheduling. The review of 2026-11-05 and the plan that follows from it are in
+servers, packages without version, finer scheduling. The review of 2026-11-05 and the plan that follows from it are in
 [Next steps](next-steps.md).
