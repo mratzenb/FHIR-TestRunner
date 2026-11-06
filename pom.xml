@@ -31,7 +31,7 @@
 
         <!-- Dependency versions. Third-party libraries are managed through these two BOMs
              (Jackson, Jayway JsonPath, SLF4J, Logback, JUnit, AssertJ come from the Spring Boot BOM). -->
-        <spring-boot.version>4.1.1</spring-boot.version>
+        <spring-boot.version>4.1.2</spring-boot.version>
         <hapi-fhir.version>8.12.1</hapi-fhir.version>
         <!-- Not managed by the BOMs above -->
         <archunit.version>1.5.1</archunit.version>
