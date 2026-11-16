@@ -24,6 +24,14 @@ documents; [next steps](docs/wiki/next-steps.md) has the plan behind them.
 
 ### Added
 
+* Published container images (ADR-0020): `ghcr.io/mratzenb/fhir-testrunner:X.Y.Z` (the runner) and
+  `…:X.Y.Z-validator` (the runner with the HL7 validator 7.0.2, checked against a SHA-256), for amd64 and arm64, built
+  by `.github/workflows/image.yml` from a tag `vX.Y.Z`; `edge` follows `main`. A `testrunner` launcher is on the
+  `PATH`, for pipelines that replace the entry point.
+* A GitHub Action (`uses: mratzenb/FHIR-TestRunner@vX.Y.Z`, `action.yml`) and a GitLab CI template
+  (`ci/testrunner.gitlab-ci.yml`) that run the image: [CI integration](docs/wiki/ci-integration.md).
+* `LICENSE`: BSD 3-Clause.
+* The `real-validator` job (`RealValidatorIT`) also runs on every pull request and push to `main`, not only nightly.
 * TestScripts for several servers (M6.1, ADR-0019): `suites[n].fhir-servers.<index>` maps each
   `TestScript.destination` index to a server (with its own headers and OAuth2). Each operation goes to the server of
   its `destination`, autocreated fixtures are created on, and deleted from, every server, a `metadata.capability`

@@ -31,6 +31,7 @@ flowchart LR
 | understand why it is built this way | [Design insights](design-insights.md) |
 | add a feature or replace a part | [Extending the runner](extending.md) |
 | build, test and run it locally | [Build and test](build-and-test.md) |
+| run it in a GitHub or GitLab pipeline | [CI integration](ci-integration.md) |
 | look up a term | [Glossary](glossary.md) |
 | find out why a run looks wrong | [Troubleshooting](troubleshooting.md) |
 | know what to build next, and in which order | [Next steps](next-steps.md) |

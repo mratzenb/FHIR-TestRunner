@@ -388,7 +388,9 @@ pages and the skills.
    user `runner`, working directory `/workspace`. Mounted: the project folder (configuration, suites, results), the
    validator jar, `~/.fhir/packages`. `docker-compose.yml` with HAPI FHIR `v8.12.0-1` and the settings of
    `HapiServerIT`; a `curl` service waits for HAPI (its image has no shell for a health check). CI builds the image
-   and checks the AT Core suite with it; it is not published. Dependabot watches the base image.
+   and checks the AT Core suite with it. Dependabot watches the base image. Published since
+   [ADR-0020](../adr/0020-published-images.md): two images (with the validator), a launcher, a GitHub Action, a GitLab
+   template, [CI integration](ci-integration.md).
    [ADR-0015](../adr/0015-container-image.md), [Build and test › Container image](build-and-test.md#container-image).
 2. ~~**F5.**~~ Done as proposed: `HtmlReportWriter` in `core.report`, format `html`, `report.html` in the run folder,
    plain Java. Every text is HTML-escaped, the page's Content-Security-Policy allows no script, a TestScript url is
@@ -484,4 +486,4 @@ Done, plus `RunFolderTest.htmlReportLinksTheRequestsToTheirCommunicationFolders`
 | Deselected tests: reported as `skip`, or left out? (M3.2) | **Decided:** left out, with a count in the log ([ADR-0014](../adr/0014-author-workflow.md)) |
 | Typed comparisons: default, or behind a switch? (M5.2) | **Decided:** default, with a release note ([CHANGELOG](../../CHANGELOG.md), [ADR-0016](../adr/0016-typed-comparisons.md)) |
 | Several servers: in scope at all? (M6.1) | **Decided:** yes, mapped by destination index per suite, every index required ([ADR-0019](../adr/0019-several-servers.md)) |
-| Container image: published, and where? (M4.1) | **Decided:** built and checked in CI, not published ([ADR-0015](../adr/0015-container-image.md)); publishing is open |
+| Container image: published, and where? (M4.1) | **Decided:** GHCR (`ghcr.io/mratzenb/fhir-testrunner`), two images, with and without the validator, plus a GitHub Action and a GitLab CI template ([ADR-0020](../adr/0020-published-images.md)); before that built and checked in CI only ([ADR-0015](../adr/0015-container-image.md)) |
