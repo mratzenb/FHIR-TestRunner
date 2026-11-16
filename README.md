@@ -1,8 +1,12 @@
 # FHIR TestScript Runner (Java)
 
+> [!WARNING]
+> **This is still an early PoC** \
+> In the near future this will be moved into the [HL7 Austria GitHub Group](https://github.com/HL7Austria)
+
 Executes FHIR® `TestScript` resources (R4 and R5, R6-ready) against a FHIR server and reports the results as
 JUnit XML, text summary, JSON, FHIR TestReports and an HTML page, with a full log and a communication log of every
-request. Java re-design of the Python proof of concept [HL7-AT-TestFhiry-TestRunner](../HL7-AT-TestFhiry-TestRunner).
+request. Java re-design of the Python proof of concept [HL7-AT-TestFhiry-TestRunner](https://github.com/HL7Austria/HL7-AT-TestFhiry-TestRunner).
 
 ## Quick start
 
