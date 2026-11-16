@@ -118,6 +118,56 @@ jobs:
           cache-to: type=gha,scope=${{ matrix.variant }},mode=max
       - name: Smoke test
         run: ci/smoke-test-image.sh testrunner:test ${{ matrix.variant }}
+      # The GitHub Action (action.yml) with the image just built. The validator image runs against HAPI FHIR from
+      # docker-compose.yml, which listens on the runner's localhost:8080, where the configuration expects it.
+      - name: HAPI FHIR for the Action
+        if: matrix.variant == 'validator'
+        run: docker compose run --rm hapi-ready
+      - name: The Action runs AT Core
+        id: action
+        uses: ./
+        with:
+          config: config/dev-r4.yml
+          image: testrunner:test
+          args: ${{ matrix.variant == 'slim' && '--check --novalidator' || '' }}
+          results-dir: target/action-test
+          upload-results: false
+      - name: The Action reports exit code and results
+        env:
+          CODE: ${{ steps.action.outputs.exit-code }}
+          RESULTS: ${{ steps.action.outputs.results-path }}
+        run: |
+          echo "exit code '$CODE', results '$RESULTS'"
+          test "$CODE" = 0
+          test -f "$RESULTS/junit.xml" && test -f "$RESULTS/summary.txt"
+      - name: The Action reports the exit code of the negative control
+        if: matrix.variant == 'validator'
+        id: negative
+        uses: ./
+        with:
+          config: config/negative-control.yml
+          image: testrunner:test
+          results-dir: target/action-test
+          upload-results: false
+          fail-on-error: false
+      - name: The negative control ended with exit code 1
+        if: matrix.variant == 'validator'
+        env:
+          CODE: ${{ steps.negative.outputs.exit-code }}
+        run: test "$CODE" = 1
+      - name: The Action fails the step when the runner fails
+        if: matrix.variant == 'validator'
+        id: failing
+        continue-on-error: true
+        uses: ./
+        with:
+          config: config/negative-control.yml
+          image: testrunner:test
+          results-dir: target/action-test
+          upload-results: false
+      - name: The step failed
+        if: matrix.variant == 'validator'
+        run: test "${{ steps.failing.outcome }}" = failure
       - name: Log in to the registry
         if: env.PUSH == 'true'
         uses: docker/login-action@v4
