@@ -89,7 +89,14 @@ Testcontainers' version comes from the Spring Boot BOM (`testcontainers-junit-ju
   `RealValidatorIT` (the command of the "One IT only" row with `VALIDATOR_JAR`). To try a cold cache locally without
   touching `~/.fhir`: `TESTRUNNER_VALIDATION_JVMARGUMENTS=-Duser.home=/tmp/fhir-home` in front of that command. Raising the version: run that command locally with the new jar
   first; the negative control must still FAIL.
-* Actions are pinned to major versions (`checkout@v7`, `setup-java@v6`, `cache@v6`, `upload-artifact@v7`);
+* `.github/workflows/image.yml` (ADR-0020): jobs `jar` (`mvn verify`, `package` only on a pull request; fails if
+  `VALIDATOR_VERSION` of `build.yml` and of the Dockerfile differ; hands the exec jar on) and `image` (matrix `slim` and
+  `validator`): build for amd64, `ci/smoke-test-image.sh`, the Action (`uses: ./`, validator leg against
+  `docker compose run --rm hapi-ready`), and on a push to `main` or a tag `vX.Y.Z` a push of amd64+arm64 with
+  provenance and SBOM to `ghcr.io/<owner>/fhir-testrunner` (tags via `docker/metadata-action`: `X.Y.Z`, `X.Y`, `X` not for
+  0.x, `latest`, `edge`, `sha-…`, the validator image with the suffix `-validator`, also on `latest`). Pull requests push
+  nothing. The tag, not the POM version, names the images; the first push creates the package private.
+* Actions are pinned to major versions (`checkout@v7`, `setup-java@v6`, `cache@v6`, `upload-artifact@v7`, `download-artifact@v8`, `docker/*` v4 to v7);
   `permissions: contents: read`.
 
 ## Running the application
@@ -114,26 +121,41 @@ java -jar testrunner-app/target/testrunner-app-0.1.0-SNAPSHOT-exec.jar --config=
   `testrunner.exit-on-skip=all|any|never`, `RunCommand.exitCode`).
 * The app module builds a plain library jar and `*-exec.jar` (Spring Boot, classifier `exec`).
 
-## Container image (ADR-0015)
+## Container images (ADR-0015, ADR-0020)
 
 ```sh
 mvn -B -DskipTests package && docker build -t testrunner testrunner-app      # needs the exec jar first
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/workspace" testrunner --config=config/dev-r4.yml --check --novalidator
+docker build -t testrunner:validator --target validator testrunner-app       # + validator_cli.jar at /opt/validator
+ci/smoke-test-image.sh testrunner slim; ci/smoke-test-image.sh testrunner:validator validator   # needs the internet
 docker compose run --rm testrunner [--config=… --novalidator …]              # + HAPI FHIR v8.12.0-1, waits for it
 docker compose down
 ```
 
-* `testrunner-app/Dockerfile`: `eclipse-temurin:25.0.5_8-jre-noble`, two stages (`jarmode=tools extract --layers`,
-  then dependencies / loader / snapshot / application layers into `/app`, `java -jar /app/testrunner.jar`), user
-  `runner` 10001, `HOME=/home/runner` (`.fhir/packages` and `/workspace` mode 1777 for any `--user`), working dir
-  `/workspace`, entry point via the base image's `/__cacert_entrypoint.sh` (`USE_SYSTEM_CA_CERTS=1` + `/certificates`).
-  `.dockerignore` lets only `target/testrunner-app-*-exec.jar` into the context.
+* `testrunner-app/Dockerfile`: `eclipse-temurin:25.0.5_8-jre-noble` (Java 25 LTS; Dependabot ignores majors of it),
+  stages `layers` (`jarmode=tools extract --layers`), `base` (dependencies / loader / snapshot / application layers into
+  `/app`, user `runner` 10001, `HOME=/home/runner` with `.fhir/packages` and `/workspace` mode 1777 for any `--user`,
+  working dir `/workspace`), `validator` (`FROM base`, `ADD --checksum` of `ARG VALIDATOR_VERSION`/`VALIDATOR_SHA256`
+  to `/opt/validator`, its `LICENSE.txt`, `ENV VALIDATOR_JAR`; the folder is made first, `ADD --chmod` would give it the
+  file mode) and `slim` (`FROM base`, the **last** stage, so a plain `docker build` is the runner only).
+  Entry point: `testrunner-app/docker/testrunner`, a launcher on the `PATH` (`exec /__cacert_entrypoint.sh java -jar
+  /app/testrunner.jar "$@"`; `USE_SYSTEM_CA_CERTS=1` + `/certificates`), also what a pipeline with `entrypoint: [""]`
+  calls. `.dockerignore` lets only `target/testrunner-app-*-exec.jar` and `docker/testrunner` into the context.
+* Raising the validator: `VALIDATOR_VERSION` in `build.yml` **and** the two `ARG`s of the Dockerfile (`sha256sum` of the
+  jar); `image.yml` fails if the versions differ. Docker on macOS: bind mounts do not keep the owner of files a container
+  user creates (a run as `--user 12345` on a mount failed with `NoSuchFileException` for the result folder), so the smoke
+  test uses a Docker volume.
 * `docker-compose.yml` (root): `hapi` (settings as `HapiServerIT`, port 8080), `hapi-ready` (`curlimages/curl` retries
   `/fhir/metadata`; HAPI's image is distroless, no shell), `testrunner` (build `testrunner-app`, mounts `.`,
   `${VALIDATOR_JAR:-./validator_cli.jar}` → `/opt/validator/validator_cli.jar`, `~/.fhir/packages`; env
   `TESTRUNNER_FHIRSERVER_BASEURL=http://hapi:8080/fhir`; default command `--config=config/dev-r4.yml`).
-* CI job `verify` builds `testrunner:ci` and runs `--check` on `config/dev-r4.yml` with it; nothing is pushed.
-  Dependabot (`package-ecosystem: docker`, `/testrunner-app`) raises the base image.
+* CI job `verify` builds `testrunner:ci` and runs `--check` on `config/dev-r4.yml` with it; nothing is pushed there.
+  `image.yml` publishes (see above). Dependabot (`package-ecosystem: docker`, `/testrunner-app`) raises the base image.
+* Consumers: `action.yml` (composite GitHub Action, `docker run --user $(id -u) --network host`, package cache with
+  cache/restore + cache/save, outputs `exit-code` and `results-path`, version from `github.action_ref`) and
+  `ci/testrunner.gitlab-ci.yml` (hidden job `.testrunner`, `entrypoint: [""]`, `docker: {user: "0"}`, variables
+  `FHIR_TESTRUNNER_*` – **not** `TESTRUNNER_*`, which the runner reads as properties – packages in `.fhir-cache/`, junit
+  report). The GitLab template is not run on GitLab by CI. Wiki: `docs/wiki/ci-integration.md`.
 * On macOS with Rancher Desktop or Colima, `docker` may need `DOCKER_HOST` set as in the Commands section above if
   `docker info` cannot connect.
 
