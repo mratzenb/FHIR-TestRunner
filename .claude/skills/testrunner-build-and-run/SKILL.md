@@ -1,6 +1,6 @@
 ---
 name: testrunner-build-and-run
-description: How to build, test and run the FHIR TestScript Runner (TestRunnerOnJava) – Maven commands, the JDK/Maven paths on this machine, running single tests and the opt-in real-validator IT, starting the exec jar with dev configs, and the POM conventions (BOMs, version properties, enforcer, test-jar). Use before running mvn or java, or when editing a pom.xml.
+description: How to build, test and run the FHIR TestScript Runner (TestRunnerOnJava) – Maven commands, how to find and select a JDK 25 and Maven 3.9, running single tests and the opt-in real-validator IT, starting the exec jar with dev configs, and the POM conventions (BOMs, version properties, enforcer, test-jar). Use before running mvn or java, or when editing a pom.xml.
 ---
 
 # Build and run
@@ -8,13 +8,34 @@ description: How to build, test and run the FHIR TestScript Runner (TestRunnerOn
 ## Toolchain
 
 Requirements are enforced: Java ≥ 25, Maven ≥ 3.9 (wrong ones stop the build at `enforce`). `mvn` below means a
-Maven 3.9 with `JAVA_HOME` on a JDK 25. If the shell's `mvn` does not work, call Maven by its full path, e.g. on
-the original development machine (where the `mvn` shell function needs an unset `M2_HOME`):
+Maven ≥ 3.9 that runs on a JDK 25 or newer. The repository has no Maven wrapper and the install locations differ per
+machine, so **find them, do not assume them**. CI uses Temurin 25 (`actions/setup-java`).
+
+1. See what the shell has: `mvn -v` prints the Maven version and the JDK it runs on (`Java version: …`). If that
+   says Java 25+ and Maven 3.9+, you are done. A `JAVA_HOME` that is already set may name an older JDK (e.g. 17 or
+   21), and `mvn -v` then fails the requirement or shows the wrong one.
+2. Otherwise select a JDK 25 by setting `JAVA_HOME` for the command (every tool call starts a fresh shell, so set it
+   in the same call as `mvn`):
+
+   | Where the JDK is | How |
+   |---|---|
+   | macOS, registered with the system | `export JAVA_HOME=$(/usr/libexec/java_home -v 25)`; `/usr/libexec/java_home -V` lists what is installed |
+   | Linux, from a package | `export JAVA_HOME=/usr/lib/jvm/<jdk-25 folder>`, e.g. `temurin-25-jdk-amd64`; `ls /usr/lib/jvm` shows the names |
+   | SDKMAN | `sdk install java 25-tem`, then `sdk use java 25-tem` (it sets `JAVA_HOME` and `PATH`) |
+   | Unpacked anywhere (a tools folder, a download) | the folder that contains `bin/java`; in a macOS `.tar.gz` that is `<folder>/Contents/Home` |
+
+   Check it with `"$JAVA_HOME/bin/java" -version` before building.
+3. If `mvn` is missing, or runs another Maven than you want (a wrapper script or shell function, an `M2_HOME` that
+   points elsewhere), call the Maven you want by its full path instead: `/path/to/apache-maven-3.9.x/bin/mvn -B verify`
+   (`unset M2_HOME` first if the script insists on it).
 
 ```sh
-export JAVA_HOME=~/iheroot/tools/JDK/jdk-25.0.2/Contents/Home
-~/iheroot/tools/Maven/3.9.16/bin/mvn -B verify
+export JAVA_HOME=<JDK 25 home, see above>
+mvn -B verify          # or the full path of a Maven 3.9, see 3.
 ```
+
+If there is no JDK 25 on the machine, install one (e.g. Temurin 25) or ask the user where it is; do not put a
+machine's paths into this skill, a README or a script.
 
 Offline (`-o`) works only once all dependencies and plugins are in the local repository.
 
@@ -27,14 +48,26 @@ Offline (`-o`) works only once all dependencies and plugins are in the local rep
 | One module and what it needs | `mvn -B -pl testrunner-validation-cli -am test` |
 | One test class | `mvn -B -pl testrunner-core -am test -Dtest=OperationsTest -Dsurefire.failIfNoSpecifiedTests=false` |
 | One IT only | `mvn -B -pl testrunner-app -am verify -Dtest=NoSuchTest -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=EndToEndIT -Dfailsafe.failIfNoSpecifiedTests=false` |
-| With the real HL7 validator (`RealValidatorIT`, both modes, ~1 min) | `VALIDATOR_JAR=/path/to/validator_cli.jar mvn -B verify` (a validator 7.0.2 ships with the PoC: `../HL7-AT-TestFhiry-TestRunner/data_r4/validator_cli.jar`) |
+| With the real HL7 validator (`RealValidatorIT`, both modes, ~1 min) | `VALIDATOR_JAR=/path/to/validator_cli.jar mvn -B verify` (get the version CI pins, `VALIDATOR_VERSION` in `.github/workflows/build.yml`: `curl -fsSL -o /tmp/validator_cli.jar https://github.com/hapifhir/org.hl7.fhir.core/releases/download/<version>/validator_cli.jar`; a `validator_cli.jar` in the repository root is git-ignored and the default of `docker-compose.yml`) |
 
 `RealValidatorIT` is skipped unless `VALIDATOR_JAR` is set; the skip in the summary is expected.
 `HapiServerIT` (Testcontainers, HAPI FHIR R4 + R5 + a second R4) runs only where Docker is reachable, else its 4 tests are
-skipped. Only it: the "One IT only" command with `-Dit.test=HapiServerIT`. On this machine (Rancher Desktop) set
-`DOCKER_HOST=unix://$HOME/.rd/docker.sock` and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` –
-without them `HapiServerIT` is **skipped and the build stays green** ("Could not find a valid Docker environment");
-check for `Skipped: 4` before claiming it ran. Wiki: `docs/wiki/build-and-test.md#docker-on-macos`.
+skipped. Only it: the "One IT only" command with `-Dit.test=HapiServerIT`.
+
+**Docker on macOS with Rancher Desktop or Colima.** Testcontainers looks for `/var/run/docker.sock` (Linux and CI
+have it); these tools put their socket elsewhere. Then `HapiServerIT` is **skipped and the build stays green**
+("Could not find a valid Docker environment"), so check for `Skipped: 4` before claiming it ran. Which tool is in use:
+`ls ~/.rd/docker.sock ~/.colima/default/docker.sock` (or `docker context ls`). Set both variables in the shell that
+runs Maven:
+
+```sh
+export DOCKER_HOST=unix://$HOME/.rd/docker.sock                  # Rancher Desktop
+# export DOCKER_HOST=unix://$HOME/.colima/default/docker.sock    # Colima (documented default, untested here)
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+```
+
+Details and why: `docs/wiki/build-and-test.md#docker-on-macos`.
+
 Testcontainers' version comes from the Spring Boot BOM (`testcontainers-junit-jupiter`, test scope in
 `testrunner-app`); the image tag `hapiproject/hapi:v8.12.0-1` is a constant in `HapiServerIT`.
 
@@ -100,7 +133,8 @@ docker compose down
   `TESTRUNNER_FHIRSERVER_BASEURL=http://hapi:8080/fhir`; default command `--config=config/dev-r4.yml`).
 * CI job `verify` builds `testrunner:ci` and runs `--check` on `config/dev-r4.yml` with it; nothing is pushed.
   Dependabot (`package-ecosystem: docker`, `/testrunner-app`) raises the base image.
-* On this machine `docker` needs `DOCKER_HOST=unix://$HOME/.rd/docker.sock` (Rancher Desktop).
+* On macOS with Rancher Desktop or Colima, `docker` may need `DOCKER_HOST` set as in the Commands section above if
+  `docker info` cannot connect.
 
 ## POM conventions (ADR-0010)
 
@@ -143,7 +177,7 @@ docker compose down
 
 | Symptom | Cause |
 |---|---|
-| `/bin/mvn: no such file` | plain `mvn` used; use the full path |
+| `/bin/mvn: no such file`, or `mvn` not found | the shell's `mvn` is a broken wrapper or missing; call a Maven 3.9 by its full path (Toolchain, step 3) |
 | Build stops at `enforce` | wrong JDK (`JAVA_HOME`) or Maven, or test-support used outside test scope |
 | `warnings found and -Werror specified` (German: `Warnungen gefunden und -Werror angegeben`) | a compiler warning, e.g. a raw type or an unchecked cast; `[WARNING]` lines above name it |
 | `package com.sun... is not visible` | JDK-specific API used; only Java SE is allowed (use Jetty for HTTP servers in tests) |

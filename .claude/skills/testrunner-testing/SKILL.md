@@ -27,8 +27,9 @@ is skipped.
 `…_on_delete=false`, `allow_multiple_delete=true` (as the PoC's compose file; with HAPI defaults the samples' deletes
 get `409`). Wait strategy `GET /fhir/metadata` 200, 3 min. The image tag is pinned to the HAPI release matching
 `hapi-fhir.version`; raise both together. Expected sample outcomes are the same as in `EndToEndIT`
-(`stopTestOnFail` sample FAIL in `Test02`, `validateProfile` and `delete` samples ERROR). Docker socket on macOS with
-Rancher Desktop: `DOCKER_HOST=unix://$HOME/.rd/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`.
+(`stopTestOnFail` sample FAIL in `Test02`, `validateProfile` and `delete` samples ERROR). On macOS with Rancher
+Desktop or Colima the Docker socket is not at `/var/run/docker.sock` and the IT is skipped (build stays green); set
+`DOCKER_HOST` and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` as described in `testrunner-build-and-run`.
 HAPI ignores the body id of a conditional update, so D1-like request bugs need the in-memory server's stricter
 answers (`InMemoryFhirServer` returns 400 for a differing body id).
 
