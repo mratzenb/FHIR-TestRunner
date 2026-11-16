@@ -12,6 +12,14 @@
     <name>FHIR TestScript Runner</name>
     <description>Executes FHIR TestScript resources (R4, R5, ...) against a FHIR server and reports the results.</description>
 
+    <licenses>
+        <license>
+            <name>BSD-3-Clause</name>
+            <url>https://opensource.org/license/bsd-3-clause</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
     <modules>
         <module>testrunner-test-support</module>
         <module>testrunner-core</module>

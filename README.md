@@ -83,3 +83,8 @@ docs/                                   architecture, decisions, configuration, 
 Condensed versions for coding agents live in [`.claude/skills/`](.claude/skills) (Claude Code project skills,
 start with `testrunner-overview`). They summarize the documents above; when a behaviour changes, update the
 document, the ADR and the matching skill together.
+
+## License
+
+[BSD 3-Clause](LICENSE). The libraries the executable jar ships keep their own licenses; the software bill of
+materials lists them (`testrunner-app/target/bom.json` after `mvn package`).
