@@ -1,3 +1,4 @@
-# The image needs the executable jar only (Dockerfile); everything else stays out of the build context.
+# The image needs the executable jar and the launcher script only (Dockerfile); everything else stays out of the build context.
 *
 !target/testrunner-app-*-exec.jar
+!docker/testrunner
