@@ -22,7 +22,10 @@ communication log of every HTTP exchange. Group `at.hl7.testing`, version `0.1.0
 | `testrunner-app` | `app` | `TestRunnerApplication` (main, `--config`, `--novalidator`, `--check`, `--list`, `--testscript`, `--test`), `RunCommand` (run, check or list; exit code), `ValidatorCheck`; `EndToEndIT`, `RealValidatorIT`, `HapiServerIT`, `ShutdownIT`, `ArchitectureTest` | everything |
 | `testrunner-test-support` | `testsupport` | **test code only** (`src/test/java`, test-jar classifier `tests`): `InMemoryFhirServer`, `FakeValidator`/`FakeValidatorJar`, `FakePackageServer` (registry + CI builds), `SampleData` | Jackson, Jetty |
 
-Other folders: `testrunner-app/Dockerfile` + root `docker-compose.yml` (container image with HAPI FHIR, ADR-0015),
+Other folders: `testrunner-app/Dockerfile` (+ `docker/testrunner` launcher) and root `docker-compose.yml` (container
+images with and without the HL7 validator, published to GHCR by `.github/workflows/image.yml`, ADR-0015 and ADR-0020; compose
+adds HAPI FHIR), root `action.yml` (GitHub Action), `ci/` (GitLab template, `smoke-test-image.sh`; wiki page
+`docs/wiki/ci-integration.md`), `LICENSE` (BSD 3-Clause),
 `config/` dev configurations (`dev-r4.yml`, `dev-r5.yml`, `dev-all.yml`, `negative-control.yml`),
 `testdata/{r4,r5,samples}/{Test_Scripts,Example_Instances,Profiles}` (PoC data), `docs/` (architecture, ADRs).
 

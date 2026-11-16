@@ -22,6 +22,7 @@ is skipped.
 | Architecture (`testrunner-app`) | `ArchitectureTest` (ArchUnit) | module boundaries |
 | Real validator (`testrunner-app`) | `RealValidatorIT` (failsafe, only with env `VALIDATOR_JAR`) | AT Core R4 incl. negative control, both modes |
 | Real FHIR server (`testrunner-app`) | `HapiServerIT` (failsafe, Testcontainers, `@Testcontainers(disabledWithoutDocker = true)`) | AT Core R4 + R5 and every sample against `hapiproject/hapi:v8.12.0-1` (three static `@Container`s, R4, R5 and `R4_SECOND`, started once per class); a conditional update creates, then updates the same resource; `testdata/several-servers` against R4 and `R4_SECOND` (fixtures on both servers under HAPI's own ids). Validation off |
+| Container images (CI only, `image.yml`) | `ci/smoke-test-image.sh <image> slim\|validator`; the GitHub Action (`uses: ./`) | as user 12345 and with the entry point replaced: `--check`; slim has no validator; validator image: AT Core R4 with validation against HAPI passes, the negative control ends with exit code 1. A Docker volume holds the project (bind mounts on macOS do not keep file owners) |
 
 **`HapiServerIT` details.** Containers: `hapi.fhir.enforce_referential_integrity_on_write=false`,
 `…_on_delete=false`, `allow_multiple_delete=true` (as the PoC's compose file; with HAPI defaults the samples' deletes
