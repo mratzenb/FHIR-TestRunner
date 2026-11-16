@@ -43,19 +43,33 @@ Results land in `target/testrunner-results/run_<timestamp>/`.
 
 ## Container image
 
-`testrunner-app/Dockerfile` puts the executable jar on a Java 25 JRE (`eclipse-temurin:25.0.5_8-jre-noble`). The image
-holds the runner only; what changes per project is mounted ([ADR-0015](../adr/0015-container-image.md)).
+`testrunner-app/Dockerfile` puts the executable jar on a Java 25 LTS JRE (`eclipse-temurin:25.0.5_8-jre-noble`;
+Dependabot ignores major versions of the base image). One Dockerfile, two images
+([ADR-0015](../adr/0015-container-image.md), [ADR-0020](../adr/0020-published-images.md)):
+
+| Target | Holds | Published as |
+|---|---|---|
+| `slim` (the default) | the runner only; what changes per project is mounted | `ghcr.io/mratzenb/fhir-testrunner:X.Y.Z` |
+| `validator` | the same plus the HL7 validator at `/opt/validator/validator_cli.jar`, `VALIDATOR_JAR` set | `…:X.Y.Z-validator` |
 
 ```sh
-mvn -B -DskipTests package                         # the image is built from the exec jar
-docker build -t testrunner testrunner-app
+mvn -B -DskipTests package                         # the images are built from the exec jar
+docker build -t testrunner testrunner-app          # slim
+docker build -t testrunner:validator --target validator testrunner-app
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/workspace" testrunner --config=config/dev-r4.yml --check --novalidator
+ci/smoke-test-image.sh testrunner slim             # what CI does with a built image; the validator image also runs
+ci/smoke-test-image.sh testrunner:validator validator   # AT Core and the negative control against HAPI (needs the internet)
 ```
+
+Using the published images in the pipelines of other projects: [CI integration](ci-integration.md).
+
+The entry point is the launcher `testrunner` (`testrunner-app/docker/testrunner`, on the `PATH`): it starts the runner
+through the base image's certificate entry point. A pipeline that replaces the entry point (GitLab CI) calls it by name.
 
 | Mount | Container path | Why |
 |---|---|---|
 | the project folder | `/workspace` (the working directory) | configuration, suites and results; relative paths in a configuration start here |
-| `validator_cli.jar` | anywhere, e.g. `/opt/validator/validator_cli.jar`, named by `VALIDATOR_JAR` or `testrunner.validation.validator-jar` | profile validation; not in the image, its version is yours |
+| `validator_cli.jar` | anywhere, e.g. `/opt/validator/validator_cli.jar`, named by `VALIDATOR_JAR` or `testrunner.validation.validator-jar` | profile validation with the slim image, whose validator version is yours; the validator image has its own |
 | `~/.fhir/packages` | `/home/runner/.fhir/packages` | the FHIR package cache of the validator and of `package-id` suites; without it every container downloads the packages again |
 
 * The container runs as user `runner` (10001). With `--user "$(id -u):$(id -g)"` the results belong to you.
@@ -185,6 +199,14 @@ otherwise the report leaves it out.
 | `verify` | every push to `main`, every pull request | `mvn -B verify` on Temurin 25, including `HapiServerIT` (the runner has Docker). Then it builds the container image and checks the AT Core R4 suite with it (`--check`); the image is not published. The coverage report is attached as `coverage`, the SBOM as `sbom`. If the build fails, the surefire and failsafe reports are attached as `test-reports`. |
 | `real-validator` | every push to `main`, every pull request, nightly (03:17 UTC) and on demand (*Run workflow*) | `RealValidatorIT` with the real validator, both modes. The negative control must fail. |
 
+[`.github/workflows/image.yml`](../../.github/workflows/image.yml) builds the two container images
+([above](#container-image)):
+
+| Job | When | What |
+|---|---|---|
+| `jar` | every push to `main`, every pull request, every tag `vX.Y.Z` | `mvn verify` (a pull request: only `package`, `build.yml` tests it), and a check that `VALIDATOR_VERSION` of the Dockerfile and of `build.yml` agree. Hands the exec jar to the next job. |
+| `image` (slim, validator) | the same | builds the image for amd64, runs `ci/smoke-test-image.sh` and the GitHub Action ([`action.yml`](../../action.yml)) against it (the validator image against HAPI FHIR from `docker-compose.yml`; the negative control must fail). Pull requests stop here. A push to `main` or a tag then builds amd64 and arm64 again from the cache and pushes to GHCR: `edge`, or `X.Y.Z`, `X.Y`, `latest`, each also with `-validator`. |
+
 `verify` and `real-validator` run in parallel and together run every test, so a feature branch is tested against
 everything before it is merged into `main`. To enforce that, make both jobs required status checks in the branch
 protection (or ruleset) of `main`: *Settings › Branches*.
@@ -204,7 +226,12 @@ problem fails there with the validator's own output instead of as errors inside 
 To try the cold start locally without touching your own cache, give the validator JVMs another home:
 `TESTRUNNER_VALIDATION_JVMARGUMENTS=-Duser.home=/tmp/fhir-home VALIDATOR_JAR=… mvn …` (the command below).
 
-Raise the version deliberately, after checking the negative control locally:
+### Raising the validator version
+
+The version is in two places, which must agree (`image.yml` fails otherwise): `VALIDATOR_VERSION` in `build.yml`
+and `ARG VALIDATOR_VERSION` and `ARG VALIDATOR_SHA256` in `testrunner-app/Dockerfile`, which the validator image checks the
+download against (`sha256sum validator_cli.jar`; GitHub shows the digest of a release asset too). A new validator is a new
+runner release. Raise it deliberately, after checking the negative control locally:
 
 ```sh
 curl -L -o /tmp/validator_cli.jar \
@@ -213,6 +240,9 @@ VALIDATOR_JAR=/tmp/validator_cli.jar mvn -B verify -pl testrunner-app -am \
   -Dtest=NoSuchTest -Dsurefire.failIfNoSpecifiedTests=false \
   -Dit.test=RealValidatorIT -Dfailsafe.failIfNoSpecifiedTests=false
 ```
+
+After the check, build the image and run `ci/smoke-test-image.sh testrunner:validator validator` (see
+[Container image](#container-image)).
 
 A failed nightly run is a signal about the validator or the packages, not about a commit. A failed `real-validator`
 job on a pull request is a signal about the commit, unless the log shows a download or registry problem: then run
@@ -224,8 +254,9 @@ the job again.
 dependencies, the Maven plugins and the GitHub Actions. Spring Boot, HAPI FHIR and the Maven plugins each come as one
 grouped pull request. Major versions of Spring Boot and HAPI FHIR are left out: they are decisions of their own. The
 `verify` job tests each pull request like any other. A HAPI FHIR update should also raise the image tag in
-`HapiServerIT` and in `docker-compose.yml` to the matching `hapiproject/hapi` release. Dependabot also watches the
-base image of the Dockerfile.
+`HapiServerIT` and in `docker-compose.yml` to the matching `hapiproject/hapi` release (the smoke test of the images
+reads it from there). Dependabot also watches the base image of the Dockerfile, and the GitHub Actions the workflows
+use; the images stay on Java 25 LTS, a newer Java is a decision of its own.
 
 `mvn package` writes the software bill of materials of the executable jar to `testrunner-app/target/bom.json` and
 `bom.xml` (CycloneDX 1.6): every library the jar ships, with version, hashes and license, test libraries excluded.

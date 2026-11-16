@@ -86,6 +86,7 @@ configured, or the server lacks a required capability. `testrunner.exit-on-skip`
 | `zsh: no matches found: --testrunner.suites[0]…` | zsh reads `[0]` as a file pattern | quote the argument: `'--testrunner.suites[0].base-dir=…'` |
 | `HapiServerIT`: `Skipped: 3`, log says "Could not find a valid Docker environment" | Docker is not running, or on macOS Testcontainers does not find the socket of Rancher Desktop or Colima | start Docker; on macOS set `DOCKER_HOST` and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE`, see [Build and test › Docker on macOS](build-and-test.md#docker-on-macos) |
 | `/bin/mvn: no such file`, or `mvn` not found | the shell's `mvn` is a wrapper that needs `M2_HOME`, or Maven is not installed | call a Maven 3.9 by its full path; the JDK must be 25 (`JAVA_HOME`), see skill `testrunner-build-and-run` |
+| In a pipeline: the runner cannot write results, cannot reach `localhost`, or the image cannot be pulled | the container user, the container's own `localhost`, a private package | see the table in [CI integration › Problems](ci-integration.md#problems) |
 
 ## More detail in the console
 

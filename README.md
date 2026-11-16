@@ -43,6 +43,9 @@ In a container, together with HAPI FHIR (after `mvn -DskipTests package`; detail
 docker compose run --rm testrunner --config=config/dev-r4.yml --novalidator
 ```
 
+In the pipeline of another project: the images `ghcr.io/mratzenb/fhir-testrunner` (with and without the HL7 validator),
+a GitHub Action and a GitLab CI template, see [CI integration](docs/wiki/ci-integration.md).
+
 Writing a TestScript of your own: start with the walk-through in [docs/wiki/samples.md](docs/wiki/samples.md).
 
 Results go to `target/testrunner-results/run_<timestamp>/` (`junit.xml`, `summary.txt`, `result.json`, a FHIR
@@ -64,6 +67,9 @@ testrunner-app/                         executable jar, Dockerfile, end-to-end I
 testrunner-test-support/                test doubles (src/test, test-jar): in-memory FHIR server, fake validator, sample data
 config/                                 development configurations
 docker-compose.yml                      the runner in a container next to HAPI FHIR
+action.yml                              the GitHub Action that runs the published image
+ci/                                     GitLab CI template, smoke test of the images
+LICENSE                                 BSD 3-Clause
 testdata/                               TestScripts, Example Instances, profiles from the PoC (r4, r5, samples)
 docs/                                   architecture, decisions, configuration, logging, validation, FHIR versions
 .claude/skills/                         condensed project knowledge for coding agents (Claude Code skills)

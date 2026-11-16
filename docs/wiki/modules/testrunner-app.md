@@ -90,9 +90,11 @@ The build produces two artefacts ([ADR-0010](../../adr/0010-build.md)):
 | `testrunner-app-<version>.jar` | plain jar – a library, and what the failsafe tests use |
 | `testrunner-app-<version>-exec.jar` | Spring Boot executable jar (~97 MB, mostly HAPI) |
 
-`Dockerfile` (next to the POM) builds a container image from the exec jar, `.dockerignore` keeps everything else
-out of the build context. Usage and mounts: [Build and test › Container image](../build-and-test.md#container-image),
-[ADR-0015](../../adr/0015-container-image.md).
+`Dockerfile` (next to the POM) builds two container images from the exec jar, the runner alone and the runner with the
+HL7 validator (`--target validator`); `docker/testrunner` is the launcher they start with; `.dockerignore` keeps
+everything else out of the build context. Usage and mounts: [Build and test › Container image](../build-and-test.md#container-image),
+[ADR-0015](../../adr/0015-container-image.md), [ADR-0020](../../adr/0020-published-images.md); the published images in
+other pipelines: [CI integration](../ci-integration.md).
 
 ## Tests in this module
 
