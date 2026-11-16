@@ -50,9 +50,10 @@ Testcontainers' version comes from the Spring Boot BOM (`testcontainers-junit-ju
 * Job `real-validator`: nightly (`cron 17 3 * * *`) and `workflow_dispatch` only → downloads the pinned
   `validator_cli.jar` (`env.VALIDATOR_VERSION`, 7.0.2 = the version `docs/validation.md` was verified with), caches it
   and `~/.fhir/packages` (`actions/cache`, key `validator-<version>`), fills the package cache with one serial
-  validator run (three validators starting on an empty cache race on its locks: `NoSuchFileException: …lock ->
-  …lock-deletion`, exit 1), then runs only `RealValidatorIT` (the command of the "One IT only" row with
-  `VALIDATOR_JAR`). Raising the version: run that command locally with the new jar
+  validator run in a step of its own (so a network problem fails there, not inside the IT; the runner itself already
+  keeps validators from racing on an empty cache, `PackageCacheGate`, see `testrunner-validation`), then runs only
+  `RealValidatorIT` (the command of the "One IT only" row with `VALIDATOR_JAR`). To try a cold cache locally without
+  touching `~/.fhir`: `TESTRUNNER_VALIDATION_JVMARGUMENTS=-Duser.home=/tmp/fhir-home` in front of that command. Raising the version: run that command locally with the new jar
   first; the negative control must still FAIL.
 * Actions are pinned to major versions (`checkout@v7`, `setup-java@v6`, `cache@v6`, `upload-artifact@v7`);
   `permissions: contents: read`.

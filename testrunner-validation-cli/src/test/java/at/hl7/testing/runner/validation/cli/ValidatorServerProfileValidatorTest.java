@@ -207,6 +207,34 @@ class ValidatorServerProfileValidatorTest {
     }
 
     @Test
+    void theFirstValidationOfAConfigurationWarmsTheGate() {
+        PackageCacheGate gate = new PackageCacheGate();
+        ValidationConfig config = config(true, jar);
+        validator = new ValidatorServerProfileValidator(config, new ValidatorCliProfileValidator(config, gate), gate);
+        ValidationRequest r4 = request(VALID, FhirVersion.R4, profilesR4);
+
+        assertThat(gate.isWarm(EngineKey.of(r4))).isFalse();
+        validator.validate(r4);
+
+        assertThat(gate.isWarm(EngineKey.of(r4))).isTrue();
+        assertThat(gate.isWarm(EngineKey.of(request(VALID, FhirVersion.R5, profilesR4)))).isFalse();
+    }
+
+    @Test
+    void fallbackProcessesShareTheGateOfTheServerThatFailed() throws Exception {
+        PackageCacheGate gate = new PackageCacheGate();
+        ValidationConfig config = config(true, jar, "-DFAKE_VALIDATOR_SERVER_FAILS=1");
+        validator = new ValidatorServerProfileValidator(config, new ValidatorCliProfileValidator(config, gate), gate);
+        ValidationRequest r4 = request(VALID, FhirVersion.R4, profilesR4);
+
+        validator.validate(r4);
+
+        assertThat(calls("process")).as("the failed server did not warm the cache; the first process did")
+                .hasSize(1);
+        assertThat(gate.isWarm(EngineKey.of(r4))).isTrue();
+    }
+
+    @Test
     void serverThatExitsAtStartUpWithoutFallbackNamesTheOutput() {
         validator = new ValidatorServerProfileValidator(config(false, jar, "-DFAKE_VALIDATOR_SERVER_FAILS=1"));
 

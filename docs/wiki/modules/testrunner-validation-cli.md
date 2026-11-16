@@ -30,6 +30,8 @@ never loaded into the runner's JVM.
 | `ValidatorArguments` | Builds the arguments shared by both modes: `-version`, `-tx`, `-locale`, `-ig …`, extra arguments. Also the problems: `configurationProblems` (no `validator-jar`, the run does not start) and `problems` (jar or java missing, each validation is an error). |
 | `OperationOutcomeReader` | Reads the validator's OperationOutcome into a `ValidationResult`. |
 | `ProcessRunner` | Runs a process with a timeout; replaceable in tests. |
+| `PackageCacheGate` | Lets the first validation of each `EngineKey` run alone, so validators do not install the same packages into an empty `~/.fhir/packages` at once. Used by both modes. |
+| `EngineKey` | FHIR version × profiles folder × IGs: what a server is bound to and what the gate warms up once. |
 
 ## Server mode in detail
 
@@ -62,6 +64,29 @@ Rules worth knowing:
 
 Measurements and the full failure table: [ADR-0011](../../adr/0011-validator-server-mode.md).
 
+## The package cache and parallel validators
+
+The validator's package cache locking does not hold across processes. On an empty `~/.fhir/packages`, validators that
+start together and install the same package fail each other (`NoSuchFileException: …lock -> …lock-deletion`, exit
+code 1). `PackageCacheGate` prevents it:
+
+```mermaid
+flowchart TD
+    v["validate(request)"] --> w{"EngineKey<br/>warm?"}
+    w -- yes --> run["run (in parallel)"]
+    w -- no --> lock["wait for the cold-start lock<br/>(first runs of all keys, one at a time)"]
+    lock --> w2{"warm now?"}
+    w2 -- yes --> run
+    w2 -- no --> first["run alone<br/>(process mode: the process;<br/>server mode: server start + validation)"]
+    first -- "returned" --> warm["key is warm"]
+    first -- "threw" --> cold["key stays cold:<br/>the next one runs alone"]
+```
+
+* Process mode gates the whole validation; server mode gates `ValidatorServer.validate`, i.e. the server start and the
+  first validation. The server validator and its process fallback share one gate.
+* Different keys' first validations are serialized as well, because they share packages. A warm key never waits.
+* Details, cost and limits: [validation.md](../../validation.md#validator-processes-and-the-package-cache).
+
 ## Never a silent pass
 
 The Python PoC parsed the validator's console output. An empty output looked like success. Here:
@@ -80,15 +105,17 @@ a FHIR package gets the package and its dependencies. Details: [validation.md](.
 
 ## Thread safety
 
-* Process mode: each validation has its own process and temp folder.
+* Process mode: each validation has its own process and temp folder; the first one per `EngineKey` runs alone.
 * Server mode: servers live in a `ConcurrentHashMap`; each `ValidatorServer` synchronizes its own lifecycle.
+* `PackageCacheGate`: a fair `ReentrantLock` for the cold starts and a concurrent set of warm keys.
 
 ## Tests
 
 | Test | Covers |
 |---|---|
-| `ValidatorCliProfileValidatorTest` | arguments, `-output` parsing, a validator that writes nothing |
-| `ValidatorServerProfileValidatorTest` | one server per key, parallel use, crash, start failure, slow start, hang, fallback on/off, stop on close |
+| `ValidatorCliProfileValidatorTest` | arguments, `-output` parsing, a validator that writes nothing, the exception line in the error message, the first process per key running alone |
+| `ValidatorServerProfileValidatorTest` | one server per key, parallel use, crash, start failure, slow start, hang, fallback on/off, stop on close, the gate shared with the fallback |
+| `PackageCacheGateTest` | the first validation runs alone, others then in parallel, different keys one after the other, a failure keeps the key cold, interrupt |
 
 Both use `FakeValidatorJar` from [test-support](testrunner-test-support.md). `RealValidatorIT` in the app module
 runs the real validator, opt-in.

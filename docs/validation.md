@@ -16,10 +16,8 @@ which is also the fallback of a failed server.
 * The validator is started with the Java running the runner (≥ 25 here, the validator needs ≥ 17);
   `testrunner.validation.java-executable` overrides it.
 * On its first run the validator downloads the FHIR core packages into `~/.fhir/packages`; afterwards it works offline.
-  Several validator processes that start at the same time on an **empty** cache (process mode with `parallelism` > 1,
-  or servers for several suites) can fail each other: the validator's cache locking does not hold across
-  processes (`NoSuchFileException: …#4.0.1.lock -> …lock-deletion`, exit code 1, the validation is an `error`). Fill
-  the cache with one validation first; the CI job `real-validator` does.
+  Validators that start together on an empty cache would fail each other, so the runner lets the first validation of
+  each configuration run alone, see [Validator processes and the package cache](#validator-processes-and-the-package-cache).
 * The definitions a profile needs come from the suite (see [Where the profiles come from](#where-the-profiles-come-from)).
 * The FHIR version (`-version 4.0` / `5.0`) is the version of the TestScript – the PoC's `validation.fhirVersion`
   setting and the bugs from forgetting it are gone.
@@ -89,7 +87,8 @@ share a server.
 | Cost per validation | 5–15 s (loads packages every time) | 0.1–0.5 s after a start-up of 5–7 s |
 | AT Core R4 suite, parallelism 1 / 3 (measured, validator 7.0.2) | 35.2 s / 18.1 s | 6.2 s / 6.6 s |
 | Parallel validations | Run in parallel, one JVM each | Queue on the server (one request at a time) |
-| Isolation | Nothing shared | One JVM per server, ≈ 1 GB, lives as long as the application |
+| Isolation | Nothing shared except the package cache | One JVM per server, ≈ 1 GB, lives as long as the application |
+| First validation of a configuration | Runs alone (empty package cache) | The server start and the first validation run alone |
 | On failure | That validation is an `error` | Server failed ⇒ fall back to process mode (default) or `error`; see below |
 
 ```yaml
@@ -122,6 +121,32 @@ so a shorter timeout (e.g. `validation.timeout: 1m`) surfaces it sooner. The ser
 `127.0.0.1` only, the server's console output goes to the log at DEBUG (`[validator server R4] ...`), and they
 are stopped when the application ends (`POST /stop`, then process termination; a shutdown hook covers crashes of
 the runner).
+
+### Validator processes and the package cache
+
+Both modes read and write `~/.fhir/packages`, and the validator's cache locking does not hold across processes. On an
+**empty** cache, validator processes that start at the same time and all install the same package (`hl7.fhir.r4.core`
+and the terminology packages) fail each other: all but one die after a few seconds with
+`NoSuchFileException: …#4.0.1.lock -> …lock-deletion` and exit code 1, and the validation is an `error` ("produced no
+result"). Server mode is not immune: servers for several suites start together.
+
+The runner prevents it with `PackageCacheGate`:
+
+* The first validation of each **FHIR version × profiles folder × IGs** runs alone. In server mode that includes
+  starting the server; in process mode it is the first process. The other validations of that configuration wait for
+  it and then run in parallel; once it has succeeded they never wait again.
+* First validations of different configurations run one after the other too, because they share packages (an R4 and
+  an R5 suite share the terminology packages). That costs one validator start (5–15 s) per additional configuration,
+  once per run, also on a warm cache.
+* If the first validation throws (nothing was validated), the configuration stays cold and the next validation
+  runs alone again, so a failure never lets the others race on a half-filled cache. A validation that returns, valid
+  or not, warms it.
+* A server validator and its process fallback share one gate.
+* The log says it once per configuration at INFO (`The first validation for FHIR 4.0 … runs alone`), which explains
+  why parallel TestScripts seem to wait at the start of the first run.
+
+The gate lives in one runner. Two runner or validator processes started separately on an empty cache (for example
+two CI jobs sharing a home folder, or the IG Publisher) can still race: validate once first.
 
 ## A green run must prove that validation ran
 

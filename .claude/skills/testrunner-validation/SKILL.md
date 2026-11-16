@@ -57,10 +57,30 @@ the validator really returned, or ends in an error. Keep it that way.
 One `java -jar validator_cli.jar <file> ... [-profile <canonical>] -output <file>` per validation in its own temp
 folder (`ProcessRunner`), timeout `validation.timeout` (5m). 5–15 s per validation, nearly all package loading.
 Nothing shared, so a validator problem only hits that validation. It is also the fallback of the server mode.
-Nothing shared except `~/.fhir/packages`: on an **empty** cache parallel processes race on its locks (`NoSuchFileException:
-…lock -> …lock-deletion`, exit 1, `error`), so CI fills the cache with one run first. The error message keeps the last
-15 output lines plus the exception lines before them (`ValidatorCliProfileValidator.tail`), because a stack trace
-pushes its own message out of a plain tail.
+The error message keeps the last 15 output lines plus the exception lines before them
+(`ValidatorCliProfileValidator.tail`), because a stack trace pushes its own message out of a plain tail.
+
+## The package cache and parallel validators (`PackageCacheGate`, `EngineKey`)
+
+The one thing the validators share is `~/.fhir/packages`, and the validator's cache locking does not hold across
+processes: on an **empty** cache, validators that start together and install the same package fail each other
+(`NoSuchFileException: …lock -> …lock-deletion`, exit 1, `error` "produced no result" – the real cause sits above the
+last 15 lines, hence `tail`'s exception lines). So:
+
+* The first validation per `EngineKey` (FHIR version × normalized profiles folder × igs) runs alone: process mode gates
+  the whole validation, server mode gates `ValidatorServer.validate` (start + first validation). Others of the key wait
+  for it, then run in parallel; a warm key never waits.
+* First validations of **different** keys are serialized too (they share core/terminology packages): one validator
+  start per additional key, once per run.
+* A key is warm once its first validation **returned** (valid or not); if it threw, the key stays cold and the next
+  one runs alone again. A failure therefore never lets the rest race on a half-filled cache (cost: a hanging validator
+  serializes the timeouts).
+* `ValidatorServerProfileValidator` creates one gate and gives it to its `ValidatorCliProfileValidator` fallback; every
+  validator instance has its own gate (tests: `new PackageCacheGate()`, `isWarm(EngineKey)`).
+* Does not cover separate runner/validator/IG Publisher processes: validate once first. Do not "fix" a red run by
+  retrying validations or by a cache folder per validation (rejected, ADR-0006 update 2026-11).
+* Verify with the real validator and an empty cache: `TESTRUNNER_VALIDATION_JVMARGUMENTS=-Duser.home=/tmp/fhir-home`
+  in front of the `RealValidatorIT` command (see `testrunner-build-and-run`).
 
 ## Server mode (default since 2026-10, `ValidatorServerProfileValidator` + `ValidatorServer`)
 
@@ -97,6 +117,8 @@ security numbers (`Patient.identifier:socialSecurityNumber: max allowed = 1, but
 
 ## Tests
 
+* `PackageCacheGateTest` (latches and barriers, no jar), the `ValidatorCliProfileValidatorTest` cold-cache tests (a
+  counting `ProcessRunner`) and `ValidatorServerProfileValidatorTest` (shared gate) guard the first-run rule.
 * `ValidatorCliProfileValidatorTest`, `ValidatorServerProfileValidatorTest`, `EndToEndIT` use the fake validator
   (`FakeValidatorJar`, see `testrunner-testing`): markers simulate invalid resources, no output, crashes, failing or
   slow start, unknown profile; `FAKE_VALIDATOR_LOG` counts starts and calls.

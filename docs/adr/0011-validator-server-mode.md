@@ -80,6 +80,12 @@ The condition for flipping the default was that the mode "has proven itself". Ev
 
 `ValidationConfig.mode` defaults to `SERVER`; `ValidationConfig.enabled(jar)` and the Spring property default follow.
 
+## Update 2026-11: servers and the package cache
+Servers for several suites start together, and each loads the FHIR packages into the shared `~/.fhir/packages`; on an
+empty cache that is the race described in [ADR-0006](0006-validator-cli.md). Starting a server and its first validation
+run alone per FHIR version, profiles folder and IGs (`PackageCacheGate`, shared with the process fallback). The cost is
+one server start per additional configuration, once per run.
+
 ## Reverting
 `--testrunner.validation.mode=process` (or `TESTRUNNER_VALIDATION_MODE=process`) – no rebuild. Nothing else depends
 on the mode: results, reports and log lines per validation are the same in both modes.
