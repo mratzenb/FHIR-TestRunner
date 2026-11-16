@@ -1,0 +1,76 @@
+# GitLab CI template of the FHIR TestScript Runner (ADR-0020, docs/wiki/ci-integration.md).
+#
+# Include it from a tag of the runner, and extend the hidden job:
+#
+#   include:
+#     - remote: https://raw.githubusercontent.com/mratzenb/FHIR-TestRunner/v0.1.0/ci/testrunner.gitlab-ci.yml
+#
+#   at-core:
+#     extends: .testrunner
+#     variables:
+#       FHIR_TESTRUNNER_VERSION: "0.1.0-validator"        # the image: 0.1.0, or 0.1.0-validator with the HL7 validator
+#       FHIR_TESTRUNNER_CONFIG: config/dev-r4.yml         # relative to the project folder
+#       FHIR_TESTRUNNER_WAIT_FOR: hapi:8080               # optional: wait until this host:port accepts connections
+#     services:                                           # optional: a FHIR server for the test
+#       - name: hapiproject/hapi:v8.12.0-1
+#         alias: hapi
+#     # the configuration says http://localhost:8080/fhir; for the service above, as an environment variable:
+#     #   TESTRUNNER_FHIRSERVER_BASEURL: http://hapi:8080/fhir
+#
+# Variables of the template (not named TESTRUNNER_*: the runner reads those as its own properties):
+#   FHIR_TESTRUNNER_IMAGE      the image without the tag
+#   FHIR_TESTRUNNER_VERSION    the tag; pin it (0.1.0 or 0.1.0-validator), latest follows the newest release
+#   FHIR_TESTRUNNER_CONFIG     the runner configuration (--config), required
+#   FHIR_TESTRUNNER_ARGS       more arguments, e.g. "--testscript=*update* --novalidator"
+#   FHIR_TESTRUNNER_WAIT_FOR   host:port to wait for (up to 2 minutes) before the runner starts
+# Every TESTRUNNER_* variable of the job (e.g. TESTRUNNER_FHIRSERVER_BASEURL) configures the runner: docs/configuration.md.
+# Secrets (an OAuth client secret, a token) belong in masked CI/CD variables of the project, not in a configuration.
+#
+# The runner exits 0 when all TestScripts passed, 1 when one failed or errored, 2 for an invalid configuration, 3 when
+# all were skipped. Exit code 3 as a warning, not a failure:
+#     allow_failure: {exit_codes: 3}
+
+.testrunner:
+  image:
+    name: ${FHIR_TESTRUNNER_IMAGE}:${FHIR_TESTRUNNER_VERSION}
+    # the image's entry point would start the runner with the job's script as its arguments; the script calls it itself
+    entrypoint: [""]
+    docker:
+      # The Docker executor clones into the project folder as root, and the image runs as user 10001: that user could not
+      # write the results. A job container is thrown away after the job. Remove this to run as 10001, if the project
+      # folder of your runner is writable for it (a Kubernetes executor with fsGroup, for example).
+      user: "0"
+  variables:
+    FHIR_TESTRUNNER_IMAGE: ghcr.io/mratzenb/fhir-testrunner
+    FHIR_TESTRUNNER_VERSION: latest
+    FHIR_TESTRUNNER_CONFIG: ""
+    FHIR_TESTRUNNER_ARGS: ""
+    FHIR_TESTRUNNER_WAIT_FOR: ""
+    # GitLab caches only folders in the project. The validator keeps FHIR packages in ~/.fhir/packages, and the runner
+    # reads them from the same place (packages.cache-dir); both are moved into the project folder.
+    TESTRUNNER_VALIDATION_JVMARGUMENTS: -Duser.home=${CI_PROJECT_DIR}/.fhir-cache/home
+    TESTRUNNER_PACKAGES_CACHEDIR: ${CI_PROJECT_DIR}/.fhir-cache/home/.fhir/packages
+  before_script:
+    - |
+      if [ -n "$FHIR_TESTRUNNER_WAIT_FOR" ]; then
+        echo "Waiting for $FHIR_TESTRUNNER_WAIT_FOR"
+        bash -c 'for i in $(seq 1 60); do (exec 3<>"/dev/tcp/${1%%:*}/${1##*:}") 2>/dev/null && exit 0; sleep 2; done; echo "$1 does not answer" >&2; exit 1' _ "$FHIR_TESTRUNNER_WAIT_FOR"
+      fi
+  script:
+    - test -n "$FHIR_TESTRUNNER_CONFIG" || { echo "Set FHIR_TESTRUNNER_CONFIG to the runner configuration" >&2; exit 2; }
+    # not quoted: FHIR_TESTRUNNER_ARGS is several arguments
+    - testrunner --config="$FHIR_TESTRUNNER_CONFIG" --testrunner.reporting.output-dir=testrunner-results $FHIR_TESTRUNNER_ARGS
+  cache:
+    key: fhir-packages
+    paths:
+      - .fhir-cache/
+    # also after failed tests: the packages were loaded
+    when: always
+  artifacts:
+    when: always
+    expire_in: 2 weeks
+    paths:
+      - testrunner-results/
+    reports:
+      # the test results in the pipeline and merge request views
+      junit: testrunner-results/run_*/junit.xml
