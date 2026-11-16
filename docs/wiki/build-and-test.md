@@ -186,8 +186,13 @@ otherwise the report leaves it out.
 | `real-validator` | nightly (03:17 UTC) and on demand (*Run workflow*) | `RealValidatorIT` with the real validator, both modes. The negative control must fail. |
 
 The real validator is pinned (`VALIDATOR_VERSION`, now 7.0.2, the version the docs were verified with). The job
-caches it and the FHIR packages, so only the first run downloads them. Raise the version deliberately, after
-checking the negative control locally:
+caches it and the FHIR packages, so only the first run downloads them. Before the IT it runs the validator once on
+its own to fill the package cache: `RealValidatorIT` starts three validator processes at once, and on an empty
+`~/.fhir/packages` they would install the same packages together, which the validator's cache locking does not
+survive (`NoSuchFileException: …lock -> …lock-deletion`, exit code 1, the TestScript ends as `error`). The cache is
+saved only after a successful job, so without that step a failed run would leave it empty for the next one too.
+The same applies to your own machine: with an empty cache, validate once before running TestScripts in parallel.
+Raise the version deliberately, after checking the negative control locally:
 
 ```sh
 curl -L -o /tmp/validator_cli.jar \

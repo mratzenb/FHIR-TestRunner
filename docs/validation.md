@@ -16,6 +16,10 @@ which is also the fallback of a failed server.
 * The validator is started with the Java running the runner (≥ 25 here, the validator needs ≥ 17);
   `testrunner.validation.java-executable` overrides it.
 * On its first run the validator downloads the FHIR core packages into `~/.fhir/packages`; afterwards it works offline.
+  Several validator processes that start at the same time on an **empty** cache (process mode with `parallelism` > 1,
+  or servers for several suites) can fail each other: the validator's cache locking does not hold across
+  processes (`NoSuchFileException: …#4.0.1.lock -> …lock-deletion`, exit code 1, the validation is an `error`). Fill
+  the cache with one validation first; the CI job `real-validator` does.
 * The definitions a profile needs come from the suite (see [Where the profiles come from](#where-the-profiles-come-from)).
 * The FHIR version (`-version 4.0` / `5.0`) is the version of the TestScript – the PoC's `validation.fhirVersion`
   setting and the bugs from forgetting it are gone.

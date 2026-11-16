@@ -57,6 +57,10 @@ the validator really returned, or ends in an error. Keep it that way.
 One `java -jar validator_cli.jar <file> ... [-profile <canonical>] -output <file>` per validation in its own temp
 folder (`ProcessRunner`), timeout `validation.timeout` (5m). 5–15 s per validation, nearly all package loading.
 Nothing shared, so a validator problem only hits that validation. It is also the fallback of the server mode.
+Nothing shared except `~/.fhir/packages`: on an **empty** cache parallel processes race on its locks (`NoSuchFileException:
+…lock -> …lock-deletion`, exit 1, `error`), so CI fills the cache with one run first. The error message keeps the last
+15 output lines plus the exception lines before them (`ValidatorCliProfileValidator.tail`), because a stack trace
+pushes its own message out of a plain tail.
 
 ## Server mode (default since 2026-10, `ValidatorServerProfileValidator` + `ValidatorServer`)
 
