@@ -1,0 +1,239 @@
+name: FHIR TestScript Runner
+description: >-
+  Runs FHIR TestScripts (R4, R5) against a FHIR server with the container image of the runner and keeps the reports.
+  Linux runners with Docker. See docs/wiki/ci-integration.md.
+
+inputs:
+  config:
+    description: The runner configuration (--config), relative to working-directory.
+    required: true
+  working-directory:
+    description: >-
+      The folder that is mounted at /workspace. The paths in the configuration (suites, validator jar) are relative to it.
+    default: "."
+  validator:
+    description: >-
+      "true": the image with the HL7 validator, so that the configuration can validate profiles against it
+      (VALIDATOR_JAR is set). "false": the image without it; pass --novalidator in args, or give a validator jar of
+      your own in the configuration.
+    default: "false"
+  version:
+    description: >-
+      Tag of the image, without the -validator suffix, e.g. 0.1.0. Default: the version of this action (@v0.1.0 gives
+      0.1.0, a branch gives edge).
+    default: ""
+  image:
+    description: >-
+      The complete image reference. Replaces version and validator: for a mirror of the image, or one you built.
+    default: ""
+  testscript:
+    description: Run only the TestScripts that match this glob (file name, name or url), see --testscript.
+    default: ""
+  test:
+    description: Run only the tests that match this glob (test name), see --test.
+    default: ""
+  args:
+    description: >-
+      More arguments for the runner, separated by blanks (no quoting), e.g. "--check --novalidator" or
+      "--testrunner.validation.mode=process".
+    default: ""
+  forward-env:
+    description: >-
+      Names of environment variables to hand to the runner, separated by blanks, e.g. "OAUTH_CLIENT_SECRET". Every
+      variable that starts with TESTRUNNER_ is handed over anyway. Set them with env: on the step.
+    default: ""
+  network:
+    description: >-
+      The Docker network of the runner container. "host" lets the configuration reach a FHIR server that runs on the
+      runner (a service container, docker run -p) as localhost.
+    default: host
+  docker-args:
+    description: More arguments for docker run, separated by blanks, e.g. "--add-host=fhir.example:10.0.0.5".
+    default: ""
+  results-dir:
+    description: >-
+      Where the reports go, relative to working-directory (testrunner.reporting.output-dir; it replaces the one of the
+      configuration). Every run makes a run_<timestamp> folder in it.
+    default: testrunner-results
+  upload-results:
+    description: Upload results-dir as an artifact, also when tests failed.
+    default: "true"
+  artifact-name:
+    description: Name of that artifact. Give each use of the action in a job a name of its own.
+    default: testrunner-results
+  cache-packages:
+    description: >-
+      Keep the FHIR package cache (~/.fhir/packages) between runs, so the validator and package-id suites do not
+      download the packages again. The key follows the configuration file.
+    default: "true"
+  fail-on-error:
+    description: >-
+      Fail the step when the runner's exit code is not 0 (1 tests failed or errors, 2 invalid configuration, 3 every
+      TestScript skipped). "false": only report it in exit-code.
+    default: "true"
+
+outputs:
+  exit-code:
+    description: The exit code of the runner.
+    value: ${{ steps.run.outputs.exit-code }}
+  results-path:
+    description: >-
+      The folder of this run (run_<timestamp>, or check_<timestamp> with --check), with junit.xml, summary.txt,
+      result.json and report.html. Empty if the runner wrote none.
+    value: ${{ steps.run.outputs.results-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Which image
+      id: image
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        VERSION: ${{ inputs.version }}
+        VALIDATOR: ${{ inputs.validator }}
+        ACTION_REF: ${{ github.action_ref }}
+        ACTION_REPOSITORY: ${{ github.action_repository }}
+        OWNER: ${{ github.repository_owner }}
+      run: |
+        if [ "$RUNNER_OS" != Linux ]; then
+          echo "::error::This action needs a Linux runner with Docker (this one is $RUNNER_OS)"
+          exit 1
+        fi
+        if [ -z "$IMAGE" ]; then
+          if [ -z "$VERSION" ]; then
+            case "$ACTION_REF" in
+              v[0-9]*) VERSION=${ACTION_REF#v} ;;
+              '' | main) VERSION=edge ;;
+              *)
+                echo "::error::Cannot tell the image version from the action reference '$ACTION_REF': set the input 'version' (e.g. 0.1.0) or 'image'"
+                exit 1
+                ;;
+            esac
+          fi
+          owner=${ACTION_REPOSITORY%%/*}
+          owner=$(printf '%s' "${owner:-$OWNER}" | tr '[:upper:]' '[:lower:]')
+          suffix=
+          if [ "$VALIDATOR" = true ]; then suffix=-validator; fi
+          IMAGE="ghcr.io/$owner/fhir-testrunner:$VERSION$suffix"
+        fi
+        echo "Image: $IMAGE"
+        echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+    - name: Package cache key
+      id: key
+      if: inputs.cache-packages == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        CONFIG: ${{ inputs.config }}
+      run: |
+        hash=none
+        if [ -f "$CONFIG" ]; then hash=$(sha256sum "$CONFIG" | cut -c1-16); fi
+        echo "key=testrunner-fhir-packages-$RUNNER_OS-$hash" >> "$GITHUB_OUTPUT"
+
+    # restore and save apart, so that the cache is also saved when the tests fail
+    - name: Restore the FHIR package cache
+      id: cache
+      if: inputs.cache-packages == 'true'
+      uses: actions/cache/restore@v6
+      with:
+        path: ~/.fhir/packages
+        key: ${{ steps.key.outputs.key }}
+        restore-keys: testrunner-fhir-packages-${{ runner.os }}-
+
+    - name: Run the TestScripts
+      id: run
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        IMAGE: ${{ steps.image.outputs.image }}
+        CONFIG: ${{ inputs.config }}
+        TESTSCRIPT: ${{ inputs.testscript }}
+        TEST: ${{ inputs.test }}
+        ARGS: ${{ inputs.args }}
+        FORWARD_ENV: ${{ inputs.forward-env }}
+        NETWORK: ${{ inputs.network }}
+        DOCKER_ARGS: ${{ inputs.docker-args }}
+        RESULTS_DIR: ${{ inputs.results-dir }}
+      run: |
+        workspace=$(pwd)
+        # created by the runner user, so that the container, which runs as that user too, can write to it
+        mkdir -p "$HOME/.fhir/packages"
+
+        runner_args=("--config=$CONFIG" "--testrunner.reporting.output-dir=$RESULTS_DIR")
+        if [ -n "$TESTSCRIPT" ]; then runner_args+=("--testscript=$TESTSCRIPT"); fi
+        if [ -n "$TEST" ]; then runner_args+=("--test=$TEST"); fi
+        docker_args=(--rm --user "$(id -u):$(id -g)" --network "$NETWORK"
+          -v "$workspace:/workspace" -v "$HOME/.fhir/packages:/home/runner/.fhir/packages")
+        # the values stay in the environment: docker run -e NAME takes it from there, and logs only the name
+        for name in $FORWARD_ENV $(compgen -e | grep '^TESTRUNNER_' || true); do
+          docker_args+=(-e "$name")
+        done
+        # split on blanks, but do not expand wildcards
+        set -f
+        # shellcheck disable=SC2206
+        runner_args+=($ARGS)
+        # shellcheck disable=SC2206
+        docker_args+=($DOCKER_ARGS)
+        set +f
+
+        marker=$(mktemp)
+        set +e
+        docker run "${docker_args[@]}" "$IMAGE" "${runner_args[@]}"
+        code=$?
+        set -e
+
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        # the run_<timestamp> or check_<timestamp> folder this run wrote, not an older one
+        latest=$(find "$RESULTS_DIR" -mindepth 1 -maxdepth 1 -type d \( -name 'run_*' -o -name 'check_*' \) -newer "$marker" \
+          -exec ls -dt {} + 2>/dev/null | head -n 1 || true)
+        rm -f "$marker"
+        if [ -n "$latest" ]; then
+          echo "results-path=$workspace/$latest" >> "$GITHUB_OUTPUT"
+        fi
+        echo "The runner ended with exit code $code"
+
+    - name: Save the FHIR package cache
+      # a run that ended with a result: the packages were loaded. Not after a failure to start, nor an invalid configuration
+      if: >-
+        always() && inputs.cache-packages == 'true' && steps.cache.outputs.cache-hit != 'true'
+        && (steps.run.outputs.exit-code == '0' || steps.run.outputs.exit-code == '1')
+      uses: actions/cache/save@v6
+      with:
+        path: ~/.fhir/packages
+        key: ${{ steps.key.outputs.key }}
+
+    - name: Show the summary
+      if: always()
+      shell: bash
+      env:
+        RESULTS_PATH: ${{ steps.run.outputs.results-path }}
+      run: |
+        if [ -n "$RESULTS_PATH" ] && [ -f "$RESULTS_PATH/summary.txt" ]; then
+          {
+            echo "### FHIR TestScript Runner"
+            echo
+            echo '```'
+            cat "$RESULTS_PATH/summary.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+    - name: Keep the results
+      if: always() && inputs.upload-results == 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}/${{ inputs.results-dir }}
+        if-no-files-found: ignore
+        retention-days: 14
+
+    - name: Fail if the runner failed
+      if: inputs.fail-on-error == 'true' && steps.run.outputs.exit-code != '0'
+      shell: bash
+      env:
+        CODE: ${{ steps.run.outputs.exit-code }}
+      run: |
+        echo "::error::The runner ended with exit code ${CODE:-unknown} (0 passed, 1 failed or errors, 2 invalid configuration, 3 every TestScript skipped)"
+        exit "${CODE:-1}"
