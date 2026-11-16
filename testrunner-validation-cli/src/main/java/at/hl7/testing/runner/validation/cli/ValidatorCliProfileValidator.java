@@ -13,9 +13,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
@@ -32,6 +34,12 @@ import java.util.stream.Stream;
 public final class ValidatorCliProfileValidator implements ProfileValidator {
 
     private static final Logger log = LoggerFactory.getLogger(ValidatorCliProfileValidator.class);
+
+    private static final int TAIL_LINES = 15;
+    private static final int CAUSE_LINES = 5;
+    /** The first line of a stack trace or of a cause, e.g. {@code java.nio.file.NoSuchFileException: a -> b}. */
+    private static final Pattern EXCEPTION_LINE =
+            Pattern.compile("^\\s*(Caused by: |Exception in thread \"[^\"]*\" )?([\\w$]+\\.)+[\\w$]*(Exception|Error)\\b.*");
 
     private final ValidationConfig config;
     private final ProcessRunner processRunner;
@@ -126,10 +134,22 @@ public final class ValidatorCliProfileValidator implements ProfileValidator {
         return command;
     }
 
+    /**
+     * The last lines of the validator's output. A Java stack trace is longer than that and pushes its own message out
+     * of the window, so the exception lines before the window are kept in front of it: they name the cause.
+     */
     static String tail(String output) {
-        String[] lines = output.strip().split("\n");
-        int from = Math.max(0, lines.length - 15);
-        return String.join("\n", java.util.Arrays.copyOfRange(lines, from, lines.length));
+        List<String> lines = output.strip().lines().toList();
+        int from = Math.max(0, lines.size() - TAIL_LINES);
+        List<String> causes = lines.subList(0, from).stream()
+                .filter(line -> EXCEPTION_LINE.matcher(line).matches())
+                .toList();
+        List<String> excerpt = new ArrayList<>(causes.subList(Math.max(0, causes.size() - CAUSE_LINES), causes.size()));
+        if (!excerpt.isEmpty()) {
+            excerpt.add("   ...");
+        }
+        excerpt.addAll(lines.subList(from, lines.size()));
+        return String.join("\n", excerpt);
     }
 
     private static void deleteQuietly(Path folder) {

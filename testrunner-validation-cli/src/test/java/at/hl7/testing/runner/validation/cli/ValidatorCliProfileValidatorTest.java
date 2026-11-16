@@ -14,7 +14,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
-
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -67,6 +68,36 @@ class ValidatorCliProfileValidatorTest {
                 .isInstanceOf(ValidatorUnavailableException.class)
                 .hasMessageContaining("produced no result")
                 .hasMessageContaining("simulated validator failure");
+    }
+
+    @Test
+    void failureOutputKeepsTheExceptionLineThatTheStackTracePushedOutOfTheTail() {
+        String frames = IntStream.range(0, 20).mapToObj(i -> "\tat org.example.Frame" + i + ".run(Frame.java:1)")
+                .collect(Collectors.joining("\n"));
+        String output = "Installing hl7.fhir.r4.core#4.0.1\nUnable to load validationEngine.\n"
+                + "java.nio.file.NoSuchFileException: a.lock -> a.lock-deletion\n" + frames;
+
+        String tail = ValidatorCliProfileValidator.tail(output);
+
+        assertThat(tail).startsWith("java.nio.file.NoSuchFileException: a.lock -> a.lock-deletion\n   ...\n")
+                .contains("Frame19", "Frame5").doesNotContain("Frame4.", "Installing");
+    }
+
+    @Test
+    void failureOutputKeepsTheCausesOfNestedExceptions() {
+        String frames = IntStream.range(0, 20).mapToObj(i -> "\tat org.example.Frame" + i + ".run(Frame.java:1)")
+                .collect(Collectors.joining("\n"));
+        String output = "Exception in thread \"main\" java.lang.IllegalStateException: outer\n" + frames
+                + "\nCaused by: java.io.IOException: inner\n" + frames;
+
+        assertThat(ValidatorCliProfileValidator.tail(output)).contains("IllegalStateException: outer",
+                "Caused by: java.io.IOException: inner");
+    }
+
+    @Test
+    void shortOutputIsKeptAsItIs() {
+        assertThat(ValidatorCliProfileValidator.tail("  line 1\nline 2\n")).isEqualTo("line 1\nline 2");
+        assertThat(ValidatorCliProfileValidator.tail("")).isEmpty();
     }
 
     @Test

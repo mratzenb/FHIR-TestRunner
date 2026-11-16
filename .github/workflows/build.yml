@@ -88,6 +88,18 @@ jobs:
           mkdir -p ~/validator
           test -f ~/validator/validator_cli.jar || curl -fsSL -o ~/validator/validator_cli.jar \
             "https://github.com/hapifhir/org.hl7.fhir.core/releases/download/${VALIDATOR_VERSION}/validator_cli.jar"
+      # RealValidatorIT runs three validator processes at once (parallelism 3). On an empty ~/.fhir/packages they all
+      # install the same FHIR packages at the same moment, and the validator's package cache locking does not hold
+      # across processes: the losers die after a few seconds with "NoSuchFileException: ...#4.0.1.lock ->
+      # ...lock-deletion" and exit code 1, so their TestScripts end as ERROR ("produced no result"). The cache is only
+      # saved when the job succeeds, so a failed run leaves it empty and the next run races again.
+      # One validator run first fills the cache; the three processes then only read it. It uses the arguments of
+      # the IT (-version 4.0, -tx n/a, -ig <suite>/Profiles), so it loads the same packages.
+      - name: Fill the FHIR package cache with one validator run
+        run: |
+          java -jar ~/validator/validator_cli.jar \
+            testdata/r4/Example_Instances/Patient-HL7ATCorePatientCreateTestExample.json \
+            -version 4.0 -tx n/a -locale en -ig testdata/r4/Profiles -output "$RUNNER_TEMP/cache-warmup.json"
       - name: RealValidatorIT, both validator modes (the negative control must fail)
         run: |
           VALIDATOR_JAR="$HOME/validator/validator_cli.jar" mvn -B -ntp verify -pl testrunner-app -am \
