@@ -11,9 +11,16 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,9 +39,13 @@ class ValidatorCliProfileValidatorTest {
         jar = FakeValidatorJar.create(dir);
     }
 
+    static ValidationConfig config(Path validatorJar) {
+        return new ValidationConfig(true, null, validatorJar, null, null, null, null, Duration.ofSeconds(60), true, null,
+                null);
+    }
+
     static ValidatorCliProfileValidator validator(Path validatorJar) {
-        return new ValidatorCliProfileValidator(new ValidationConfig(true, null, validatorJar, null, null, null, null,
-                Duration.ofSeconds(60), true, null, null));
+        return new ValidatorCliProfileValidator(config(validatorJar));
     }
 
     static ValidationRequest request(String json) {
@@ -98,6 +109,69 @@ class ValidatorCliProfileValidatorTest {
     void shortOutputIsKeptAsItIs() {
         assertThat(ValidatorCliProfileValidator.tail("  line 1\nline 2\n")).isEqualTo("line 1\nline 2");
         assertThat(ValidatorCliProfileValidator.tail("")).isEmpty();
+    }
+
+    @Test
+    void onAColdCacheTheFirstProcessRunsAloneAndTheOthersFollowInParallel() throws Exception {
+        List<String> events = new CopyOnWriteArrayList<>();
+        AtomicInteger running = new AtomicInteger();
+        AtomicInteger maxRunning = new AtomicInteger();
+        ProcessRunner runner = (command, workDir, timeout) -> {
+            events.add("start");
+            maxRunning.accumulateAndGet(running.incrementAndGet(), Math::max);
+            try {
+                Thread.sleep(150);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            Files.writeString(Path.of(command.getLast()), "{\"resourceType\":\"OperationOutcome\",\"issue\":[]}");
+            running.decrementAndGet();
+            events.add("end");
+            return new ProcessRunner.Result(0, "Done", false);
+        };
+        ValidatorCliProfileValidator validator = new ValidatorCliProfileValidator(config(jar), runner);
+
+        try (ExecutorService pool = Executors.newFixedThreadPool(5)) {
+            List<Future<ValidationResult>> results = IntStream.range(0, 5)
+                    .mapToObj(i -> pool.submit(() -> validator.validate(request("{}")))).toList();
+            for (Future<ValidationResult> result : results) {
+                assertThat(result.get(30, TimeUnit.SECONDS).isValid()).isTrue();
+            }
+        }
+
+        assertThat(events.subList(0, 2)).as("the first process ends before the second starts")
+                .containsExactly("start", "end");
+        assertThat(events).hasSize(10);
+        assertThat(maxRunning.get()).as("the other four ran in parallel").isGreaterThan(1);
+    }
+
+    @Test
+    void validatorsOfDifferentFhirVersionsDoNotStartTheirFirstProcessesTogether() throws Exception {
+        AtomicInteger running = new AtomicInteger();
+        AtomicInteger maxRunning = new AtomicInteger();
+        ProcessRunner runner = (command, workDir, timeout) -> {
+            maxRunning.accumulateAndGet(running.incrementAndGet(), Math::max);
+            try {
+                Thread.sleep(150);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            Files.writeString(Path.of(command.getLast()), "{\"resourceType\":\"OperationOutcome\",\"issue\":[]}");
+            running.decrementAndGet();
+            return new ProcessRunner.Result(0, "Done", false);
+        };
+        ValidatorCliProfileValidator validator = new ValidatorCliProfileValidator(config(jar), runner);
+        ValidationRequest r4 = request("{}");
+        ValidationRequest r5 = new ValidationRequest(Body.json("{}"), FhirVersion.R5, PROFILE, dir, List.of());
+
+        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+            Future<ValidationResult> first = pool.submit(() -> validator.validate(r4));
+            Future<ValidationResult> second = pool.submit(() -> validator.validate(r5));
+            first.get(30, TimeUnit.SECONDS);
+            second.get(30, TimeUnit.SECONDS);
+        }
+
+        assertThat(maxRunning.get()).as("R4 and R5 share the core packages: one after the other").isEqualTo(1);
     }
 
     @Test

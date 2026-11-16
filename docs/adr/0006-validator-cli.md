@@ -27,7 +27,19 @@ or embed the validator library (`ca.uhn.hapi.fhir:org.hl7.fhir.validation`).
 * Each validation (`validateProfileId` and the check of each TestScript) costs 5–15 s in this mode, nearly all of
   it package loading (measured with validator 6.10.4 and 7.0.2); `testrunner.validation.mode=server` (ADR-0011)
   pays that once per server instead.
-* This mode stays the default and the fallback of the server mode: nothing is shared between validations, so a
-  validator problem affects only the validation that hit it.
+* This mode stays the default and the fallback of the server mode: nothing is shared between validations except the
+  package cache (see the update below), so a validator problem affects only the validation that hit it.
 * Upgrading the validator = replacing a file, no rebuild.
 * The adapter is testable without the real validator (`FakeValidatorJar`), and with it (`RealValidatorIT`).
+
+## Update 2026-11: the package cache is shared
+With `testrunner.execution.parallelism` above 1 and an empty `~/.fhir/packages`, several validator processes install the
+same packages at once. The validator's cache locking does not hold across processes: all but one died with
+`NoSuchFileException: …lock -> …lock-deletion` (exit code 1), seen in the nightly `RealValidatorIT`. The first validation
+of each FHIR version, profiles folder and IGs now runs alone (`PackageCacheGate`); the others wait for it, then run in
+parallel. Same rule in server mode ([ADR-0011](0011-validator-server-mode.md)). The error message of a validator that
+produced no result also names the exception from before the last 15 output lines.
+
+Rejected: retrying a failed validation (it races again, nondeterministically), a cache folder per validation (every
+validation would download the packages), a file lock on the cache in the runner (the validator writes there itself, and
+other tools use it too).

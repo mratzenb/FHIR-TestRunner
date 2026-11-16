@@ -1,7 +1,6 @@
 package at.hl7.testing.runner.validation.cli;
 
 import at.hl7.testing.runner.core.config.ValidationConfig;
-import at.hl7.testing.runner.core.model.FhirVersion;
 import at.hl7.testing.runner.core.spi.ProfileValidator;
 import at.hl7.testing.runner.core.spi.ValidationRequest;
 import at.hl7.testing.runner.core.spi.ValidationResult;
@@ -11,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.http.HttpClient;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +24,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * started on first use and stopped by {@link #close()}
  * (a JVM shutdown hook makes sure no validator outlives the runner).
  *
+ * <p>The first validation of each key starts its server and runs alone ({@link PackageCacheGate}), so that servers
+ * and fallback processes do not install the same packages into an empty package cache at the same time.
+ *
  * <p>When a server cannot be started or stops by itself, the validations it should have done fall back to
  * {@link ValidatorCliProfileValidator} (one process each) if {@code testrunner.validation.server.fallback-to-process}
  * is true (default), with a warning; otherwise they are reported as errors. A failed server is not restarted.
@@ -38,22 +39,32 @@ public final class ValidatorServerProfileValidator implements ProfileValidator, 
 
     private final ValidationConfig config;
     private final ProfileValidator fallback;
+    private final PackageCacheGate gate;
     private final HttpClient http = HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(Duration.ofSeconds(10))
             .build();
-    private final Map<Key, ValidatorServer> servers = new ConcurrentHashMap<>();
-    private final Map<Key, Boolean> fallbackAnnounced = new ConcurrentHashMap<>();
+    private final Map<EngineKey, ValidatorServer> servers = new ConcurrentHashMap<>();
+    private final Map<EngineKey, Boolean> fallbackAnnounced = new ConcurrentHashMap<>();
     private final Thread shutdownHook = Thread.ofPlatform().unstarted(this::destroyAll);
     private volatile boolean closed;
 
     public ValidatorServerProfileValidator(@Nonnull ValidationConfig config) {
-        this(config, new ValidatorCliProfileValidator(config));
+        this(config, new PackageCacheGate());
+    }
+
+    private ValidatorServerProfileValidator(ValidationConfig config, PackageCacheGate gate) {
+        this(config, new ValidatorCliProfileValidator(config, gate), gate);
     }
 
     ValidatorServerProfileValidator(ValidationConfig config, ProfileValidator fallback) {
+        this(config, fallback, new PackageCacheGate());
+    }
+
+    ValidatorServerProfileValidator(ValidationConfig config, ProfileValidator fallback, PackageCacheGate gate) {
         this.config = config;
         this.fallback = fallback;
+        this.gate = gate;
         Runtime.getRuntime().addShutdownHook(shutdownHook);
     }
 
@@ -92,11 +103,11 @@ public final class ValidatorServerProfileValidator implements ProfileValidator, 
         if (!problems.isEmpty()) {
             throw new ValidatorUnavailableException(String.join("; ", problems));
         }
-        Key key = new Key(request.fhirVersion(), normalize(request.profilesDir()), request.igs());
+        EngineKey key = EngineKey.of(request);
         ValidatorServer server = servers.computeIfAbsent(key,
                 k -> new ValidatorServer(config, k.version(), k.profilesDir(), k.igs(), http));
         try {
-            return server.validate(request);
+            return gate.run(key, () -> server.validate(request));
         } catch (ValidatorServer.ServerFailedException e) {
             if (!config.server().fallbackToProcess()) {
                 throw new ValidatorUnavailableException(e.getMessage()
@@ -131,13 +142,5 @@ public final class ValidatorServerProfileValidator implements ProfileValidator, 
 
     private void destroyAll() {
         servers.values().forEach(ValidatorServer::destroy);
-    }
-
-    private static Path normalize(Path profilesDir) {
-        return profilesDir == null ? null : profilesDir.toAbsolutePath().normalize();
-    }
-
-    /** What a server is bound to; validations with the same key share a server. */
-    private record Key(FhirVersion version, Path profilesDir, List<String> igs) {
     }
 }

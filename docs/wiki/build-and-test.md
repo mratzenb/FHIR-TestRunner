@@ -186,12 +186,19 @@ otherwise the report leaves it out.
 | `real-validator` | nightly (03:17 UTC) and on demand (*Run workflow*) | `RealValidatorIT` with the real validator, both modes. The negative control must fail. |
 
 The real validator is pinned (`VALIDATOR_VERSION`, now 7.0.2, the version the docs were verified with). The job
-caches it and the FHIR packages, so only the first run downloads them. Before the IT it runs the validator once on
-its own to fill the package cache: `RealValidatorIT` starts three validator processes at once, and on an empty
-`~/.fhir/packages` they would install the same packages together, which the validator's cache locking does not
-survive (`NoSuchFileException: …lock -> …lock-deletion`, exit code 1, the TestScript ends as `error`). The cache is
-saved only after a successful job, so without that step a failed run would leave it empty for the next one too.
-The same applies to your own machine: with an empty cache, validate once before running TestScripts in parallel.
+caches it and the FHIR packages, so only the first run downloads them. The cache is saved only after a successful
+job, so a failed run starts cold again.
+
+`RealValidatorIT` starts three validator processes at once, and on an empty `~/.fhir/packages` they would install the
+same packages together, which the validator's cache locking does not survive (`NoSuchFileException: …lock ->
+…lock-deletion`, exit code 1, the TestScript ends as `error`). The runner prevents that itself: the first validation of
+each configuration runs alone ([validation.md](../validation.md#validator-processes-and-the-package-cache)). The job
+still fills the cache in a step of its own before the IT ("Fill the FHIR package cache"), so that a network or registry
+problem fails there with the validator's own output instead of as errors inside the IT.
+
+To try the cold start locally without touching your own cache, give the validator JVMs another home:
+`TESTRUNNER_VALIDATION_JVMARGUMENTS=-Duser.home=/tmp/fhir-home VALIDATOR_JAR=… mvn …` (the command below).
+
 Raise the version deliberately, after checking the negative control locally:
 
 ```sh

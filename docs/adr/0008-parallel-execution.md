@@ -39,3 +39,5 @@ depend on earlier responses, variables and fixtures.
 
   In process mode, validator memory (≈ 1 GB per running validation) sets the practical limit. In server mode,
   parallelism still overlaps the HTTP traffic with the FHIR server, but validations queue on the server.
+  On an empty package cache the first validation per FHIR version, profiles folder and IGs runs alone and the others
+  wait for it (ADR-0006, update 2026-11), so the first run of a fresh machine is slower than these numbers.

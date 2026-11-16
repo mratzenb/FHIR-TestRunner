@@ -27,7 +27,9 @@ import java.util.stream.Stream;
  * output. A run that produces no OperationOutcome is a {@link ValidatorUnavailableException}, never a passed
  * validation: a validator that cannot start (missing jar, Java too old) looks exactly like one that finds nothing.
  *
- * <p>Thread-safe: every validation works in its own temporary folder.
+ * <p>Thread-safe: every validation works in its own temporary folder. The first validation of each FHIR version,
+ * profiles folder and list of IGs runs alone ({@link PackageCacheGate}), because validator processes that install
+ * the same packages into an empty package cache at the same time fail each other.
  *
  * <p>This is {@code testrunner.validation.mode=process}, and the fallback of {@link ValidatorServerProfileValidator}.
  */
@@ -43,14 +45,25 @@ public final class ValidatorCliProfileValidator implements ProfileValidator {
 
     private final ValidationConfig config;
     private final ProcessRunner processRunner;
+    private final PackageCacheGate gate;
 
     public ValidatorCliProfileValidator(@Nonnull ValidationConfig config) {
-        this(config, ProcessRunner.DEFAULT);
+        this(config, ProcessRunner.DEFAULT, new PackageCacheGate());
     }
 
     ValidatorCliProfileValidator(ValidationConfig config, ProcessRunner processRunner) {
+        this(config, processRunner, new PackageCacheGate());
+    }
+
+    /** With the gate of the server validator this is the fallback of, as both fill the same package cache. */
+    ValidatorCliProfileValidator(ValidationConfig config, PackageCacheGate gate) {
+        this(config, ProcessRunner.DEFAULT, gate);
+    }
+
+    ValidatorCliProfileValidator(ValidationConfig config, ProcessRunner processRunner, PackageCacheGate gate) {
         this.config = config;
         this.processRunner = processRunner;
+        this.gate = gate;
     }
 
     @Override
@@ -83,6 +96,10 @@ public final class ValidatorCliProfileValidator implements ProfileValidator {
         if (!problems.isEmpty()) {
             throw new ValidatorUnavailableException(String.join("; ", problems));
         }
+        return gate.run(EngineKey.of(request), () -> validateInProcess(request));
+    }
+
+    private ValidationResult validateInProcess(ValidationRequest request) {
         Path workDir = null;
         try {
             workDir = Files.createTempDirectory("testrunner-validation-");

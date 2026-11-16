@@ -44,6 +44,18 @@ documents; [next steps](docs/wiki/next-steps.md) has the plan behind them.
 * `--check`, `--list`, `--testscript`, `--test` (M3, ADR-0014); run and TestScript timeouts, fail-fast, reports on
   Ctrl-C (M2, ADR-0013).
 
+### Fixed
+
+* **Validators that started together on an empty package cache failed each other.** With
+  `testrunner.execution.parallelism` above 1, several validator processes installed the same FHIR packages into
+  `~/.fhir/packages` at once, and the validator's cache locking does not hold across processes: all but one died with
+  `NoSuchFileException: …lock -> …lock-deletion` (exit code 1) and their TestScripts ended as `error`. The first
+  validation of each FHIR version, profiles folder and list of IGs now runs alone; the others wait for it and then
+  run in parallel (both modes, `PackageCacheGate`, [validation.md](docs/validation.md#validator-processes-and-the-package-cache)).
+  Cost: with several such configurations (e.g. an R4 and an R5 suite) their first validations run one after the
+  other, once per run. The error message of a validator that produced no result now also names the exception that
+  a long stack trace pushed out of the last 15 output lines.
+
 ### Changed – API
 
 * Several servers (M6.1): `TestScriptResult.fhirServer` (a `String`, `null` if nothing was sent) is now
