@@ -1,0 +1,5 @@
+#!/bin/sh
+# Starts the runner. The image's entry point is this script, and a pipeline that replaces the entry point (GitLab CI:
+# entrypoint: [""]) calls it by name. It goes through the base image's entry point, which adds the certificates
+# mounted at /certificates to the trust store when USE_SYSTEM_CA_CERTS is set.
+exec /__cacert_entrypoint.sh java -jar /app/testrunner.jar "$@"

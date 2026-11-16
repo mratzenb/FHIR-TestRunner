@@ -1,5 +1,7 @@
 # ADR-0015: Container image – the runner only, everything else mounted
 
+> Amended by [ADR-0020](0020-published-images.md): the image is published, and a second image carries the validator.
+
 ## Context
 The Python proof of concept ships a Dockerfile and a compose file with HAPI FHIR; the Java runner had neither. A CI
 job of an IG, or a tester without Java 25, wants to run the runner with one command, and next to a FHIR server that
@@ -24,13 +26,14 @@ is started for the test (feature F4 of [next steps](../wiki/next-steps.md#featur
   until `/fhir/metadata` answers; the runner starts after it.
 * **CI builds the image and checks the AT Core suite with it** (`--check`, no server needed). The image is not
   published. Where, under which name and with which tags is a decision of its own, once someone needs a published
-  image.
+  image. (Decided in [ADR-0020](0020-published-images.md): GHCR.)
 
 ## Alternatives
 * *`spring-boot:build-image` (buildpacks)* – no Dockerfile, but a network dependency at build time, a large builder
   image, and its options are less known than a Dockerfile.
 * *The validator in the image* – 200 MB more and an image per validator release; the validator version belongs to the
-  user, see [validation.md](../validation.md).
+  user, see [validation.md](../validation.md). (Now a second image next to this one, pinned per runner release:
+  [ADR-0020](0020-published-images.md).)
 * *A distroless or Alpine base* – smaller, but the base image's certificate entry point needs a shell, and Temurin is
   the JRE the build is tested with.
 

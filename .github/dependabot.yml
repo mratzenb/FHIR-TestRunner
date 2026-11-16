@@ -35,3 +35,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    ignore:
+      # the images stay on the Java 25 LTS release (ADR-0020); a newer Java is a decision of its own
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
