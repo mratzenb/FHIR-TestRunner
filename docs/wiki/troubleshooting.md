@@ -85,7 +85,7 @@ configured, or the server lacks a required capability. `testrunner.exit-on-skip`
 | `error` in phase `Load`: "… which is kept by Test 'x', action 1, a test that is not selected" | a selected test uses a response or request of a test left out | add that test: `--test=x,y` |
 | `zsh: no matches found: --testrunner.suites[0]…` | zsh reads `[0]` as a file pattern | quote the argument: `'--testrunner.suites[0].base-dir=…'` |
 | `HapiServerIT`: `Skipped: 3`, log says "Could not find a valid Docker environment" | Docker is not running, or on macOS Testcontainers does not find the socket of Rancher Desktop or Colima | start Docker; on macOS set `DOCKER_HOST` and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE`, see [Build and test › Docker on macOS](build-and-test.md#docker-on-macos) |
-| `/bin/mvn: no such file` (on the original dev machine) | the shell's `mvn` function needs `M2_HOME` | call Maven by its full path, see skill `testrunner-build-and-run` |
+| `/bin/mvn: no such file`, or `mvn` not found | the shell's `mvn` is a wrapper that needs `M2_HOME`, or Maven is not installed | call a Maven 3.9 by its full path; the JDK must be 25 (`JAVA_HOME`), see skill `testrunner-build-and-run` |
 
 ## More detail in the console
 

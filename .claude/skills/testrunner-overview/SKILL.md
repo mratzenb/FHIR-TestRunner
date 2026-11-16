@@ -5,7 +5,7 @@ description: Map of the FHIR TestScript Runner (TestRunnerOnJava) – modules, p
 
 # FHIR TestScript Runner – overview
 
-Java 25 / Maven re-design of the Python PoC `../HL7-AT-TestFhiry-TestRunner`. Executes FHIR `TestScript` resources
+Java 25 / Maven re-design of the Python PoC [HL7-AT-TestFhiry-TestRunner](https://github.com/HL7Austria/HL7-AT-TestFhiry-TestRunner). Executes FHIR `TestScript` resources
 (R4, R5; R6-ready) against a FHIR server; reports JUnit XML, text summary, JSON; writes a run log and a
 communication log of every HTTP exchange. Group `at.hl7.testing`, version `0.1.0-SNAPSHOT`, base package
 `at.hl7.testing.runner`.
