@@ -183,11 +183,16 @@ otherwise the report leaves it out.
 | Job | When | What |
 |---|---|---|
 | `verify` | every push to `main`, every pull request | `mvn -B verify` on Temurin 25, including `HapiServerIT` (the runner has Docker). Then it builds the container image and checks the AT Core R4 suite with it (`--check`); the image is not published. The coverage report is attached as `coverage`, the SBOM as `sbom`. If the build fails, the surefire and failsafe reports are attached as `test-reports`. |
-| `real-validator` | nightly (03:17 UTC) and on demand (*Run workflow*) | `RealValidatorIT` with the real validator, both modes. The negative control must fail. |
+| `real-validator` | every push to `main`, every pull request, nightly (03:17 UTC) and on demand (*Run workflow*) | `RealValidatorIT` with the real validator, both modes. The negative control must fail. |
+
+`verify` and `real-validator` run in parallel and together run every test, so a feature branch is tested against
+everything before it is merged into `main`. To enforce that, make both jobs required status checks in the branch
+protection (or ruleset) of `main`: *Settings › Branches*.
 
 The real validator is pinned (`VALIDATOR_VERSION`, now 7.0.2, the version the docs were verified with). The job
 caches it and the FHIR packages, so only the first run downloads them. The cache is saved only after a successful
-job, so a failed run starts cold again.
+job, so a failed run starts cold again. A pull request restores the cache that `main` saved; the first run on a
+repository without one downloads the validator and the packages from the internet.
 
 `RealValidatorIT` starts three validator processes at once, and on an empty `~/.fhir/packages` they would install the
 same packages together, which the validator's cache locking does not survive (`NoSuchFileException: …lock ->
@@ -209,7 +214,9 @@ VALIDATOR_JAR=/tmp/validator_cli.jar mvn -B verify -pl testrunner-app -am \
   -Dit.test=RealValidatorIT -Dfailsafe.failIfNoSpecifiedTests=false
 ```
 
-A failed nightly run is a signal about the validator or the packages, not about a commit.
+A failed nightly run is a signal about the validator or the packages, not about a commit. A failed `real-validator`
+job on a pull request is a signal about the commit, unless the log shows a download or registry problem: then run
+the job again.
 
 ### Dependency updates and the SBOM
 

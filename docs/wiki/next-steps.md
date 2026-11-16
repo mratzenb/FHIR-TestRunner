@@ -292,7 +292,7 @@ step below is one pull request, with tests and documentation.
 1. ~~**CI workflow**~~ Done: `.github/workflows/build.yml`, job `verify` – Temurin 25, `mvn -B verify`, Maven cache,
    test reports kept on failure.
 2. ~~**Nightly validator job**~~ Done: job `real-validator` – pinned and cached `validator_cli.jar` 7.0.2,
-   `RealValidatorIT` in both modes, so the negative control is checked every night.
+   `RealValidatorIT` in both modes, so the negative control is checked every night and on every pull request.
 3. ~~**`-Werror`**~~ Done: `failOnWarning` in the compiler plugin of the root `pom.xml`, so the "no warnings" rule
    of [ADR-0010](../adr/0010-build.md) is enforced.
 4. ~~**Reports, not gates**~~ Done: JaCoCo coverage report (aggregated in `testrunner-app`), CycloneDX SBOM of the

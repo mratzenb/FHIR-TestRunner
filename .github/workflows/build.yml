@@ -1,5 +1,6 @@
 # Builds and tests every push and pull request: compile (warnings fail it), unit tests, ITs, architecture rules.
-# Nightly, and on demand, it also runs RealValidatorIT with the real HL7 validator. See docs/wiki/build-and-test.md.
+# In a second job, in parallel, it runs RealValidatorIT with the real HL7 validator, so a feature branch is tested
+# against everything before it is merged into main. Nightly and on demand it runs both. See docs/wiki/build-and-test.md.
 name: build
 
 on:
@@ -65,8 +66,7 @@ jobs:
           retention-days: 14
 
   real-validator:
-    # needs the 200 MB validator and the FHIR packages from the internet: nightly and on demand only
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # needs the 200 MB validator and the FHIR packages from the internet; both are cached (see below)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -94,8 +94,9 @@ jobs:
       # ...lock-deletion" and exit code 1. The runner avoids that itself now (PackageCacheGate: the first validation
       # of each configuration runs alone), but this step stays: it fills the cache in a step of its own, so a
       # network or registry problem fails here with the validator's own output instead of as errors in the IT.
-      # The cache is only saved when the job succeeds, so a failed run starts cold again. The step uses the
-      # arguments of the IT (-version 4.0, -tx n/a, -ig <suite>/Profiles), so it loads the same packages.
+      # The cache is only saved when the job succeeds, so a failed run starts cold again; a pull request restores the
+      # cache that main saved. The step uses the arguments of the IT (-version 4.0, -tx n/a, -ig <suite>/Profiles),
+      # so it loads the same packages.
       - name: Fill the FHIR package cache with one validator run
         run: |
           java -jar ~/validator/validator_cli.jar \
