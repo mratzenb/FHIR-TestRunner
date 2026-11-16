@@ -20,7 +20,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # the validator version the docs were verified with (docs/validation.md); raise it deliberately
+  # the validator version the docs were verified with (docs/validation.md); raise it deliberately, together with
+  # VALIDATOR_VERSION and VALIDATOR_SHA256 in testrunner-app/Dockerfile (the image workflow checks that they agree)
   VALIDATOR_VERSION: 7.0.2
 
 jobs:

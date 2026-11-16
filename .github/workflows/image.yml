@@ -1,0 +1,152 @@
+# Builds the two container images of the runner – without and with the HL7 validator – tests them, and publishes
+# them to the GitHub Container Registry (ADR-0020, docs/wiki/ci-integration.md):
+#   git tag vX.Y.Z   ->  ghcr.io/<owner>/fhir-testrunner:X.Y.Z, X.Y, latest  and  …:X.Y.Z-validator, X.Y, latest-validator
+#   push to main     ->  …:edge  and  …:edge-validator
+# A pull request builds and tests both images for amd64 and publishes nothing.
+name: image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # a newer push cancels the older build of the same branch; a release is never cancelled
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+jobs:
+  jar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: The validator pin of the Dockerfile is the one of build.yml
+        run: |
+          image=$(sed -n 's/^ARG VALIDATOR_VERSION=//p' testrunner-app/Dockerfile)
+          ci=$(sed -n 's/^  VALIDATOR_VERSION: *//p' .github/workflows/build.yml)
+          echo "Dockerfile: '$image', build.yml: '$ci'"
+          test -n "$image" && test "$image" = "$ci" \
+            || { echo "::error::VALIDATOR_VERSION differs: raise it in testrunner-app/Dockerfile (with VALIDATOR_SHA256) and .github/workflows/build.yml together"; exit 1; }
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+      # a pull request is tested by the build workflow; what is published is tested here first
+      - name: mvn package
+        if: github.event_name == 'pull_request'
+        run: mvn -B -ntp -DskipTests package
+      - name: mvn verify
+        if: github.event_name != 'pull_request'
+        run: mvn -B -ntp verify
+      - name: Keep the executable jar for the image builds
+        uses: actions/upload-artifact@v7
+        with:
+          name: exec-jar
+          path: testrunner-app/target/testrunner-app-*-exec.jar
+          if-no-files-found: error
+          retention-days: 1
+
+  image:
+    needs: jar
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write           # push to ghcr.io with the GITHUB_TOKEN
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: slim
+            suffix: ""
+            title: FHIR TestScript Runner
+            description: Executes FHIR TestScripts (R4, R5) against a FHIR server
+            licenses: BSD-3-Clause
+          - variant: validator
+            suffix: "-validator"
+            title: FHIR TestScript Runner with the HL7 validator
+            description: Executes FHIR TestScripts (R4, R5) against a FHIR server; includes the HL7 validator for profile validation
+            licenses: BSD-3-Clause AND Apache-2.0
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/fhir-testrunner
+      PUSH: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: exec-jar
+          path: testrunner-app/target
+      - uses: docker/setup-qemu-action@v4
+        if: env.PUSH == 'true'
+      - uses: docker/setup-buildx-action@v4
+      - name: Tags and labels
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          # latest comes with a semver tag; the suffix goes on every tag, also on latest
+          flavor: |
+            suffix=${{ matrix.suffix }},onlatest=true
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+            type=edge,branch=main
+            type=sha
+          # the generated labels replace those of the Dockerfile, so these say what the variant is
+          labels: |
+            org.opencontainers.image.title=${{ matrix.title }}
+            org.opencontainers.image.description=${{ matrix.description }}
+            org.opencontainers.image.licenses=${{ matrix.licenses }}
+      # amd64 into the local Docker, to test exactly what would be pushed
+      - name: Build for testing
+        uses: docker/build-push-action@v7
+        with:
+          context: testrunner-app
+          target: ${{ matrix.variant }}
+          load: true
+          tags: testrunner:test
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.variant }}
+          cache-to: type=gha,scope=${{ matrix.variant }},mode=max
+      - name: Smoke test
+        run: ci/smoke-test-image.sh testrunner:test ${{ matrix.variant }}
+      - name: Log in to the registry
+        if: env.PUSH == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # the layers of the build above come from the cache; arm64 is the only new work
+      - name: Build and push, amd64 and arm64
+        if: env.PUSH == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: testrunner-app
+          target: ${{ matrix.variant }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.variant }}
+          cache-to: type=gha,scope=${{ matrix.variant }},mode=max
+      - name: What was published
+        if: env.PUSH == 'true'
+        run: |
+          {
+            echo "### ${{ matrix.variant }} image"
+            echo
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
