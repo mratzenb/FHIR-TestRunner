@@ -34,6 +34,15 @@ of the image; a pipeline that wants profile validation would have to download 20
 * **Java 25 LTS** stays the base (`eclipse-temurin:25.0.5_8-jre-noble`). Dependabot ignores major versions of
   `eclipse-temurin`; the build targets `release 25`, so a newer Java is a decision of its own. (Dependabot had raised
   both `FROM` lines to Java 26; this reverts that.)
+* **The license files travel with the artifacts.** `META-INF/LICENSE` is in every jar (a resource of the root POM).
+  The executable jar also holds `META-INF/THIRD-PARTY-NOTICES.txt` – every library it ships with license, project page
+  and the Maven Central folder of its sources, written at build time by `license-maven-plugin:add-third-party` – and
+  `META-INF/licenses/` with the texts of Apache-2.0, EPL-2.0 and Unicode-3.0. Both images carry them in `/licenses`;
+  the validator image adds `HL7-VALIDATOR.txt` next to the validator's own `LICENSE.txt`. The libraries stay unchanged
+  jars of their own, with the notice files they carry. This is what the licenses of what we ship ask for: the MPL
+  (Saxon-HE) to tell recipients how to get the source, the EPL (Logback, Jakarta Annotations) the same and a copy of
+  the license, the Apache license a copy of the license. Dual-licensed libraries are used under their EPL option, and
+  the notices say so.
 * **License: Mozilla Public License 2.0** (`LICENSE`, `<licenses>` in the POM, the image labels). The validator image
   carries `MPL-2.0 AND Apache-2.0`. The MPL is a file-level copyleft: changed files stay under it, a larger work that
   combines them with other code can have other terms. The dependencies of the executable jar are Apache-2.0, MIT, BSD,
@@ -65,6 +74,9 @@ of the image; a pipeline that wants profile validation would have to download 20
 * The GitHub Action is tested in this repository's CI (`uses: ./` against a HAPI service). The GitLab template cannot
   be run there; what it does is tried with the same container invocation, and its first use on a real GitLab runner
   is still to be checked, see [CI integration](../wiki/ci-integration.md#gitlab-ci).
+* `license-maven-plugin` is a build dependency (version property in the root POM, Dependabot group `maven-plugins`).
+  It fails the build for a library without license information; a license name nobody merged appears in the notices
+  as the library's POM spells it.
 * The MPL's notice (its Exhibit A) is not in every source file; `LICENSE` in the root is the location the MPL allows
   when a notice in each file is not wanted. Adding it to the files is a decision of its own.
 * ADR-0015 is amended: the image *is* published, and there *is* an image with the validator.

@@ -95,6 +95,8 @@ document, the ADR and the matching skill together.
 Copyright © 2026 Michael Ratzenböck. [Mozilla Public License 2.0](LICENSE): a file of this project you change stays
 under the MPL, and you must make the source of that file available to the recipients of what you distribute; you may
 combine it with code under other licenses in a larger work. The libraries the executable jar ships keep their own
-licenses; the software bill of materials lists them (`testrunner-app/target/bom.json` after `mvn package`). The license
-notice of the MPL (its Exhibit A) is not repeated in every source file: [`LICENSE`](LICENSE) in the root is the place
-where a recipient looks for it.
+licenses: `THIRD-PARTY-NOTICES.txt` lists them (in the executable jar's `META-INF/`, in the container images' `/licenses`,
+written by `mvn package` to `testrunner-app/target/classes/META-INF/`), and so does the software bill of materials
+(`testrunner-app/target/bom.json`). `LICENSE` is in every jar and every image. The license notice of the MPL (its
+Exhibit A) is not repeated in every source file: [`LICENSE`](LICENSE) in the root is the place where a recipient looks
+for it.

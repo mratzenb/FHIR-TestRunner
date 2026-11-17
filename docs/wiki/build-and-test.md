@@ -63,6 +63,8 @@ ci/smoke-test-image.sh testrunner:validator validator   # AT Core and the negati
 
 Using the published images in the pipelines of other projects: [CI integration](ci-integration.md).
 
+The licenses are in `/licenses` ([Licenses in the artifacts](#licenses-in-the-artifacts)).
+
 The entry point is the launcher `testrunner` (`testrunner-app/docker/testrunner`, on the `PATH`): it starts the runner
 through the base image's certificate entry point. A pipeline that replaces the entry point (GitLab CI) calls it by name.
 
@@ -263,6 +265,23 @@ use; the images stay on Java 25 LTS, a newer Java is a decision of its own.
 Feed it to a scanner such as Dependency-Track or `grype sbom:testrunner-app/target/bom.json`. In offline mode
 (`mvn -o`) the plugin skips the SBOM.
 
+### Licenses in the artifacts
+
+The runner is MPL 2.0 and delivers libraries under other licenses, so the license files travel with the artifacts
+(MPL 2.0 asks to say how to get the source of Saxon-HE, EPL 2.0 and Apache 2.0 ask for their texts):
+
+| Where | What |
+|---|---|
+| `META-INF/LICENSE` of **every** jar | the license of the runner (the root `LICENSE`, a resource of the root POM) |
+| `META-INF/THIRD-PARTY-NOTICES.txt` of the executable jar | every library it ships: name, license, project page, and the Maven Central folder with its sources jar. Written at `generate-resources` by `license-maven-plugin:add-third-party` with the template [`testrunner-app/src/license/third-party-notices.ftl`](../../testrunner-app/src/license/third-party-notices.ftl); `licenseMerges` give the licenses one name each. A library without license information fails the build (`failOnMissing`) |
+| `META-INF/licenses/` of the executable jar | the texts of Apache-2.0, EPL-2.0 and Unicode-3.0 (`testrunner-app/src/license/licenses/`) |
+| `/licenses/` of both container images | the same three: `LICENSE`, `THIRD-PARTY-NOTICES.txt`, `licenses/`; the validator image also `HL7-VALIDATOR.txt` (what the jar is, its source) and `/opt/validator/LICENSE.txt` |
+
+A new library needs nothing, unless its POM names its license differently from the others: the notice file then lists
+that name as it is (add a `licenseMerge` in `testrunner-app/pom.xml`). If it has no license information, or one that
+the MPL project should not ship (a copyleft license beyond the file level), decide before you merge. The smoke test of
+the images and `image.yml` check that the files are in the images and in the jar.
+
 ## Test data
 
 The wiki's own samples, [`samples/`](samples), are tested too: `EndToEndIT.wikiSampleSuitePasses` and
@@ -302,6 +321,7 @@ More: skill `.claude/skills/testrunner-testing`, [ADR-0009](../adr/0009-testing.
 | A compiler warning fails the build (`failOnWarning`) | compiler plugin in the root `pom.xml` |
 | Coverage of unit and integration tests, as a report | JaCoCo `prepare-agent` in the root `pom.xml`, `report-aggregate` in `testrunner-app` |
 | SBOM of the executable jar | CycloneDX `makeBom` in `testrunner-app` |
+| License of the runner in every jar, notices of the libraries in the executable jar and the images | `<resources>` of the root POM, `license-maven-plugin` in `testrunner-app` |
 | Test doubles only in test scope | enforcer `bannedDependencies` |
 
 → [ADR-0010](../adr/0010-build.md)
