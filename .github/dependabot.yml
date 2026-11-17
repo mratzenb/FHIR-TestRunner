@@ -15,7 +15,7 @@ updates:
       hapi-fhir:
         patterns: ["ca.uhn.hapi.fhir:*"]
       maven-plugins:
-        patterns: ["org.apache.maven.plugins:*", "org.jacoco:*", "org.cyclonedx:*"]
+        patterns: ["org.apache.maven.plugins:*", "org.jacoco:*", "org.cyclonedx:*", "org.codehaus.mojo:*"]
     ignore:
       # a major Spring Boot or HAPI FHIR version is a decision of its own, not a routine update
       - dependency-name: "org.springframework.boot:*"

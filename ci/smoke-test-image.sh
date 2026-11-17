@@ -6,7 +6,7 @@
 #   docker build -t testrunner:validator --target validator testrunner-app
 #   ci/smoke-test-image.sh testrunner:validator validator
 #
-# Both variants: the image checks the AT Core suite as a user id that is neither root nor the owner of the files (the
+# Both variants: the licenses are in the image, the image checks the AT Core suite as a user id that is neither root nor the owner of the files (the
 # project folder is a Docker volume, filled from this repository), and also when a pipeline replaces the entry point. The slim image must not hold a validator. The validator image runs
 # the AT Core R4 suite with profile validation against a HAPI FHIR server it starts (release of docker-compose.yml;
 # needs the internet for the validator's packages), which must pass, and the negative control, which must FAIL: that
@@ -65,6 +65,13 @@ expect 0 "check with the entry point replaced (GitLab CI), through the testrunne
     docker run --rm --user "$user" $mounted --entrypoint "" "$image" \
     sh -c 'testrunner --config=config/dev-r4.yml --novalidator --check'
 
+# the license of the runner and the notices of the libraries (MPL 2.0 asks for them), readable by any user, and the
+# libraries where THIRD-PARTY-NOTICES.txt says they are
+# shellcheck disable=SC2016 # the command is the container's
+expect 0 "the licenses are in the image" \
+    docker run --rm --user "$user" --entrypoint "" "$image" \
+    sh -c 'grep -q "Mozilla Public License" /licenses/LICENSE && grep -q "libraries:" /licenses/THIRD-PARTY-NOTICES.txt && test -r /licenses/licenses/Apache-2.0.txt && test -r /licenses/licenses/EPL-2.0.txt && ls /app/lib/Saxon-HE-*.jar'
+
 if [ "$variant" = slim ]; then
     # shellcheck disable=SC2016 # the variable is the container's
     expect 0 "the slim image holds no validator" \
@@ -73,9 +80,9 @@ if [ "$variant" = slim ]; then
 fi
 
 # shellcheck disable=SC2016 # the variable is the container's
-expect 0 "the validator image has the jar and its license" \
+expect 0 "the validator image has the jar, its license and its notice" \
     docker run --rm --user "$user" --entrypoint "" "$image" \
-    sh -c 'test -r "$VALIDATOR_JAR" && test -r /opt/validator/LICENSE.txt'
+    sh -c 'test -r "$VALIDATOR_JAR" && test -r /opt/validator/LICENSE.txt && test -r /licenses/HL7-VALIDATOR.txt'
 
 docker network create "$net" >/dev/null
 docker run -d --name "$hapi" --network "$net" -p 127.0.0.1::8080 \
