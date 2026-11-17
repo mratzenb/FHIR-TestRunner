@@ -73,7 +73,58 @@
     </dependencies>
 
     <build>
+        <!-- the resources of the parent POM again, a build of its own does not inherit them: the license of the
+             project goes into the jar, the notices of the libraries are written to target/classes/META-INF -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>${project.basedir}/..</directory>
+                <includes>
+                    <include>LICENSE</include>
+                </includes>
+                <targetPath>META-INF</targetPath>
+            </resource>
+            <resource>
+                <directory>src/license/licenses</directory>
+                <targetPath>META-INF/licenses</targetPath>
+            </resource>
+        </resources>
         <plugins>
+            <plugin>
+                <!-- THIRD-PARTY-NOTICES.txt: the libraries the executable jar ships, with licenses and where their
+                     source is, for the jar and the container images (MPL 2.0 asks for it for Saxon-HE) -->
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>third-party-notices</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>add-third-party</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}/META-INF</outputDirectory>
+                            <thirdPartyFilename>THIRD-PARTY-NOTICES.txt</thirdPartyFilename>
+                            <fileTemplate>${project.basedir}/src/license/third-party-notices.ftl</fileTemplate>
+                            <includedScopes>compile,runtime</includedScopes>
+                            <excludedGroups>^at\.hl7\.testing</excludedGroups>
+                            <!-- a library without license information fails the build instead of going unnoticed -->
+                            <failOnMissing>true</failOnMissing>
+                            <!-- the same license under the names the libraries' POMs give it -->
+                            <licenseMerges>
+                                <licenseMerge>Apache-2.0|Apache License, Version 2.0|The Apache License, Version 2.0|The Apache Software License, Version 2.0|Apache Software License 2.0|Apache License version 2.0|Apache 2.0|Apache 2</licenseMerge>
+                                <licenseMerge>MIT|MIT License|The MIT License</licenseMerge>
+                                <licenseMerge>BSD-3-Clause|BSD 3 Clause</licenseMerge>
+                                <licenseMerge>EPL-2.0|EPL 2.0</licenseMerge>
+                                <licenseMerge>GPL-2.0-with-classpath-exception|GPL2 w/ CPE</licenseMerge>
+                                <licenseMerge>MPL-2.0|Mozilla Public License Version 2.0</licenseMerge>
+                            </licenseMerges>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

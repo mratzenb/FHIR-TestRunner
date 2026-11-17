@@ -34,6 +34,11 @@ COPY --from=layers /layers/extracted/spring-boot-loader/ ./
 COPY --from=layers /layers/extracted/snapshot-dependencies/ ./
 COPY --from=layers /layers/extracted/application/ ./
 COPY --chmod=0755 docker/testrunner /usr/local/bin/testrunner
+# the license of the runner (MPL 2.0) and of the libraries it delivers, as in the jar (META-INF): /licenses/LICENSE,
+# THIRD-PARTY-NOTICES.txt and licenses/ with the texts of the licenses
+COPY target/classes/META-INF/LICENSE target/classes/META-INF/THIRD-PARTY-NOTICES.txt /licenses/
+COPY target/classes/META-INF/licenses/ /licenses/licenses/
+RUN chmod -R a+rX /licenses
 USER runner
 # relative paths of a configuration (suites, output-dir, validator-jar) start here: mount the project folder
 WORKDIR /workspace
@@ -49,11 +54,19 @@ ARG VALIDATOR_SHA256=e3e50f06b806437821b7aef8189a1b790415cb96c5036e0812ed6298145
 # only, and the validator runs as the user of the container
 USER root
 RUN mkdir /opt/validator
+# says what the jar is and where its source is; the jar is unchanged and carries the licenses of the libraries it bundles
+RUN printf '%s\n' \
+    "HL7 validator ${VALIDATOR_VERSION} (validator_cli.jar in /opt/validator), Apache License 2.0, text in /opt/validator/LICENSE.txt." \
+    "Delivered unchanged. Project: https://github.com/hapifhir/org.hl7.fhir.core, source: https://github.com/hapifhir/org.hl7.fhir.core/tree/${VALIDATOR_VERSION}" \
+    "The jar contains libraries of its own; their licenses and notices are in the jar." \
+    > /licenses/HL7-VALIDATOR.txt \
+    && chmod a+r /licenses/HL7-VALIDATOR.txt
 USER runner
 ADD --chmod=0644 --checksum=sha256:${VALIDATOR_SHA256} \
     https://github.com/hapifhir/org.hl7.fhir.core/releases/download/${VALIDATOR_VERSION}/validator_cli.jar \
     /opt/validator/validator_cli.jar
-# the validator is Apache-2.0 licensed; a binary redistribution has to carry the license text
+# the validator is Apache-2.0 licensed; a binary redistribution has to carry the license text (see also
+# /licenses/HL7-VALIDATOR.txt above)
 ADD --chmod=0644 https://raw.githubusercontent.com/hapifhir/org.hl7.fhir.core/${VALIDATOR_VERSION}/LICENSE.txt \
     /opt/validator/LICENSE.txt
 ENV VALIDATOR_JAR=/opt/validator/validator_cli.jar

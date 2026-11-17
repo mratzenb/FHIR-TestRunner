@@ -1,4 +1,8 @@
-# The image needs the executable jar and the launcher script only (Dockerfile); everything else stays out of the build context.
+# The image needs the executable jar, the launcher script and the license files only (Dockerfile); everything else stays
+# out of the build context. The license files are written by mvn package (license-maven-plugin and resources).
 *
 !target/testrunner-app-*-exec.jar
 !docker/testrunner
+!target/classes/META-INF/LICENSE
+!target/classes/META-INF/THIRD-PARTY-NOTICES.txt
+!target/classes/META-INF/licenses/

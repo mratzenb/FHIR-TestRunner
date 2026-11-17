@@ -45,6 +45,11 @@ jobs:
       - name: mvn verify
         if: github.event_name != 'pull_request'
         run: mvn -B -ntp verify
+      - name: The executable jar carries the license and the notices
+        run: |
+          jar=$(ls testrunner-app/target/testrunner-app-*-exec.jar)
+          unzip -Z1 "$jar" | grep -E '^META-INF/(LICENSE|THIRD-PARTY-NOTICES\.txt|licenses/.*\.txt)$'
+          test "$(unzip -Z1 "$jar" | grep -cE '^META-INF/(LICENSE|THIRD-PARTY-NOTICES\.txt|licenses/Apache-2\.0\.txt)$')" = 3
       - name: Keep the executable jar for the image builds
         uses: actions/upload-artifact@v7
         with:
