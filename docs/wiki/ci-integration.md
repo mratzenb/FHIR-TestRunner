@@ -21,6 +21,10 @@ The validator is pinned per runner release (now 7.0.2); a new validator comes wi
 
 Until the first release tag exists, `edge` and `edge-validator` are the only tags (and the Action is used as `@main`).
 
+Both images carry the licenses in `/licenses`: `LICENSE` (MPL 2.0), `THIRD-PARTY-NOTICES.txt` (the libraries, with
+license and where their source is) and the texts of the licenses; the `-validator` image adds `HL7-VALIDATOR.txt` and
+`/opt/validator/LICENSE.txt` (Apache 2.0).
+
 What every image expects (the details of the mounts are in [Build and test › Container image](build-and-test.md#container-image)):
 
 * **The project folder at `/workspace`**, which is the working directory: the configuration, the suites and the

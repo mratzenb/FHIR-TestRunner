@@ -174,6 +174,15 @@ docker compose down
 * SBOM (CycloneDX, `cyclonedx-maven-plugin.version`): `makeBom` in `testrunner-app` at `package` →
   `testrunner-app/target/bom.json`/`bom.xml`, runtime libraries only (`includeTestScope=false`). Skipped in offline
   mode (`-o`): "Goal makeBom requires online mode".
+* Licenses (ADR-0020): the root POM's `<resources>` put the root `LICENSE` into `META-INF/` of every jar (the
+  testrunner-app POM repeats the resource list: a child's `<resources>` replace the parent's). `testrunner-app` writes
+  `target/classes/META-INF/THIRD-PARTY-NOTICES.txt` at `generate-resources` (`license-maven-plugin:add-third-party`,
+  template `src/license/third-party-notices.ftl`, `licenseMerges` for the license names, `failOnMissing`) and copies
+  `src/license/licenses/*.txt` (Apache-2.0, EPL-2.0, Unicode-3.0) to `META-INF/licenses/`. Spring Boot keeps `META-INF/`
+  at the root of the exec jar. The Dockerfile copies `LICENSE`, the notices and `licenses/` from `target/classes/META-INF`
+  to `/licenses` (`.dockerignore` lets them in); the validator image adds `/licenses/HL7-VALIDATOR.txt`.
+  `ci/smoke-test-image.sh` and the `jar` job of `image.yml` check them. A library whose POM names a license differently
+  needs a `licenseMerge`; the plugin is in the Dependabot group `maven-plugins` (`org.codehaus.mojo:*`).
 * Imported BOMs manage dependencies only, never plugins: every plugin version is a property in the root POM, even if
   the Spring Boot BOM's own `pluginManagement` names it (CycloneDX does; it does not reach importers).
 * Compiler: `release 25`, `-parameters`, `-Xlint:all,-processing,-serial`, `--limit-modules java.se`,

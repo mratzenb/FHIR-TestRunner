@@ -25,7 +25,8 @@ communication log of every HTTP exchange. Group `at.hl7.testing`, version `0.1.0
 Other folders: `testrunner-app/Dockerfile` (+ `docker/testrunner` launcher) and root `docker-compose.yml` (container
 images with and without the HL7 validator, published to GHCR by `.github/workflows/image.yml`, ADR-0015 and ADR-0020; compose
 adds HAPI FHIR), root `action.yml` (GitHub Action), `ci/` (GitLab template, `smoke-test-image.sh`; wiki page
-`docs/wiki/ci-integration.md`), `LICENSE` (Mozilla Public License 2.0),
+`docs/wiki/ci-integration.md`), `LICENSE` (Mozilla Public License 2.0; also in every jar and the images, with `THIRD-PARTY-NOTICES.txt`, see
+`testrunner-build-and-run`),
 `config/` dev configurations (`dev-r4.yml`, `dev-r5.yml`, `dev-all.yml`, `negative-control.yml`),
 `testdata/{r4,r5,samples}/{Test_Scripts,Example_Instances,Profiles}` (PoC data), `docs/` (architecture, ADRs).
 

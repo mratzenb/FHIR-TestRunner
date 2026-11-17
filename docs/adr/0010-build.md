@@ -10,7 +10,8 @@
   scope (`bannedDependencies`, [ADR-0009](0009-testing.md)).
 * The app module builds a plain jar (library) and `testrunner-app-<version>-exec.jar` (Spring Boot executable,
   classifier `exec`), so failsafe tests and library users use plain classes.
-* A CycloneDX SBOM of the executable jar (`testrunner-app/target/bom.json`), and Dependabot pull requests for
+* A CycloneDX SBOM of the executable jar (`testrunner-app/target/bom.json`), the license of the runner in every jar and
+  `THIRD-PARTY-NOTICES.txt` in the executable jar ([ADR-0020](0020-published-images.md)), and Dependabot pull requests for
   dependency, plugin and GitHub Actions updates; major Spring Boot and HAPI FHIR upgrades stay manual.
 * Coverage with JaCoCo: the agent runs in every module's unit and integration tests, `testrunner-app` aggregates one
   report at `verify`. A report, not a gate: thresholds would reward tests written for the number.
