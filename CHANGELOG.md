@@ -30,7 +30,7 @@ documents; [next steps](docs/wiki/next-steps.md) has the plan behind them.
   `PATH`, for pipelines that replace the entry point.
 * A GitHub Action (`uses: mratzenb/FHIR-TestRunner@vX.Y.Z`, `action.yml`) and a GitLab CI template
   (`ci/testrunner.gitlab-ci.yml`) that run the image: [CI integration](docs/wiki/ci-integration.md).
-* `LICENSE`: BSD 3-Clause.
+* `LICENSE`: Mozilla Public License 2.0.
 * The `real-validator` job (`RealValidatorIT`) also runs on every pull request and push to `main`, not only nightly.
 * TestScripts for several servers (M6.1, ADR-0019): `suites[n].fhir-servers.<index>` maps each
   `TestScript.destination` index to a server (with its own headers and OAuth2). Each operation goes to the server of

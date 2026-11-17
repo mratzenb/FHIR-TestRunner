@@ -68,12 +68,12 @@ jobs:
             suffix: ""
             title: FHIR TestScript Runner
             description: Executes FHIR TestScripts (R4, R5) against a FHIR server
-            licenses: BSD-3-Clause
+            licenses: MPL-2.0
           - variant: validator
             suffix: "-validator"
             title: FHIR TestScript Runner with the HL7 validator
             description: Executes FHIR TestScripts (R4, R5) against a FHIR server; includes the HL7 validator for profile validation
-            licenses: BSD-3-Clause AND Apache-2.0
+            licenses: MPL-2.0 AND Apache-2.0
     env:
       IMAGE: ghcr.io/${{ github.repository_owner }}/fhir-testrunner
       PUSH: ${{ github.event_name != 'pull_request' }}
