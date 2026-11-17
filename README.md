@@ -69,7 +69,7 @@ config/                                 development configurations
 docker-compose.yml                      the runner in a container next to HAPI FHIR
 action.yml                              the GitHub Action that runs the published image
 ci/                                     GitLab CI template, smoke test of the images
-LICENSE                                 BSD 3-Clause
+LICENSE                                 Mozilla Public License 2.0
 testdata/                               TestScripts, Example Instances, profiles from the PoC (r4, r5, samples)
 docs/                                   architecture, decisions, configuration, logging, validation, FHIR versions
 .claude/skills/                         condensed project knowledge for coding agents (Claude Code skills)
@@ -92,5 +92,9 @@ document, the ADR and the matching skill together.
 
 ## License
 
-[BSD 3-Clause](LICENSE). The libraries the executable jar ships keep their own licenses; the software bill of
-materials lists them (`testrunner-app/target/bom.json` after `mvn package`).
+Copyright © 2026 Michael Ratzenböck. [Mozilla Public License 2.0](LICENSE): a file of this project you change stays
+under the MPL, and you must make the source of that file available to the recipients of what you distribute; you may
+combine it with code under other licenses in a larger work. The libraries the executable jar ships keep their own
+licenses; the software bill of materials lists them (`testrunner-app/target/bom.json` after `mvn package`). The license
+notice of the MPL (its Exhibit A) is not repeated in every source file: [`LICENSE`](LICENSE) in the root is the place
+where a recipient looks for it.

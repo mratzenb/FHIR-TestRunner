@@ -20,7 +20,7 @@ FROM eclipse-temurin:25.0.5_8-jre-noble AS base
 LABEL org.opencontainers.image.title="FHIR TestScript Runner" \
       org.opencontainers.image.description="Executes FHIR TestScripts (R4, R5) against a FHIR server" \
       org.opencontainers.image.source="https://github.com/mratzenb/FHIR-TestRunner" \
-      org.opencontainers.image.licenses="BSD-3-Clause"
+      org.opencontainers.image.licenses="MPL-2.0"
 # not root; the home and the working directory are writable for any user id (docker run --user), so the FHIR package
 # cache in ~/.fhir/packages and relative result folders work whoever the container runs as
 RUN groupadd --gid 10001 runner \
@@ -59,7 +59,7 @@ ADD --chmod=0644 https://raw.githubusercontent.com/hapifhir/org.hl7.fhir.core/${
 ENV VALIDATOR_JAR=/opt/validator/validator_cli.jar
 LABEL org.opencontainers.image.title="FHIR TestScript Runner with the HL7 validator" \
       org.opencontainers.image.description="Executes FHIR TestScripts (R4, R5) against a FHIR server; includes the HL7 validator ${VALIDATOR_VERSION} for profile validation" \
-      org.opencontainers.image.licenses="BSD-3-Clause AND Apache-2.0" \
+      org.opencontainers.image.licenses="MPL-2.0 AND Apache-2.0" \
       at.hl7.testing.runner.validator.version="${VALIDATOR_VERSION}"
 
 # the default target: the runner only

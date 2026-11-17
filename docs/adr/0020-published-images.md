@@ -34,8 +34,11 @@ of the image; a pipeline that wants profile validation would have to download 20
 * **Java 25 LTS** stays the base (`eclipse-temurin:25.0.5_8-jre-noble`). Dependabot ignores major versions of
   `eclipse-temurin`; the build targets `release 25`, so a newer Java is a decision of its own. (Dependabot had raised
   both `FROM` lines to Java 26; this reverts that.)
-* **License: BSD 3-Clause** (`LICENSE`, `<licenses>` in the POM, the image labels). The validator image carries
-  `BSD-3-Clause AND Apache-2.0`.
+* **License: Mozilla Public License 2.0** (`LICENSE`, `<licenses>` in the POM, the image labels). The validator image
+  carries `MPL-2.0 AND Apache-2.0`. The MPL is a file-level copyleft: changed files stay under it, a larger work that
+  combines them with other code can have other terms. The dependencies of the executable jar are Apache-2.0, MIT, BSD,
+  EPL-2.0 (Logback is also LGPL, `jakarta.annotation` also GPL with the classpath exception) and MPL-2.0 (Saxon); the
+  SBOM lists them.
 
 ## Alternatives
 * *Only the slim image, the validator downloaded in the pipeline* – 200 MB and a network dependency in every job, a
@@ -62,4 +65,6 @@ of the image; a pipeline that wants profile validation would have to download 20
 * The GitHub Action is tested in this repository's CI (`uses: ./` against a HAPI service). The GitLab template cannot
   be run there; what it does is tried with the same container invocation, and its first use on a real GitLab runner
   is still to be checked, see [CI integration](../wiki/ci-integration.md#gitlab-ci).
+* The MPL's notice (its Exhibit A) is not in every source file; `LICENSE` in the root is the location the MPL allows
+  when a notice in each file is not wanted. Adding it to the files is a decision of its own.
 * ADR-0015 is amended: the image *is* published, and there *is* an image with the validator.
