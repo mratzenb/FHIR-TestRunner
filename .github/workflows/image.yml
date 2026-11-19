@@ -52,11 +52,17 @@ jobs:
           jar=$(ls testrunner-app/target/testrunner-app-*-exec.jar)
           unzip -Z1 "$jar" | grep -E '^META-INF/(LICENSE|THIRD-PARTY-NOTICES\.txt|licenses/.*\.txt)$'
           test "$(unzip -Z1 "$jar" | grep -cE '^META-INF/(LICENSE|THIRD-PARTY-NOTICES\.txt|licenses/Apache-2\.0\.txt)$')" = 3
-      - name: Keep the executable jar for the image builds
+      # the Dockerfile copies the license files from target/classes/META-INF too; the common root of the paths is
+      # testrunner-app/target, which is where the image job downloads the artifact to
+      - name: Keep the executable jar and the license files for the image builds
         uses: actions/upload-artifact@v7
         with:
           name: exec-jar
-          path: testrunner-app/target/testrunner-app-*-exec.jar
+          path: |
+            testrunner-app/target/testrunner-app-*-exec.jar
+            testrunner-app/target/classes/META-INF/LICENSE
+            testrunner-app/target/classes/META-INF/THIRD-PARTY-NOTICES.txt
+            testrunner-app/target/classes/META-INF/licenses/
           if-no-files-found: error
           retention-days: 1
 
