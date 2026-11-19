@@ -206,8 +206,8 @@ otherwise the report leaves it out.
 
 | Job | When | What |
 |---|---|---|
-| `jar` | every push to `main`, every pull request, every tag `vX.Y.Z` | `mvn verify` (a pull request: only `package`, `build.yml` tests it), and a check that `VALIDATOR_VERSION` of the Dockerfile and of `build.yml` agree. Hands the exec jar to the next job. |
-| `image` (slim, validator) | the same | builds the image for amd64, runs `ci/smoke-test-image.sh` and the GitHub Action ([`action.yml`](../../action.yml)) against it (the validator image against HAPI FHIR from `docker-compose.yml`; the negative control must fail). Pull requests stop here. A push to `main` or a tag then builds amd64 and arm64 again from the cache and pushes to GHCR: `edge`, or `X.Y.Z`, `X.Y`, `latest`, each also with `-validator`. |
+| `jar` | every push to `main`, every pull request, every tag `vX.Y.Z` | `mvn verify` (a pull request: only `package`, `build.yml` tests it), and a check that `VALIDATOR_VERSION` of the Dockerfile and of `build.yml` agree. Hands the exec jar and the license files (`target/classes/META-INF`) to the next job. |
+| `image` (slim, validator) | the same | builds the image for amd64, runs `ci/smoke-test-image.sh` and the GitHub Action ([`action.yml`](../../action.yml)) against it (the validator image against HAPI FHIR from `docker-compose.yml`; the negative control must fail). Pull requests stop here, and so does every other run as long as the repository variable `PUBLISH_IMAGES` is not `true` (*Settings › Secrets and variables › Actions › Variables*). With it set, a push to `main` or a tag then builds amd64 and arm64 again from the cache and pushes to GHCR: `edge`, or `X.Y.Z`, `X.Y`, `latest`, each also with `-validator`. |
 
 `verify` and `real-validator` run in parallel and together run every test, so a feature branch is tested against
 everything before it is merged into `main`. To enforce that, make both jobs required status checks in the branch

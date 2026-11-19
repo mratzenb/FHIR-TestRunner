@@ -180,7 +180,8 @@ docker compose down
   template `src/license/third-party-notices.ftl`, `licenseMerges` for the license names, `failOnMissing`) and copies
   `src/license/licenses/*.txt` (Apache-2.0, EPL-2.0, Unicode-3.0) to `META-INF/licenses/`. Spring Boot keeps `META-INF/`
   at the root of the exec jar. The Dockerfile copies `LICENSE`, the notices and `licenses/` from `target/classes/META-INF`
-  to `/licenses` (`.dockerignore` lets them in); the validator image adds `/licenses/HL7-VALIDATOR.txt`.
+  to `/licenses` (`.dockerignore` lets them in); the validator image adds `/licenses/HL7-VALIDATOR.txt`. In CI the `image`
+  job builds from the `exec-jar` artifact, so the `jar` job must upload these files with the jar (same root `testrunner-app/target`).
   `ci/smoke-test-image.sh` and the `jar` job of `image.yml` check them. A library whose POM names a license differently
   needs a `licenseMerge`; the plugin is in the Dependabot group `maven-plugins` (`org.codehaus.mojo:*`).
 * Imported BOMs manage dependencies only, never plugins: every plugin version is a property in the root POM, even if
