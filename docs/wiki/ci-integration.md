@@ -214,6 +214,8 @@ at-core:
 ## Releasing (maintainers)
 
 1. `main` is green, including `real-validator` ([Build and test › Continuous integration](build-and-test.md#continuous-integration)).
+   Publishing is switched off until the repository variable `PUBLISH_IMAGES` is `true` (*Settings › Secrets and
+   variables › Actions › Variables*); without it `image.yml` builds and tests the images but pushes nothing.
 2. Tag it: `git tag v0.1.0 && git push origin v0.1.0`. [`image.yml`](../../.github/workflows/image.yml) runs
    `mvn verify`, builds both images, smoke-tests them (`ci/smoke-test-image.sh`: AT Core with validation against HAPI,
    the negative control must fail, the Action itself), and pushes `0.1.0`, `0.1`, `latest` and the `-validator` set.

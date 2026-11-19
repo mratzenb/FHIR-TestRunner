@@ -3,6 +3,8 @@
 #   git tag vX.Y.Z   ->  ghcr.io/<owner>/fhir-testrunner:X.Y.Z, X.Y, latest  and  …:X.Y.Z-validator, X.Y, latest-validator
 #   push to main     ->  …:edge  and  …:edge-validator
 # A pull request builds and tests both images for amd64 and publishes nothing.
+# Nothing is published either, as long as the repository variable PUBLISH_IMAGES is not 'true'
+# (Settings > Secrets and variables > Actions > Variables).
 name: image
 
 on:
@@ -81,7 +83,8 @@ jobs:
             licenses: MPL-2.0 AND Apache-2.0
     env:
       IMAGE: ghcr.io/${{ github.repository_owner }}/fhir-testrunner
-      PUSH: ${{ github.event_name != 'pull_request' }}
+      # publishing is off until the repository variable PUBLISH_IMAGES is 'true'; the images are built and tested either way
+      PUSH: ${{ github.event_name != 'pull_request' && vars.PUBLISH_IMAGES == 'true' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
