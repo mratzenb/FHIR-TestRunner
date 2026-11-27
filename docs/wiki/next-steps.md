@@ -245,6 +245,7 @@ TestScripts are sent to servers, so the integrity of the package matters.
 | F8 | **Several servers**: map `destination` to configured servers (done, M6.1) | medium | L | A5, ADR |
 | F9 | **Packages**: `#current`, transitive dependencies (done, M6.2) | low | M | A10 |
 | F10 | **FHIR R6** | later | M | a HAPI release with `hapi-fhir-structures-r6` |
+| F11 | **TestPlan**: run FHIR `TestPlan` resources (R5+), report per plan and case (planned, [plan](testplan-plan.md)) | medium | L | A5, ADR-0022 to 0026 |
 
 **F1 – Check mode.** `--check` runs discovery, loading, `TestScriptChecks` and, if enabled, TestScript validation.
 It sends nothing and needs no `fhir-server`. It writes the usual summary and JSON report, so other tools can read the
@@ -270,6 +271,11 @@ as a link to its folder in `communication/`. For readers who do not open `junit.
 ([architecture.md › Open points](../architecture.md#open-points)). Mapping each destination index (or its profile
 code) to a configured server would run them. It changes the "one client, one server" model, so it needs an ADR
 first. (Done in M6.1, [ADR-0019](../adr/0019-several-servers.md).)
+
+**F11 – TestPlan.** A FHIR `TestPlan` (R5 and later; R4 has none) says *what* to test and in which order, and points to
+the TestScripts that say *how*. The runner would run the TestScripts of a plan in the plan's order and report per plan,
+per case and per TestScript, in every report format. Planned, not started: [TestPlan plan](testplan-plan.md) (findings,
+design, tasks T0–T14, open decisions) and the draft ADRs 0022 to 0026.
 
 ## Plan
 

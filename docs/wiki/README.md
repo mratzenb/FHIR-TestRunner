@@ -35,6 +35,8 @@ flowchart LR
 | look up a term | [Glossary](glossary.md) |
 | find out why a run looks wrong | [Troubleshooting](troubleshooting.md) |
 | know what to build next, and in which order | [Next steps](next-steps.md) |
+| pick up the plan for Conventional Commits, the CHANGELOG and releases | [Release plan](release-plan.md) |
+| pick up the plan for running FHIR `TestPlan` resources (R5+) | [TestPlan plan](testplan-plan.md) |
 
 ## The reference documents
 
